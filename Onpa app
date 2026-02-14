@@ -1,0 +1,2216 @@
+index.html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <title>Onpa - 音楽シェア通話アプリ</title>
+    <!-- SkyWay SDK (new version) -->
+    <script src="https://cdn.webrtc.ecl.ntt.com/skyway-4.4.5.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000000;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 430px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #0a0a14 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Rainbow gradient background effect */
+        .gradient-bg {
+            position: fixed;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background: radial-gradient(circle at 30% 50%, 
+                rgba(255, 50, 100, 0.12) 0%,
+                rgba(0, 150, 255, 0.1) 30%,
+                rgba(0, 255, 200, 0.08) 60%,
+                rgba(255, 200, 0, 0.06) 80%,
+                transparent 100%);
+            animation: rotate 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8, #ffd000);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbow 3s ease infinite;
+            letter-spacing: -1px;
+        }
+
+        @keyframes rainbow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .header-icons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Theme Selector */
+        .theme-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-modal.active {
+            display: flex;
+        }
+
+        .theme-content {
+            background: rgba(20, 20, 30, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            max-width: 350px;
+            width: 90%;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .theme-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .theme-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .theme-option {
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            text-align: center;
+            font-size: 13px;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .theme-option:active {
+            transform: scale(0.95);
+        }
+
+        .theme-option.selected {
+            border-color: #00ffc8;
+            background: rgba(0, 255, 200, 0.1);
+        }
+
+        /* Call Status */
+        .call-status {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 8px;
+        }
+
+        .call-duration {
+            font-size: 40px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00ffc8, #0096ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Participants */
+        .participants {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .participant {
+            text-align: center;
+        }
+
+        .participant-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            margin-bottom: 8px;
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .participant-avatar.speaking {
+            animation: pulse 1.5s ease-in-out infinite;
+            border-color: #00ffc8;
+            box-shadow: 0 0 25px rgba(0, 255, 200, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+
+        .participant-name {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Music Player */
+        .music-player {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 18px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .platform-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .platform-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .platform-btn.active {
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            border-color: transparent;
+            color: white;
+            font-weight: 600;
+        }
+
+        .now-playing {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .album-art {
+            width: 55px;
+            height: 55px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ff3366, #0096ff);
+        }
+
+        .track-info {
+            flex: 1;
+        }
+
+        .track-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .track-artist {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .equalizer-toggle {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .equalizer {
+            display: none;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .equalizer.active {
+            display: block;
+        }
+
+        .eq-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .eq-slider-container {
+            flex: 1;
+            text-align: center;
+        }
+
+        .eq-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 5px;
+        }
+
+        .eq-slider {
+            width: 100%;
+            height: 60px;
+            -webkit-appearance: slider-vertical;
+            writing-mode: bt-lr;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff3366, #0096ff, #00ffc8);
+            width: 45%;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Control Buttons */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .control-btn.primary {
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            box-shadow: 0 8px 20px rgba(0, 150, 255, 0.3);
+        }
+
+        .control-btn.danger {
+            background: linear-gradient(135deg, #ff3366, #ff6b6b);
+        }
+
+        /* Chat */
+        .chat-container {
+            display: none;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .chat-container.active {
+            display: block;
+        }
+
+        .chat-message {
+            margin-bottom: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ffc8, #0096ff);
+            flex-shrink: 0;
+        }
+
+        .chat-content {
+            flex: 1;
+        }
+
+        .chat-name {
+            font-size: 12px;
+            color: #00ffc8;
+            margin-bottom: 3px;
+        }
+
+        .chat-text {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.4;
+        }
+
+        .chat-input-container {
+            display: none;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .chat-input-container.active {
+            display: flex;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-send {
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        /* History */
+        .history-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .history-modal.active {
+            display: flex;
+        }
+
+        .history-content {
+            background: rgba(20, 20, 30, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            max-width: 380px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #ff3366, #00ffc8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .history-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+
+        .history-thumb {
+            width: 45px;
+            height: 45px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            flex-shrink: 0;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-track {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .history-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Music Search */
+        .music-search {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .search-input:focus {
+            border-color: rgba(0, 150, 255, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Search Results */
+        .search-results {
+            display: none;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .search-results.active {
+            display: block;
+        }
+
+        .search-result-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .search-result-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .search-result-item.playing {
+            border-color: #00ffc8;
+            background: rgba(0, 255, 200, 0.1);
+        }
+
+        .result-artwork {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .result-track {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result-artist {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result-play-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+
+        /* Queue */
+        .queue {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 18px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .queue-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .queue-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .queue-thumb {
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+        }
+
+        .queue-info {
+            flex: 1;
+        }
+
+        .queue-track {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .queue-artist {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+        }
+
+        .queue-user {
+            font-size: 10px;
+            color: rgba(0, 255, 200, 0.8);
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .close-btn:active {
+            transform: scale(0.98);
+        }
+
+        .save-btn {
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .save-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Settings Modal */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        .settings-modal.active {
+            display: flex;
+        }
+
+        .settings-content {
+            background: rgba(20, 20, 30, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            max-width: 380px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .settings-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .settings-section:last-of-type {
+            border-bottom: none;
+        }
+
+        .settings-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .username-input-container {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 0 12px;
+            overflow: hidden;
+        }
+
+        .username-at {
+            color: #00ffc8;
+            font-size: 16px;
+            font-weight: 600;
+            margin-right: 3px;
+        }
+
+        .username-input {
+            flex: 1;
+            padding: 12px 0;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .username-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .settings-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .settings-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 6px;
+        }
+
+        .settings-toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            font-size: 14px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .volume-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0096ff, #00ffc8);
+            cursor: pointer;
+            border: none;
+        }
+
+        .volume-value {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #00ffc8;
+            font-weight: 600;
+        }
+
+        .settings-select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .settings-select option {
+            background: #1a1a2a;
+            color: white;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+            max-width: 430px;
+            margin: 0 auto;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 22px;
+            cursor: pointer;
+            padding: 8px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .nav-btn.active {
+            color: #00ffc8;
+        }
+
+        .nav-btn:active {
+            transform: scale(0.9);
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+    <div class="container">
+        <div class="content">
+            <!-- Header -->
+            <div class="header">
+                <div class="logo">Onpa</div>
+                <div class="header-icons">
+                    <div class="icon-btn" onclick="shareLink()">📤</div>
+                    <div class="icon-btn" onclick="toggleTheme()">🎨</div>
+                    <div class="icon-btn" onclick="toggleHistory()">📊</div>
+                    <div class="icon-btn" onclick="toggleSettings()">⚙️</div>
+                </div>
+            </div>
+
+            <!-- Call Status -->
+            <div class="call-status">
+                <div class="status-text">On Call · 2 people</div>
+                <div class="call-duration" id="duration">12:34</div>
+            </div>
+
+            <!-- Participants (supports group calls) -->
+            <div class="participants">
+                <div class="participant">
+                    <div class="participant-avatar speaking" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
+                    <div class="participant-name" id="myUsername">@you</div>
+                </div>
+                <div class="participant">
+                    <div class="participant-avatar" style="background: linear-gradient(135deg, #0096ff, #00ffc8);"></div>
+                    <div class="participant-name">@friend</div>
+                </div>
+            </div>
+
+            <!-- Music Search -->
+            <div class="music-search">
+                <input type="text" class="search-input" placeholder="🔍 Search songs to share..." id="searchInput">
+            </div>
+
+            <!-- Search Results -->
+            <div class="search-results" id="searchResults"></div>
+
+            <!-- Chat -->
+            <div class="chat-container" id="chatContainer">
+                <div class="chat-message">
+                    <div class="chat-avatar" style="background: linear-gradient(135deg, #0096ff, #00ffc8);"></div>
+                    <div class="chat-content">
+                        <div class="chat-name">@friend</div>
+                        <div class="chat-text">This song is great!</div>
+                    </div>
+                </div>
+                <div class="chat-message">
+                    <div class="chat-avatar" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
+                    <div class="chat-content">
+                        <div class="chat-name" id="chatUsername">@you</div>
+                        <div class="chat-text">Right? Next one's good too</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container" id="chatInputContainer">
+                <input type="text" class="chat-input" placeholder="Type a message..." id="chatInput">
+                <button class="chat-send" onclick="sendMessage()">Send</button>
+            </div>
+
+            <!-- Music Player -->
+            <div class="music-player">
+                <div class="platform-selector">
+                    <button class="platform-btn active" onclick="selectPlatform('spotify')">Spotify</button>
+                    <button class="platform-btn" onclick="selectPlatform('youtube')">YouTube</button>
+                    <button class="platform-btn" onclick="selectPlatform('soundcloud')">SoundCloud</button>
+                </div>
+
+                <div class="now-playing">
+                    <div class="album-art"></div>
+                    <div class="track-info">
+                        <div class="track-title">Select a song</div>
+                        <div class="track-artist">YoYou</div>
+                    </div>
+                    <button class="equalizer-toggle" onclick="toggleEqualizer()">🎛️</button>
+                </div>
+
+                <!-- Equalizer -->
+                <div class="equalizer" id="equalizer">
+                    <div class="eq-controls">
+                        <div class="eq-slider-container">
+                            <div class="eq-label">Bass</div>
+                            <input type="range" class="eq-slider" min="0" max="100" value="50" orient="vertical">
+                        </div>
+                        <div class="eq-slider-container">
+                            <div class="eq-label">Mid</div>
+                            <input type="range" class="eq-slider" min="0" max="100" value="50" orient="vertical">
+                        </div>
+                        <div class="eq-slider-container">
+                            <div class="eq-label">Treble</div>
+                            <input type="range" class="eq-slider" min="0" max="100" value="50" orient="vertical">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="time-display">
+                    <span>1:45</span>
+                    <span>4:12</span>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="control-btn" onclick="toggleMute()">🎤</button>
+                <button class="control-btn primary" onclick="togglePlay()">▶️</button>
+                <button class="control-btn danger" onclick="endCall()">📞</button>
+            </div>
+
+            <!-- Queue -->
+            <div class="queue">
+                <div class="queue-title">Up Next</div>
+                <div class="queue-item">
+                    <div class="queue-thumb"></div>
+                    <div class="queue-info">
+                        <div class="queue-track">202022</div>
+                        <div class="queue-artist">YoYou</div>
+                        <div class="queue-user">Added by @friend</div>
+                    </div>
+                </div>
+                <div class="queue-item">
+                    <div class="queue-thumb" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
+                    <div class="queue-info">
+                        <div class="queue-track">how r m</div>
+                        <div class="queue-artist">YoYou</div>
+                        <div class="queue-user">Added by @you</div>
+                    </div>
+                </div>
+                <div class="queue-item">
+                    <div class="queue-thumb" style="background: linear-gradient(135deg, #00ffc8, #0096ff);"></div>
+                    <div class="queue-info">
+                        <div class="queue-track">tutumu</div>
+                        <div class="queue-artist">YoYou</div>
+                        <div class="queue-user">Added by @friend</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <button class="nav-btn active" onclick="showMain()">🎵</button>
+        <button class="nav-btn" onclick="toggleChat()">💬</button>
+        <button class="nav-btn" onclick="toggleHistory()">📊</button>
+        <button class="nav-btn" onclick="toggleSettings()">⚙️</button>
+    </div>
+
+    <!-- Theme Modal -->
+    <div class="theme-modal" id="themeModal">
+        <div class="theme-content">
+            <div class="theme-title">Color Theme</div>
+            <div class="theme-options">
+                <div class="theme-option selected" onclick="changeTheme('rainbow')">
+                    <div style="height: 40px; background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8); border-radius: 8px; margin-bottom: 8px;"></div>
+                    Rainbow
+                </div>
+                <div class="theme-option" onclick="changeTheme('ocean')">
+                    <div style="height: 40px; background: linear-gradient(135deg, #0096ff, #00ffc8); border-radius: 8px; margin-bottom: 8px;"></div>
+                    Ocean
+                </div>
+                <div class="theme-option" onclick="changeTheme('sunset')">
+                    <div style="height: 40px; background: linear-gradient(135deg, #ff3366, #ffd000); border-radius: 8px; margin-bottom: 8px;"></div>
+                    Sunset
+                </div>
+                <div class="theme-option" onclick="changeTheme('neon')">
+                    <div style="height: 40px; background: linear-gradient(135deg, #00ffc8, #ffd000); border-radius: 8px; margin-bottom: 8px;"></div>
+                    Neon
+                </div>
+            </div>
+            <button class="close-btn" onclick="toggleTheme()">Close</button>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div class="history-modal" id="historyModal">
+        <div class="history-content">
+            <div class="history-title">Play History</div>
+            <div class="history-item">
+                <div class="history-thumb"></div>
+                <div class="history-info">
+                    <div class="history-track">5wim - YoYou</div>
+                    <div class="history-time">5 mins ago · Spotify</div>
+                </div>
+            </div>
+            <div class="history-item">
+                <div class="history-thumb" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
+                <div class="history-info">
+                    <div class="history-track">CUT THROAT - YoYou ft. Oshunda</div>
+                    <div class="history-time">12 mins ago · YouTube</div>
+                </div>
+            </div>
+            <div class="history-item">
+                <div class="history-thumb" style="background: linear-gradient(135deg, #00ffc8, #ffd000);"></div>
+                <div class="history-info">
+                    <div class="history-track">202022 - YoYou</div>
+                    <div class="history-time">25 mins ago · Spotify</div>
+                </div>
+            </div>
+            <div class="history-item">
+                <div class="history-thumb" style="background: linear-gradient(135deg, #0096ff, #00ffc8);"></div>
+                <div class="history-info">
+                    <div class="history-track">tutumu - YoYou</div>
+                    <div class="history-time">1 hour ago · SoundCloud</div>
+                </div>
+            </div>
+            <button class="close-btn" onclick="toggleHistory()">Close</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settingsModal" onclick="closeModalOnBackdrop(event, 'settingsModal')">
+        <div class="settings-content" onclick="event.stopPropagation()">
+            <div class="settings-title">Settings</div>
+
+            <div class="settings-section">
+                <div class="settings-label">Your User ID</div>
+                <div class="username-input-container">
+                    <span class="username-at">@</span>
+                    <input type="text" class="username-input" id="usernameInput" placeholder="username" maxlength="20">
+                </div>
+                <div class="settings-hint">Your unique ID (read-only during call)</div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Display Name</div>
+                <input type="text" class="settings-input" id="displayNameInput" placeholder="Enter display name" maxlength="30">
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Notifications</div>
+                <div class="settings-toggle-row">
+                    <span>New messages</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="notificationToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="settings-toggle-row">
+                    <span>Music playback</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="musicNotificationToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Volume</div>
+                <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="80">
+                <div class="volume-value" id="volumeValue">80%</div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Audio Quality</div>
+                <select class="settings-select">
+                    <option value="high">High Quality</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="low">Low (Data Saver)</option>
+                </select>
+            </div>
+
+            <button class="save-btn" onclick="saveSettings()">Save</button>
+            <button class="close-btn" onclick="reopenSetup()">Start/Join Call</button>
+            <button class="close-btn" onclick="toggleSettings()">Close</button>
+        </div>
+    </div>
+
+    <!-- Connection Setup Modal -->
+    <div class="settings-modal active" id="setupModal">
+        <div class="settings-content" onclick="event.stopPropagation()">
+            <div class="settings-title">🎵 Welcome to Onpa</div>
+
+            <div class="settings-section">
+                <div class="settings-label">Your User ID</div>
+                <div class="username-input-container">
+                    <span class="username-at">@</span>
+                    <input type="text" class="username-input" id="setupUsernameInput" placeholder="your_username" maxlength="20">
+                </div>
+                <div class="settings-hint">This will be your unique ID</div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-label">Friend's User ID</div>
+                <div class="username-input-container">
+                    <span class="username-at">@</span>
+                    <input type="text" class="username-input" id="friendUsernameInput" placeholder="friend_username" maxlength="20">
+                </div>
+                <div class="settings-hint">Enter your friend's ID to call them</div>
+            </div>
+
+            <button class="save-btn" onclick="startCall()">Start Call</button>
+            <button class="close-btn" onclick="skipSetup()">Skip & Explore App</button>
+        </div>
+    </div>
+
+    <script>
+        // SkyWay API Key (embedded)
+        const SKYWAY_API_KEY = '174e3781-3f39-45f1-bce4-9b474b93385e';
+        
+        // SkyWay variables
+        let peer = null;
+        let localStream = null;
+        let currentCall = null;
+        let myUserId = '';
+        let friendUserId = '';
+        let connectedPeer = null;
+
+        // Start call with SkyWay
+        async function startCall() {
+            const usernameInput = document.getElementById('setupUsernameInput');
+            const friendInput = document.getElementById('friendUsernameInput');
+
+            myUserId = usernameInput.value.trim();
+            friendUserId = friendInput.value.trim();
+
+            if (!myUserId) {
+                alert('Please enter your user ID');
+                return;
+            }
+
+            if (!friendUserId) {
+                alert('Please enter your friend\'s user ID');
+                return;
+            }
+
+            if (myUserId === friendUserId) {
+                alert('Your ID and friend\'s ID cannot be the same');
+                return;
+            }
+
+            // Save settings
+            username = myUserId;
+            localStorage.setItem('onpa_username', username);
+            localStorage.setItem('onpa_friend', friendUserId);
+            updateUsername();
+
+            try {
+                console.log('Requesting microphone access...');
+                updateCallStatus('Requesting microphone...');
+                
+                // Check if getUserMedia is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Your browser does not support audio calls. Please use Safari on iOS or a modern browser.');
+                }
+                
+                // Get microphone access - important for iOS Safari
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }, 
+                    video: false 
+                });
+
+                console.log('Microphone access granted');
+                updateCallStatus('Connecting...');
+                console.log('Initializing SkyWay with User ID:', myUserId);
+
+                // Initialize SkyWay Peer with custom ID
+                peer = new Peer(myUserId, {
+                    key: SKYWAY_API_KEY,
+                    debug: 3
+                });
+
+                peer.on('open', (id) => {
+                    console.log('Connected with ID:', id);
+                    
+                    // Hide setup modal
+                    document.getElementById('setupModal').classList.remove('active');
+                    
+                    // Update UI
+                    updateCallStatus('Ready · Your ID: @' + myUserId);
+                    
+                    // Try to call friend
+                    callFriend();
+                });
+
+                peer.on('call', (call) => {
+                    console.log('Receiving call from:', call.peer);
+                    
+                    // Answer the call with local stream
+                    call.answer(localStream);
+                    currentCall = call;
+                    connectedPeer = call.peer;
+                    
+                    setupCallHandlers(call);
+                    updateCallStatus('On Call with @' + call.peer);
+                    updateParticipantsList(true);
+                });
+
+                peer.on('connection', (conn) => {
+                    console.log('Data connection from:', conn.peer);
+                    setupDataConnection(conn);
+                });
+
+                peer.on('error', (error) => {
+                    console.error('Peer error:', error);
+                    if (error.type === 'unavailable-id') {
+                        alert('❌ This User ID is already in use!\n\nPlease choose a different ID and try again.');
+                        document.getElementById('setupModal').classList.add('active');
+                    } else {
+                        alert('Connection error: ' + error.message);
+                    }
+                });
+
+                peer.on('close', () => {
+                    console.log('Peer connection closed');
+                });
+
+            } catch (error) {
+                console.error('Error starting call:', error);
+                
+                let errorMessage = '';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = '🎤 Microphone Access Denied\n\n';
+                    errorMessage += 'To use Onpa, you need to:\n\n';
+                    errorMessage += '1. Open Safari Settings\n';
+                    errorMessage += '2. Scroll down and tap "Safari"\n';
+                    errorMessage += '3. Tap "Camera & Microphone"\n';
+                    errorMessage += '4. Set to "Ask" or "Allow"\n';
+                    errorMessage += '5. Reload this page\n\n';
+                    errorMessage += 'Note: Onpa requires HTTPS to work on iPhone.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = '🎤 No microphone found\n\nPlease check that your device has a working microphone.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage = '🎤 Microphone is already in use\n\nPlease close other apps using the microphone and try again.';
+                } else {
+                    errorMessage = '❌ Error: ' + error.message + '\n\n';
+                    errorMessage += 'Make sure you are using HTTPS and have allowed microphone access.';
+                }
+                
+                alert(errorMessage);
+                updateCallStatus('Connection failed');
+            }
+        }
+
+        function callFriend() {
+            if (!peer || !friendUserId) return;
+            
+            console.log('Calling friend:', friendUserId);
+            
+            // Make a call to friend
+            const call = peer.call(friendUserId, localStream);
+            currentCall = call;
+            connectedPeer = friendUserId;
+            
+            setupCallHandlers(call);
+            
+            // Also establish data connection for chat
+            const conn = peer.connect(friendUserId);
+            setupDataConnection(conn);
+        }
+
+        function setupCallHandlers(call) {
+            console.log('Setting up call handlers...');
+
+            call.on('stream', async (remoteStream) => {
+                console.log('Receiving remote stream');
+                
+                // Create audio element for remote stream
+                const audio = document.createElement('audio');
+                audio.srcObject = remoteStream;
+                audio.autoplay = true;
+                audio.playsInline = true; // Important for iOS
+                
+                // Apply volume
+                const savedVolume = localStorage.getItem('onpa_volume') || '80';
+                audio.volume = savedVolume / 100;
+                
+                // Append to body
+                document.body.appendChild(audio);
+                
+                // Force play for iOS (sometimes needed)
+                try {
+                    await audio.play();
+                    console.log('Remote audio playing');
+                } catch (e) {
+                    console.error('Error playing remote audio:', e);
+                    // Retry after user interaction
+                    document.addEventListener('click', () => {
+                        audio.play().catch(err => console.error('Play retry failed:', err));
+                    }, { once: true });
+                }
+                
+                updateCallStatus('On Call with @' + connectedPeer);
+                updateParticipantsList(true);
+            });
+
+            call.on('close', () => {
+                console.log('Call closed');
+                updateCallStatus('Call ended');
+                updateParticipantsList(false);
+                
+                // Remove audio elements
+                document.querySelectorAll('audio').forEach(audio => {
+                    if (audio.srcObject) {
+                        audio.remove();
+                    }
+                });
+            });
+
+            call.on('error', (error) => {
+                console.error('Call error:', error);
+            });
+        }
+
+        let dataConnection = null;
+
+        function setupDataConnection(conn) {
+            console.log('Setting up data connection with:', conn.peer);
+            dataConnection = conn;
+
+            conn.on('open', () => {
+                console.log('Data connection opened');
+            });
+
+            conn.on('data', (data) => {
+                console.log('Received data:', data);
+                
+                if (data.type === 'chat') {
+                    addChatMessage(data.username || conn.peer, data.message);
+                }
+            });
+
+            conn.on('close', () => {
+                console.log('Data connection closed');
+            });
+        }
+
+        function updateParticipantsList(connected) {
+            const count = connected ? 2 : 1;
+            const statusEl = document.querySelector('.status-text');
+            if (statusEl && connected) {
+                statusEl.textContent = `On Call · ${count} people`;
+            }
+        }
+
+        function updateCallStatus(status) {
+            const statusEl = document.querySelector('.status-text');
+            if (statusEl) {
+                statusEl.textContent = status;
+            }
+        }
+
+        function addChatMessage(senderUsername, message) {
+            const chatContainer = document.getElementById('chatContainer');
+            if (!chatContainer) return;
+            
+            const newMessage = document.createElement('div');
+            newMessage.className = 'chat-message';
+            newMessage.innerHTML = `
+                <div class="chat-avatar" style="background: linear-gradient(135deg, #0096ff, #00ffc8);"></div>
+                <div class="chat-content">
+                    <div class="chat-name">@${senderUsername}</div>
+                    <div class="chat-text">${message}</div>
+                </div>
+            `;
+            chatContainer.appendChild(newMessage);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Share Onpa link
+        function shareLink() {
+            const appUrl = window.location.href;
+            
+            // Check if Web Share API is available (works on mobile)
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Onpa - Music Call App',
+                    text: 'Join me on Onpa! Listen to music together while on call 🎵',
+                    url: appUrl
+                })
+                .then(() => console.log('Shared successfully'))
+                .catch((error) => console.log('Error sharing:', error));
+            } else {
+                // Fallback: Copy to clipboard
+                navigator.clipboard.writeText(appUrl)
+                    .then(() => {
+                        alert('✓ Link copied to clipboard!\n\n' + appUrl + '\n\nShare this link with your friends!');
+                    })
+                    .catch(() => {
+                        // Manual fallback
+                        prompt('Copy this link to share:', appUrl);
+                    });
+            }
+        }
+
+        // Skip setup and explore app in demo mode
+        function skipSetup() {
+            // Close setup modal
+            document.getElementById('setupModal').classList.remove('active');
+            
+            // Set demo mode
+            username = 'demo_user';
+            updateUsername();
+            updateCallStatus('Demo Mode · Explore the app');
+            
+            // Show a message
+            setTimeout(() => {
+                alert('🎵 Demo Mode\n\nYou can explore all features except voice calling.\n\nTo enable calls, tap the settings icon and enter User IDs.');
+            }, 500);
+        }
+
+        // Load saved username on startup
+        let username = localStorage.getItem('onpa_username') || 'you';
+        let displayName = localStorage.getItem('onpa_displayname') || '';
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUsername();
+            loadSettings();
+            
+            // Load saved user IDs
+            const savedUsername = localStorage.getItem('onpa_username');
+            const savedFriend = localStorage.getItem('onpa_friend');
+            
+            const setupUsernameInput = document.getElementById('setupUsernameInput');
+            const friendUsernameInput = document.getElementById('friendUsernameInput');
+            
+            if (setupUsernameInput && savedUsername) {
+                setupUsernameInput.value = savedUsername;
+            }
+            if (friendUsernameInput && savedFriend) {
+                friendUsernameInput.value = savedFriend;
+            }
+            
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+            }
+
+            // Volume slider update
+            const volumeSlider = document.getElementById('volumeSlider');
+            const volumeValue = document.getElementById('volumeValue');
+            if (volumeSlider && volumeValue) {
+                volumeSlider.addEventListener('input', (e) => {
+                    volumeValue.textContent = e.target.value + '%';
+                    if (currentAudio) {
+                        currentAudio.volume = e.target.value / 100;
+                    }
+                    
+                    // Update all audio elements (for remote streams)
+                    document.querySelectorAll('audio').forEach(audio => {
+                        audio.volume = e.target.value / 100;
+                    });
+                });
+            }
+
+            // Username input validation
+            const usernameInput = document.getElementById('usernameInput');
+            if (usernameInput) {
+                usernameInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                });
+            }
+            
+            if (setupUsernameInput) {
+                setupUsernameInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                });
+            }
+            
+            if (friendUsernameInput) {
+                friendUsernameInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '');
+                });
+            }
+        });
+
+        function updateUsername() {
+            const myUsernameEl = document.getElementById('myUsername');
+            if (myUsernameEl) {
+                myUsernameEl.textContent = '@' + username;
+            }
+        }
+
+        function loadSettings() {
+            const usernameInput = document.getElementById('usernameInput');
+            const displayNameInput = document.getElementById('displayNameInput');
+            const volumeSlider = document.getElementById('volumeSlider');
+            const volumeValue = document.getElementById('volumeValue');
+
+            if (usernameInput) usernameInput.value = username;
+            if (displayNameInput) displayNameInput.value = displayName;
+            
+            const savedVolume = localStorage.getItem('onpa_volume') || '80';
+            if (volumeSlider) {
+                volumeSlider.value = savedVolume;
+                volumeValue.textContent = savedVolume + '%';
+            }
+        }
+
+        function saveSettings() {
+            const usernameInput = document.getElementById('usernameInput');
+            const displayNameInput = document.getElementById('displayNameInput');
+            const volumeSlider = document.getElementById('volumeSlider');
+
+            const newUsername = usernameInput.value.trim() || 'you';
+            const newDisplayName = displayNameInput.value.trim();
+
+            // Save to localStorage
+            localStorage.setItem('onpa_username', newUsername);
+            localStorage.setItem('onpa_displayname', newDisplayName);
+            localStorage.setItem('onpa_volume', volumeSlider.value);
+
+            username = newUsername;
+            displayName = newDisplayName;
+
+            updateUsername();
+            
+            // Show confirmation
+            const saveBtn = event.target;
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = '✓ Saved!';
+            saveBtn.style.background = 'linear-gradient(135deg, #00ffc8, #00ffc8)';
+            
+            setTimeout(() => {
+                saveBtn.textContent = originalText;
+                saveBtn.style.background = 'linear-gradient(135deg, #0096ff, #00ffc8)';
+                // Close modal after showing confirmation
+                toggleSettings();
+            }, 1000);
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.toggle('active');
+            if (modal.classList.contains('active')) {
+                loadSettings();
+            }
+        }
+
+        function reopenSetup() {
+            document.getElementById('settingsModal').classList.remove('active');
+            document.getElementById('setupModal').classList.add('active');
+        }
+
+        function closeModalOnBackdrop(event, modalId) {
+            if (event.target.id === modalId) {
+                document.getElementById(modalId).classList.remove('active');
+            }
+        }
+
+        // Audio player for previews
+        let currentAudio = null;
+        let currentPlayingItem = null;
+
+        // iTunes API search
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+
+            if (query.length < 2) {
+                searchResults.classList.remove('active');
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                searchMusic(query);
+            }, 500);
+        });
+
+        // Dummy music data (no API calls needed)
+        const dummyMusicData = [
+            {
+                trackName: "202022",
+                artistName: "YoYou",
+                artworkUrl: "https://via.placeholder.com/100/ff3366/ffffff?text=YoYou",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            },
+            {
+                trackName: "how r m",
+                artistName: "YoYou",
+                artworkUrl: "https://via.placeholder.com/100/0096ff/ffffff?text=YoYou",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+            },
+            {
+                trackName: "tutumu",
+                artistName: "YoYou",
+                artworkUrl: "https://via.placeholder.com/100/00ffc8/ffffff?text=YoYou",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+            },
+            {
+                trackName: "5wim",
+                artistName: "YoYou",
+                artworkUrl: "https://via.placeholder.com/100/ffd000/ffffff?text=YoYou",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+            },
+            {
+                trackName: "CUT THROAT",
+                artistName: "YoYou ft. Oshunda",
+                artworkUrl: "https://via.placeholder.com/100/ff3366/ffffff?text=YoYou",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
+            },
+            {
+                trackName: "Sample Track 1",
+                artistName: "Hibicure",
+                artworkUrl: "https://via.placeholder.com/100/0096ff/ffffff?text=Hibicure",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"
+            },
+            {
+                trackName: "Sample Track 2",
+                artistName: "Hibicure",
+                artworkUrl: "https://via.placeholder.com/100/00ffc8/ffffff?text=Hibicure",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"
+            },
+            {
+                trackName: "Demo Song A",
+                artistName: "Test Artist",
+                artworkUrl: "https://via.placeholder.com/100/ffd000/ffffff?text=Test",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
+            },
+            {
+                trackName: "Demo Song B",
+                artistName: "Test Artist",
+                artworkUrl: "https://via.placeholder.com/100/ff3366/ffffff?text=Test",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3"
+            },
+            {
+                trackName: "Demo Song C",
+                artistName: "Test Artist",
+                artworkUrl: "https://via.placeholder.com/100/0096ff/ffffff?text=Test",
+                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
+            }
+        ];
+
+        async function searchMusic(query) {
+            searchResults.classList.add('active');
+            searchResults.innerHTML = '<div class="loading">Searching locally...</div>';
+
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            try {
+                console.log('Searching local data for:', query);
+                
+                // Filter dummy data based on query
+                const results = dummyMusicData.filter(track => {
+                    const searchTerm = query.toLowerCase();
+                    return track.trackName.toLowerCase().includes(searchTerm) ||
+                           track.artistName.toLowerCase().includes(searchTerm);
+                });
+
+                console.log('Found', results.length, 'results');
+
+                if (results.length > 0) {
+                    displaySearchResults(results);
+                } else {
+                    searchResults.innerHTML = '<div class="loading">No songs found<br>Try: "YoYou", "Hibicure", or "Test"</div>';
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                searchResults.innerHTML = `<div class="loading">Search error: ${error.message}</div>`;
+            }
+        }
+
+        function displaySearchResults(results) {
+            searchResults.innerHTML = '';
+            console.log('Displaying', results.length, 'results');
+
+            let displayedCount = 0;
+            
+            results.forEach((track, index) => {
+                console.log('Track:', track.trackName, 'Preview:', track.previewUrl);
+                
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.dataset.index = displayedCount;
+
+                const artworkUrl = track.artworkUrl || '';
+                const previewUrl = track.previewUrl || '';
+
+                item.innerHTML = `
+                    <img src="${artworkUrl}" alt="${track.trackName || 'Unknown'}" class="result-artwork" onerror="this.style.background='linear-gradient(135deg, #0096ff, #00ffc8)'">
+                    <div class="result-info">
+                        <div class="result-track">${track.trackName || 'Unknown Track'}</div>
+                        <div class="result-artist">${track.artistName || 'Unknown Artist'}</div>
+                    </div>
+                    <button class="result-play-btn" onclick="togglePreview(event, ${displayedCount})" ${!previewUrl ? 'disabled' : ''}>▶️</button>
+                `;
+
+                item.dataset.previewUrl = previewUrl;
+                item.dataset.trackName = track.trackName || 'Unknown Track';
+                item.dataset.artistName = track.artistName || 'Unknown Artist';
+                item.dataset.artworkUrl = artworkUrl;
+
+                searchResults.appendChild(item);
+                displayedCount++;
+            });
+
+            if (displayedCount === 0) {
+                searchResults.innerHTML = '<div class="loading">No playable songs found</div>';
+            }
+        }
+
+        function togglePreview(event, index) {
+            event.stopPropagation();
+            
+            const items = document.querySelectorAll('.search-result-item');
+            const item = items[index];
+            const playBtn = item.querySelector('.result-play-btn');
+            const previewUrl = item.dataset.previewUrl;
+
+            // Stop current audio if playing
+            if (currentAudio && !currentAudio.paused) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                
+                if (currentPlayingItem) {
+                    currentPlayingItem.classList.remove('playing');
+                    const oldBtn = currentPlayingItem.querySelector('.result-play-btn');
+                    oldBtn.textContent = '▶️';
+                }
+            }
+
+            // If clicking the same track, just stop
+            if (currentPlayingItem === item && currentAudio && currentAudio.paused) {
+                currentPlayingItem = null;
+                return;
+            }
+
+            // Play new track
+            currentAudio = new Audio(previewUrl);
+            
+            // Apply saved volume
+            const savedVolume = localStorage.getItem('onpa_volume') || '80';
+            currentAudio.volume = savedVolume / 100;
+            
+            currentPlayingItem = item;
+            item.classList.add('playing');
+            playBtn.textContent = '⏸️';
+
+            currentAudio.play();
+
+            // Update UI when playing
+            currentAudio.addEventListener('play', () => {
+                playBtn.textContent = '⏸️';
+            });
+
+            // Update UI when paused
+            currentAudio.addEventListener('pause', () => {
+                playBtn.textContent = '▶️';
+                item.classList.remove('playing');
+            });
+
+            // Update UI when ended
+            currentAudio.addEventListener('ended', () => {
+                playBtn.textContent = '▶️';
+                item.classList.remove('playing');
+                currentPlayingItem = null;
+            });
+
+            // Update main player display
+            updateMainPlayer(item.dataset.trackName, item.dataset.artistName, item.dataset.artworkUrl);
+        }
+
+        function updateMainPlayer(trackName, artistName, artworkUrl) {
+            document.querySelector('.track-title').textContent = trackName;
+            document.querySelector('.track-artist').textContent = artistName;
+            document.querySelector('.album-art').style.backgroundImage = `url(${artworkUrl})`;
+            document.querySelector('.album-art').style.backgroundSize = 'cover';
+            document.querySelector('.album-art').style.backgroundPosition = 'center';
+        }
+
+        // Call duration timer
+        let seconds = 754; // 12:34
+        setInterval(() => {
+            seconds++;
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            document.getElementById('duration').textContent = 
+                `${mins}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
+
+        // Progress bar animation
+        let progress = 0;
+        setInterval(() => {
+            if (currentAudio && !currentAudio.paused) {
+                progress = (currentAudio.currentTime / currentAudio.duration) * 100;
+            } else {
+                progress += 0.4;
+                if (progress > 100) progress = 0;
+            }
+            document.getElementById('progressFill').style.width = progress + '%';
+        }, 100);
+
+        // Platform selection
+        function selectPlatform(platform) {
+            document.querySelectorAll('.platform-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // Control functions
+        let isMuted = false;
+        function toggleMute() {
+            isMuted = !isMuted;
+            event.target.textContent = isMuted ? '🔇' : '🎤';
+        }
+
+        let isPlaying = true;
+        function togglePlay() {
+            if (currentAudio) {
+                if (currentAudio.paused) {
+                    currentAudio.play();
+                    event.target.textContent = '⏸️';
+                } else {
+                    currentAudio.pause();
+                    event.target.textContent = '▶️';
+                }
+            }
+        }
+
+        function endCall() {
+            if (confirm('End the call?')) {
+                // Stop audio
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+                
+                // Close current call
+                if (currentCall) {
+                    currentCall.close();
+                    currentCall = null;
+                }
+                
+                // Close data connection
+                if (dataConnection) {
+                    dataConnection.close();
+                    dataConnection = null;
+                }
+                
+                // Stop local stream
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+                
+                // Destroy peer
+                if (peer) {
+                    peer.destroy();
+                    peer = null;
+                }
+                
+                // Remove remote audio elements
+                document.querySelectorAll('audio').forEach(audio => {
+                    if (audio.srcObject) {
+                        audio.remove();
+                    }
+                });
+                
+                // Reset variables
+                connectedPeer = null;
+                
+                // Show setup modal again
+                document.getElementById('setupModal').classList.add('active');
+                
+                alert('Call ended');
+            }
+        }
+
+        // Random speaking animation
+        setInterval(() => {
+            const avatars = document.querySelectorAll('.participant-avatar');
+            avatars.forEach(avatar => avatar.classList.remove('speaking'));
+            const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+            randomAvatar.classList.add('speaking');
+        }, 3000);
+
+        // Theme functions
+        function toggleTheme() {
+            const modal = document.getElementById('themeModal');
+            modal.classList.toggle('active');
+        }
+
+        function changeTheme(theme) {
+            const themeOptions = document.querySelectorAll('.theme-option');
+            themeOptions.forEach(opt => opt.classList.remove('selected'));
+            event.target.classList.add('selected');
+            
+            // Apply theme colors (simplified version)
+            const gradientBg = document.querySelector('.gradient-bg');
+            const themes = {
+                rainbow: 'radial-gradient(circle at 30% 50%, rgba(255, 50, 100, 0.12) 0%, rgba(0, 150, 255, 0.1) 30%, rgba(0, 255, 200, 0.08) 60%, rgba(255, 200, 0, 0.06) 80%, transparent 100%)',
+                ocean: 'radial-gradient(circle at 30% 50%, rgba(0, 150, 255, 0.15) 0%, rgba(0, 255, 200, 0.12) 50%, transparent 100%)',
+                sunset: 'radial-gradient(circle at 30% 50%, rgba(255, 50, 100, 0.15) 0%, rgba(255, 200, 0, 0.12) 50%, transparent 100%)',
+                neon: 'radial-gradient(circle at 30% 50%, rgba(0, 255, 200, 0.15) 0%, rgba(255, 200, 0, 0.12) 50%, transparent 100%)'
+            };
+            gradientBg.style.background = themes[theme];
+        }
+
+        // Chat functions
+        let chatOpen = false;
+        function toggleChat() {
+            chatOpen = !chatOpen;
+            document.getElementById('chatContainer').classList.toggle('active', chatOpen);
+            document.getElementById('chatInputContainer').classList.toggle('active', chatOpen);
+            
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => btn.classList.remove('active'));
+            if (chatOpen) {
+                navBtns[1].classList.add('active');
+            } else {
+                navBtns[0].classList.add('active');
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            if (input.value.trim()) {
+                const message = input.value.trim();
+                
+                // Send via SkyWay data connection if connected
+                if (dataConnection && dataConnection.open) {
+                    dataConnection.send({
+                        type: 'chat',
+                        username: username,
+                        message: message
+                    });
+                }
+                
+                // Add to local chat
+                const chatContainer = document.getElementById('chatContainer');
+                const newMessage = document.createElement('div');
+                newMessage.className = 'chat-message';
+                newMessage.innerHTML = `
+                    <div class="chat-avatar" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
+                    <div class="chat-content">
+                        <div class="chat-name">@${username}</div>
+                        <div class="chat-text">${message}</div>
+                    </div>
+                `;
+                chatContainer.appendChild(newMessage);
+                input.value = '';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        // History modal
+        function toggleHistory() {
+            const modal = document.getElementById('historyModal');
+            modal.classList.toggle('active');
+        }
+
+        // Equalizer
+        function toggleEqualizer() {
+            const eq = document.getElementById('equalizer');
+            eq.classList.toggle('active');
+        }
+
+        // Show main view
+        function showMain() {
+            chatOpen = false;
+            document.getElementById('chatContainer').classList.remove('active');
+            document.getElementById('chatInputContainer').classList.remove('active');
+            
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => btn.classList.remove('active'));
+            navBtns[0].classList.add('active');
+        }
+    </script>
+</body>
+</html>
