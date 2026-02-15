@@ -36,7 +36,7 @@
 
         .platform-btn {
             flex: 1;
-            padding: 12px 8px;
+            padding: 10px 4px;
             border-radius: 12px;
             border: 2px solid #333;
             background: #111;
@@ -45,6 +45,18 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .platform-btn svg {
+            transition: all 0.3s;
+        }
+
+        .platform-btn.active svg {
+            filter: drop-shadow(0 0 4px currentColor);
         }
 
         .platform-btn.active {
@@ -172,6 +184,20 @@
             padding: 20px;
             color: #888;
         }
+
+        #player-dock {
+            margin-top: 20px;
+            background: #222;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        #player-inner iframe {
+            width: 100%;
+            height: 200px;
+            border: none;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -180,17 +206,62 @@
 
         <!-- プラットフォーム選択 -->
         <div class="platform-selector">
-            <button class="platform-btn spotify active" onclick="selectPlatform('spotify')">
-                Spotify
+            <button class="platform-btn spotify active" onclick="selectPlatform('spotify')" title="Spotify">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                </svg>
+                <div style="font-size: 10px; margin-top: 4px;">Spotify</div>
             </button>
-            <button class="platform-btn soundcloud" onclick="selectPlatform('soundcloud')">
-                SoundCloud
+            <button class="platform-btn soundcloud" onclick="selectPlatform('soundcloud')" title="SoundCloud">
+                <svg width="32" height="32" viewBox="0 0 200 100" fill="currentColor">
+                    <!-- Waveform bars -->
+                    <rect x="8" y="42" width="3" height="16" rx="1.5"/>
+                    <rect x="14" y="38" width="3" height="24" rx="1.5"/>
+                    <rect x="20" y="34" width="3" height="32" rx="1.5"/>
+                    <rect x="26" y="28" width="3" height="44" rx="1.5"/>
+                    <rect x="32" y="24" width="3" height="52" rx="1.5"/>
+                    <rect x="38" y="18" width="3" height="64" rx="1.5"/>
+                    <rect x="44" y="12" width="3" height="76" rx="1.5"/>
+                    <rect x="50" y="8" width="3" height="84" rx="1.5"/>
+                    <rect x="56" y="16" width="3" height="68" rx="1.5"/>
+                    <rect x="62" y="22" width="3" height="56" rx="1.5"/>
+                    <!-- Cloud shape -->
+                    <ellipse cx="95" cy="55" rx="12" ry="10"/>
+                    <ellipse cx="108" cy="48" rx="14" ry="13"/>
+                    <ellipse cx="125" cy="50" rx="16" ry="14"/>
+                    <ellipse cx="142" cy="55" rx="13" ry="11"/>
+                    <rect x="95" y="55" width="47" height="15" rx="0"/>
+                </svg>
+                <div style="font-size: 10px; margin-top: 4px;">SoundCloud</div>
             </button>
-            <button class="platform-btn youtube" onclick="selectPlatform('youtube')">
-                YouTube
+            <button class="platform-btn youtube" onclick="selectPlatform('youtube')" title="YouTube">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+                <div style="font-size: 10px; margin-top: 4px;">YouTube</div>
             </button>
-            <button class="platform-btn nina" onclick="selectPlatform('nina')">
-                Nina
+            <button class="platform-btn nina" onclick="selectPlatform('nina')" title="Nina Protocol">
+                <svg width="32" height="32" viewBox="0 0 100 100" fill="currentColor">
+                    <!-- Headband/arc -->
+                    <path d="M 25 40 Q 50 20 75 40" stroke="currentColor" stroke-width="8" fill="none" stroke-linecap="round"/>
+                    <!-- Left headphone pad -->
+                    <rect x="15" y="35" width="20" height="30" rx="10" fill="none" stroke="currentColor" stroke-width="8"/>
+                    <!-- Right headphone pad -->
+                    <rect x="65" y="35" width="20" height="30" rx="10" fill="none" stroke="currentColor" stroke-width="8"/>
+                    <!-- Head -->
+                    <circle cx="50" cy="50" r="20"/>
+                    <!-- Eyes -->
+                    <circle cx="43" cy="47" r="3" fill="white"/>
+                    <circle cx="57" cy="47" r="3" fill="white"/>
+                    <!-- Smile -->
+                    <path d="M 42 56 Q 50 60 58 56" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    <!-- Body -->
+                    <line x1="50" y1="70" x2="50" y2="90" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+                    <!-- Arms -->
+                    <line x1="50" y1="75" x2="35" y2="85" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="50" y1="75" x2="65" y2="85" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+                </svg>
+                <div style="font-size: 10px; margin-top: 4px;">Nina</div>
             </button>
         </div>
 
@@ -213,6 +284,12 @@
                 onkeypress="if(event.key==='Enter') search()"
             >
             <div id="results"></div>
+        </div>
+
+        <!-- YouTube Player Dock -->
+        <div id="player-dock" style="display: none;">
+            <div id="player-inner"></div>
+            <button onclick="closePlayer()" style="width: 100%; padding: 10px; background: #f55; border: none; border-radius: 8px; color: white; margin-top: 10px; cursor: pointer;">閉じる</button>
         </div>
     </div>
 
@@ -490,8 +567,7 @@
                     playAudio(track.streamUrl);
                     break;
                 case 'youtube':
-                    alert('YouTube再生はブラウザの制限により、リンクを開きます');
-                    window.open(`https://www.youtube.com/watch?v=${track.videoId}`, '_blank');
+                    playYouTube(track.videoId);
                     break;
                 case 'nina':
                     if (track.audioUrl) {
@@ -501,6 +577,35 @@
                     }
                     break;
             }
+        }
+
+        // YouTube再生（iframe埋め込み - Safari対応）
+        function playYouTube(videoId) {
+            const dock = document.getElementById('player-dock');
+            const inner = document.getElementById('player-inner');
+            dock.style.display = 'block';
+
+            // playsinline=1 が Safariで「全画面に飛ばさない」ための重要な設定
+            inner.innerHTML = `
+                <iframe 
+                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1" 
+                    allow="autoplay; encrypted-media; picture-in-picture" 
+                    allowfullscreen 
+                    playsinline
+                    style="width: 100%; height: 200px; border: none; border-radius: 8px;">
+                </iframe>`;
+            
+            console.log('✅ YouTube埋め込み再生開始');
+            showStatus('✅ YouTube再生中', '#ff0000');
+        }
+
+        // プレイヤーを閉じる
+        function closePlayer() {
+            const dock = document.getElementById('player-dock');
+            const inner = document.getElementById('player-inner');
+            dock.style.display = 'none';
+            inner.innerHTML = '';
+            console.log('⏹ プレイヤーを閉じました');
         }
 
         // Spotify再生
