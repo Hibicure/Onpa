@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -7,295 +6,558 @@
     <title>Onpa - 音楽シェア通話アプリ</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #000;
+            color: #fff;
+        }
 
-```
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background: #000;
-        color: #fff;
-    }
+        .container {
+            max-width: 430px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
-    .container {
-        max-width: 430px;
-        margin: 0 auto;
-        padding: 20px;
-    }
+        .logo {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
 
-    .logo {
-        font-size: 32px;
-        font-weight: 800;
-        background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 20px;
-    }
+        .platform-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
 
-    .spotify-login {
-        background: #1DB954;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 25px;
-        font-weight: 700;
-        cursor: pointer;
-        width: 100%;
-        margin-bottom: 20px;
-    }
+        .platform-btn {
+            flex: 1;
+            padding: 12px 8px;
+            border-radius: 12px;
+            border: 2px solid #333;
+            background: #111;
+            color: #888;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
 
-    .search-bar {
-        width: 100%;
-        padding: 14px;
-        border-radius: 25px;
-        border: 1px solid #333;
-        background: #222;
-        color: white;
-        margin-bottom: 15px;
-    }
+        .platform-btn.active {
+            border-color: #1DB954;
+            background: #1DB95422;
+            color: #1DB954;
+        }
 
-    .search-result-item {
-        background: #222;
-        border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
+        .platform-btn.spotify.active {
+            border-color: #1DB954;
+            background: #1DB95422;
+            color: #1DB954;
+        }
 
-    .result-artwork {
-        width: 50px;
-        height: 50px;
-        border-radius: 6px;
-    }
+        .platform-btn.soundcloud.active {
+            border-color: #ff5500;
+            background: #ff550022;
+            color: #ff5500;
+        }
 
-    .result-info {
-        flex: 1;
-    }
+        .platform-btn.youtube.active {
+            border-color: #ff0000;
+            background: #ff000022;
+            color: #ff0000;
+        }
 
-    .result-track {
-        font-weight: 600;
-        margin-bottom: 3px;
-    }
+        .platform-btn.nina.active {
+            border-color: #00ffc8;
+            background: #00ffc822;
+            color: #00ffc8;
+        }
 
-    .result-artist {
-        font-size: 12px;
-        color: #888;
-    }
+        .spotify-login {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+            display: none;
+        }
 
-    .result-play-btn {
-        background: #1DB954;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 20px;
-        cursor: pointer;
-    }
+        .spotify-login.show {
+            display: block;
+        }
 
-    .status {
-        padding: 12px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        text-align: center;
-    }
+        .search-bar {
+            width: 100%;
+            padding: 14px;
+            border-radius: 25px;
+            border: 1px solid #333;
+            background: #222;
+            color: white;
+            margin-bottom: 15px;
+        }
 
-    .device-info {
-        background: #222;
-        padding: 10px;
-        border-radius: 8px;
-        margin-bottom: 15px;
-        font-size: 12px;
-    }
-</style>
-```
+        .search-result-item {
+            background: #222;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
 
+        .result-artwork {
+            width: 50px;
+            height: 50px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .result-track {
+            font-weight: 600;
+            margin-bottom: 3px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .result-artist {
+            font-size: 12px;
+            color: #888;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .result-play-btn {
+            background: #1DB954;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .device-info {
+            background: #222;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 12px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="logo">Onpa</div>
 
-```
-    <button class="spotify-login" id="loginBtn">
-        🎵 Spotifyでログイン
-    </button>
+        <!-- プラットフォーム選択 -->
+        <div class="platform-selector">
+            <button class="platform-btn spotify active" onclick="selectPlatform('spotify')">
+                Spotify
+            </button>
+            <button class="platform-btn soundcloud" onclick="selectPlatform('soundcloud')">
+                SoundCloud
+            </button>
+            <button class="platform-btn youtube" onclick="selectPlatform('youtube')">
+                YouTube
+            </button>
+            <button class="platform-btn nina" onclick="selectPlatform('nina')">
+                Nina
+            </button>
+        </div>
 
-    <div id="status"></div>
+        <!-- Spotifyログインボタン（Spotifyのみ表示） -->
+        <button class="spotify-login show" id="loginBtn">
+            🎵 Spotifyでログイン
+        </button>
 
-    <div id="player" style="display: none;">
-        <div class="device-info" id="deviceInfo">デバイス: 読み込み中...</div>
-        
-        <input 
-            type="text" 
-            id="searchInput" 
-            class="search-bar" 
-            placeholder="曲を検索..."
-            onkeypress="if(event.key==='Enter') search()"
-        >
-        <div id="results"></div>
+        <div id="status"></div>
+
+        <!-- 検索エリア -->
+        <div id="player">
+            <div class="device-info" id="deviceInfo" style="display: none;">デバイス: 読み込み中...</div>
+            
+            <input 
+                type="text" 
+                id="searchInput" 
+                class="search-bar" 
+                placeholder="🔍 曲を検索..."
+                onkeypress="if(event.key==='Enter') search()"
+            >
+            <div id="results"></div>
+        </div>
     </div>
-</div>
 
-<script>
-    // 確実に動かすための完全固定設定
-    const CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
-    const REDIRECT_URI = 'https://on-pa.net/dev/';
-
-    console.log("🎵 Onpa起動開始: ", REDIRECT_URI);
-
-    let token = null;
-    let deviceId = null;
-
-    // ログインボタンの処理をHTMLからではなく、ここで直接紐付ける
-    document.getElementById('loginBtn').addEventListener('click', function() {
-        console.log("🔵 ログインボタンが押されました");
-        const scopes = 'user-read-playback-state user-modify-playback-state streaming user-read-private user-read-email';
-        
-        // Spotifyへ飛ばす
-        const url = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
-        
-        console.log("🌐 送信URL: ", url);
-        window.location.href = url;
-    });
-
-    // 戻ってきた時の処理
-    window.onload = () => {
-        console.log("📄 ページ読み込み完了。ハッシュを確認中...");
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        token = params.get('access_token');
-
-        if (token) {
-            console.log("✅ トークン取得成功！");
-            window.history.replaceState({}, '', window.location.pathname);
-            document.getElementById('loginBtn').textContent = '✓ ログイン済み';
-            document.getElementById('loginBtn').disabled = true;
-            document.getElementById('player').style.display = 'block';
-            showStatus('✅ Spotifyに接続しました', '#1DB954');
-            getDevices();
-        } else if (params.get('error')) {
-            console.error("❌ Spotifyエラー:", params.get('error'));
-            alert("ログインエラー: " + params.get('error'));
-        }
-    };
-
-    // デバイス取得
-    async function getDevices() {
-        try {
-            const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-
-            if (data.devices?.length > 0) {
-                const active = data.devices.find(d => d.is_active) || data.devices[0];
-                deviceId = active.id;
-                document.getElementById('deviceInfo').textContent = 
-                    `デバイス: ${active.name} (${active.type})`;
-                console.log('🎧 Device selected:', active);
-            } else {
-                document.getElementById('deviceInfo').innerHTML = 
-                    '⚠️ デバイスなし - Spotifyアプリで何か再生してください';
+    <script>
+        // ========================================
+        // 🔑 API設定
+        // ========================================
+        const API_KEYS = {
+            spotify: {
+                clientId: '1ff4e8ebb2f94fb5a20149d697df21fc',
+                redirectUri: 'https://on-pa.net/dev/'
+            },
+            soundcloud: {
+                clientId: 'nJJvQWHJTAzFljrCtmXSU03y7JVZPxXA'
+            },
+            youtube: {
+                apiKey: 'AIzaSyCO0ZnLZAugZDAu39pj0z7JaNJ43zdBJRI'
             }
-        } catch (e) {
-            console.error('❌ Device error:', e);
+        };
+        // ========================================
+
+        let currentPlatform = 'spotify';
+        let spotifyToken = null;
+        let spotifyDeviceId = null;
+        let currentAudio = null;
+
+        console.log("🎵 Onpa起動");
+
+        // プラットフォーム選択
+        function selectPlatform(platform) {
+            currentPlatform = platform;
+            
+            // ボタンの見た目を更新
+            document.querySelectorAll('.platform-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.platform-btn.${platform}`).classList.add('active');
+            
+            // Spotifyログインボタンの表示/非表示
+            const loginBtn = document.getElementById('loginBtn');
+            const deviceInfo = document.getElementById('deviceInfo');
+            
+            if (platform === 'spotify') {
+                loginBtn.classList.add('show');
+                if (spotifyToken) {
+                    deviceInfo.style.display = 'block';
+                }
+            } else {
+                loginBtn.classList.remove('show');
+                deviceInfo.style.display = 'none';
+            }
+            
+            // 検索欄のプレースホルダー変更
+            const searchInput = document.getElementById('searchInput');
+            const placeholders = {
+                spotify: '🔍 Spotify検索...',
+                soundcloud: '🔍 SoundCloud検索...',
+                youtube: '🔍 YouTube検索...',
+                nina: '🔍 Nina Protocol検索...'
+            };
+            searchInput.placeholder = placeholders[platform];
+            
+            // 結果をクリア
+            document.getElementById('results').innerHTML = '';
+            
+            console.log('📱 プラットフォーム変更:', platform);
         }
-    }
 
-    // 検索
-    async function search() {
-        const q = document.getElementById('searchInput').value;
-        if (!q) return;
-
-        console.log('🔍 検索中:', q);
-
-        try {
-            const res = await fetch(
-                `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=JP&limit=10`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-            const data = await res.json();
-            console.log('✅ 検索結果:', data.tracks.items.length, '件');
-            displayResults(data.tracks.items);
-        } catch (e) {
-            console.error('❌ Search error:', e);
-        }
-    }
-
-    // 結果表示
-    function displayResults(tracks) {
-        const div = document.getElementById('results');
-        div.innerHTML = '';
-
-        if (!tracks || tracks.length === 0) {
-            div.innerHTML = '<div style="text-align: center; padding: 20px; color: #888;">結果なし</div>';
-            return;
-        }
-
-        tracks.forEach(t => {
-            const trackDiv = document.createElement('div');
-            trackDiv.className = 'search-result-item';
-            trackDiv.innerHTML = `
-                <img src="${t.album.images[0]?.url || ''}" class="result-artwork">
-                <div class="result-info">
-                    <div class="result-track">${t.name}</div>
-                    <div class="result-artist">${t.artists[0].name}</div>
-                </div>
-                <button class="result-play-btn" onclick="play('${t.uri}')">▶️</button>
-            `;
-            div.appendChild(trackDiv);
+        // Spotifyログインボタン
+        document.getElementById('loginBtn').addEventListener('click', function() {
+            console.log("🔵 Spotifyログインボタンが押されました");
+            const scopes = 'user-read-playback-state user-modify-playback-state streaming user-read-private user-read-email';
+            
+            const url = `https://accounts.spotify.com/authorize?client_id=${API_KEYS.spotify.clientId}&response_type=token&redirect_uri=${encodeURIComponent(API_KEYS.spotify.redirectUri)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
+            
+            console.log("🌐 送信URL: ", url);
+            window.location.href = url;
         });
-    }
 
-    // 再生
-    async function play(uri) {
-        console.log('▶️ 再生リクエスト:', uri);
-        
-        if (!deviceId) {
-            await getDevices();
-            if (!deviceId) {
-                alert('デバイスが見つかりません。\n\nSpotifyアプリで曲を一度再生してください。');
+        // ページ読み込み時（Spotify認証後）
+        window.onload = () => {
+            console.log("📄 ページ読み込み完了");
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            spotifyToken = params.get('access_token');
+
+            if (spotifyToken) {
+                console.log("✅ Spotifyトークン取得成功！");
+                window.history.replaceState({}, '', window.location.pathname);
+                document.getElementById('loginBtn').textContent = '✓ Spotify ログイン済み';
+                document.getElementById('loginBtn').disabled = true;
+                document.getElementById('deviceInfo').style.display = 'block';
+                showStatus('✅ Spotifyに接続しました', '#1DB954');
+                getSpotifyDevices();
+            } else if (params.get('error')) {
+                console.error("❌ Spotifyエラー:", params.get('error'));
+                alert("ログインエラー: " + params.get('error'));
+            }
+        };
+
+        // Spotifyデバイス取得
+        async function getSpotifyDevices() {
+            try {
+                const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
+                    headers: { 'Authorization': `Bearer ${spotifyToken}` }
+                });
+                const data = await res.json();
+
+                if (data.devices?.length > 0) {
+                    const active = data.devices.find(d => d.is_active) || data.devices[0];
+                    spotifyDeviceId = active.id;
+                    document.getElementById('deviceInfo').textContent = 
+                        `デバイス: ${active.name} (${active.type})`;
+                    console.log('🎧 Spotifyデバイス:', active);
+                } else {
+                    document.getElementById('deviceInfo').innerHTML = 
+                        '⚠️ デバイスなし - Spotifyアプリで曲を再生してください';
+                }
+            } catch (e) {
+                console.error('❌ Device error:', e);
+            }
+        }
+
+        // 検索（プラットフォーム別）
+        async function search() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+
+            console.log(`🔍 ${currentPlatform}で検索:`, query);
+            const results = document.getElementById('results');
+            results.innerHTML = '<div class="loading">検索中...</div>';
+
+            try {
+                switch(currentPlatform) {
+                    case 'spotify':
+                        await searchSpotify(query);
+                        break;
+                    case 'soundcloud':
+                        await searchSoundCloud(query);
+                        break;
+                    case 'youtube':
+                        await searchYouTube(query);
+                        break;
+                    case 'nina':
+                        await searchNina(query);
+                        break;
+                }
+            } catch (e) {
+                console.error('❌ 検索エラー:', e);
+                results.innerHTML = '<div class="loading">検索エラー</div>';
+            }
+        }
+
+        // Spotify検索
+        async function searchSpotify(query) {
+            if (!spotifyToken) {
+                alert('Spotifyにログインしてください');
+                document.getElementById('results').innerHTML = '';
                 return;
             }
-        }
 
-        try {
             const res = await fetch(
-                `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-                {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ uris: [uri] })
-                }
+                `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=JP&limit=10`,
+                { headers: { 'Authorization': `Bearer ${spotifyToken}` } }
             );
-
-            if (res.ok || res.status === 204) {
-                console.log('✅ 再生成功');
-                showStatus('✅ 再生中', '#1DB954');
-            } else if (res.status === 404) {
-                alert('デバイスが見つかりません。Spotifyアプリを確認してください。');
-                deviceId = null;
-                await getDevices();
-            } else {
-                const err = await res.json();
-                console.error('❌ Play error:', err);
-                showStatus('❌ エラー: ' + (err.error?.message || 'Unknown'), '#f55');
-            }
-        } catch (e) {
-            console.error('❌ Play error:', e);
-            showStatus('❌ 再生エラー', '#f55');
+            const data = await res.json();
+            
+            const tracks = data.tracks.items.map(t => ({
+                title: t.name,
+                artist: t.artists[0].name,
+                artwork: t.album.images[0]?.url,
+                uri: t.uri,
+                platform: 'spotify'
+            }));
+            
+            displayResults(tracks);
         }
-    }
 
-    // ステータス表示
-    function showStatus(msg, color) {
-        const s = document.getElementById('status');
-        s.innerHTML = `<div class="status" style="background: ${color}22; border: 1px solid ${color};">${msg}</div>`;
-        setTimeout(() => s.innerHTML = '', 5000);
-    }
-</script>
-```
+        // SoundCloud検索
+        async function searchSoundCloud(query) {
+            const res = await fetch(
+                `https://api.soundcloud.com/tracks?q=${encodeURIComponent(query)}&client_id=${API_KEYS.soundcloud.clientId}&limit=10`
+            );
+            const data = await res.json();
+            
+            const tracks = data.map(t => ({
+                title: t.title,
+                artist: t.user.username,
+                artwork: t.artwork_url || t.user.avatar_url,
+                streamUrl: t.stream_url + `?client_id=${API_KEYS.soundcloud.clientId}`,
+                platform: 'soundcloud'
+            }));
+            
+            displayResults(tracks);
+        }
 
+        // YouTube検索
+        async function searchYouTube(query) {
+            const res = await fetch(
+                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=10&key=${API_KEYS.youtube.apiKey}`
+            );
+            const data = await res.json();
+            
+            const tracks = data.items.map(item => ({
+                title: item.snippet.title,
+                artist: item.snippet.channelTitle,
+                artwork: item.snippet.thumbnails.medium.url,
+                videoId: item.id.videoId,
+                platform: 'youtube'
+            }));
+            
+            displayResults(tracks);
+        }
+
+        // Nina Protocol検索
+        async function searchNina(query) {
+            const res = await fetch(
+                `https://api.ninaprotocol.com/v1/search?query=${encodeURIComponent(query)}`
+            );
+            const data = await res.json();
+            
+            const tracks = (data.releases || []).map(r => ({
+                title: r.metadata?.properties?.title || r.title || 'Unknown',
+                artist: r.metadata?.properties?.artist || r.artist || 'Unknown',
+                artwork: r.metadata?.image || r.image || '',
+                audioUrl: r.metadata?.animation_url || r.animation_url || '',
+                platform: 'nina'
+            }));
+            
+            displayResults(tracks);
+        }
+
+        // 結果表示
+        function displayResults(tracks) {
+            const div = document.getElementById('results');
+            div.innerHTML = '';
+
+            if (!tracks || tracks.length === 0) {
+                div.innerHTML = '<div class="loading">結果なし</div>';
+                return;
+            }
+
+            tracks.forEach((track, index) => {
+                const trackDiv = document.createElement('div');
+                trackDiv.className = 'search-result-item';
+                trackDiv.innerHTML = `
+                    <img src="${track.artwork || ''}" class="result-artwork" onerror="this.style.background='#333'">
+                    <div class="result-info">
+                        <div class="result-track">${track.title}</div>
+                        <div class="result-artist">${track.artist}</div>
+                    </div>
+                    <button class="result-play-btn" onclick='play(${JSON.stringify(track)})'>▶️</button>
+                `;
+                div.appendChild(trackDiv);
+            });
+
+            console.log(`✅ ${tracks.length}件の結果を表示`);
+        }
+
+        // 再生
+        async function play(track) {
+            console.log('▶️ 再生:', track.title, '/', track.platform);
+
+            // 既存の音声を停止
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            switch(track.platform) {
+                case 'spotify':
+                    await playSpotify(track.uri);
+                    break;
+                case 'soundcloud':
+                    playAudio(track.streamUrl);
+                    break;
+                case 'youtube':
+                    alert('YouTube再生はブラウザの制限により、リンクを開きます');
+                    window.open(`https://www.youtube.com/watch?v=${track.videoId}`, '_blank');
+                    break;
+                case 'nina':
+                    if (track.audioUrl) {
+                        playAudio(track.audioUrl);
+                    } else {
+                        alert('この曲は再生URLがありません');
+                    }
+                    break;
+            }
+        }
+
+        // Spotify再生
+        async function playSpotify(uri) {
+            if (!spotifyDeviceId) {
+                await getSpotifyDevices();
+                if (!spotifyDeviceId) {
+                    alert('Spotifyデバイスが見つかりません。\n\nSpotifyアプリで曲を一度再生してください。');
+                    return;
+                }
+            }
+
+            try {
+                const res = await fetch(
+                    `https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${spotifyToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ uris: [uri] })
+                    }
+                );
+
+                if (res.ok || res.status === 204) {
+                    console.log('✅ Spotify再生成功');
+                    showStatus('✅ Spotifyで再生中', '#1DB954');
+                } else {
+                    const err = await res.json();
+                    console.error('❌ Spotify再生エラー:', err);
+                    showStatus('❌ 再生エラー', '#f55');
+                }
+            } catch (e) {
+                console.error('❌ Spotify再生エラー:', e);
+                showStatus('❌ 再生エラー', '#f55');
+            }
+        }
+
+        // Audio再生（SoundCloud、Nina）
+        function playAudio(url) {
+            currentAudio = new Audio(url);
+            currentAudio.play().then(() => {
+                console.log('✅ Audio再生開始');
+                showStatus('✅ 再生中', '#1DB954');
+            }).catch(err => {
+                console.error('❌ Audio再生エラー:', err);
+                alert('再生できませんでした: ' + err.message);
+            });
+        }
+
+        // ステータス表示
+        function showStatus(msg, color) {
+            const s = document.getElementById('status');
+            s.innerHTML = `<div class="status" style="background: ${color}22; border: 1px solid ${color};">${msg}</div>`;
+            setTimeout(() => s.innerHTML = '', 5000);
+        }
+    </script>
 </body>
 </html>
