@@ -145,43 +145,43 @@
         0% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #ec4899 0%, #6366f1 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(236, 72, 153, 0.5), 0 0 100px rgba(99, 102, 241, 0.3),
+            box-shadow: 0 0 60px rgba(236, 72, 153, 0.4), 0 0 120px rgba(99, 102, 241, 0.2),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
         16.6% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #6366f1 0%, #8b5cf6 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(99, 102, 241, 0.6), 0 0 100px rgba(139, 92, 246, 0.4),
+            box-shadow: 0 0 60px rgba(99, 102, 241, 0.5), 0 0 120px rgba(139, 92, 246, 0.3),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
         33.3% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #8b5cf6 0%, #a855f7 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(139, 92, 246, 0.6), 0 0 100px rgba(168, 85, 247, 0.4),
+            box-shadow: 0 0 60px rgba(139, 92, 246, 0.5), 0 0 120px rgba(168, 85, 247, 0.3),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
         50% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #a855f7 0%, #ec4899 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(168, 85, 247, 0.6), 0 0 100px rgba(236, 72, 153, 0.4),
+            box-shadow: 0 0 60px rgba(168, 85, 247, 0.5), 0 0 120px rgba(236, 72, 153, 0.3),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
         66.6% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #feca57 0%, #ff6b6b 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(254, 202, 87, 0.6), 0 0 100px rgba(255, 107, 107, 0.4),
+            box-shadow: 0 0 60px rgba(254, 202, 87, 0.5), 0 0 120px rgba(255, 107, 107, 0.3),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
         83.3% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #ff6b6b 0%, #ec4899 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(255, 107, 107, 0.5), 0 0 100px rgba(236, 72, 153, 0.4),
+            box-shadow: 0 0 60px rgba(255, 107, 107, 0.4), 0 0 120px rgba(236, 72, 153, 0.3),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
         100% {
             background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
                         radial-gradient(circle at 50% 50%, #ec4899 0%, #6366f1 50%, #1e1b4b 100%);
-            box-shadow: 0 0 50px rgba(236, 72, 153, 0.5), 0 0 100px rgba(99, 102, 241, 0.3),
+            box-shadow: 0 0 60px rgba(236, 72, 153, 0.4), 0 0 120px rgba(99, 102, 241, 0.2),
                         inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
     }
@@ -332,34 +332,185 @@
 
 <script>
     const SKYWAY_API_KEY = '174e3781-3f39-45f1-bce4-9b474b93385e';
-    let userId=null,username=null,userAvatar='gradient-1',userPhoto=null,currentGradientIndex=0;
+    
+    let userId=null, username=null, userAvatar='gradient-1', userPhoto=null, currentGradientIndex=0;
     const gradients=['gradient-1','gradient-2','gradient-3','gradient-4','gradient-5','gradient-6','gradient-7','gradient-8'];
-    let peer=null,localStream=null,currentCall=null,callDuration=0,callTimer=null,isMuted=false;
+    let peer=null, localStream=null, currentCall=null, callDuration=0, callTimer=null, isMuted=false;
+    let ringtone=null;
 
     function cycleGradient(){if(userPhoto)return;currentGradientIndex=(currentGradientIndex+1)%gradients.length;userAvatar=gradients[currentGradientIndex];document.getElementById('avatarCircle').className='avatar-circle '+userAvatar;}
     function handlePhotoUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(e){userPhoto=e.target.result;const c=document.getElementById('avatarCircle');c.style.backgroundImage=`url(${userPhoto})`;c.className='avatar-circle';};r.readAsDataURL(f);}
     
-    function completeSetup(){const id=document.getElementById('userIdInput').value.trim();const name=document.getElementById('usernameInput').value.trim();if(!id||id.length<3)return alert('User ID must be at least 3 characters');if(!name)return alert('Please enter your name');userId=id;username=name;localStorage.setItem('onpa_user_id',id);localStorage.setItem('onpa_username',name);localStorage.setItem('onpa_avatar',userAvatar);if(userPhoto)localStorage.setItem('onpa_photo',userPhoto);document.getElementById('setupScreen').style.display='none';document.getElementById('homeScreen').classList.add('active');updateHomeDisplay();initializePeer();}
+    function completeSetup(){
+        const id=document.getElementById('userIdInput').value.trim();
+        const name=document.getElementById('usernameInput').value.trim();
+        if(!id||id.length<3)return alert('User ID must be at least 3 characters');
+        if(!name)return alert('Please enter your name');
+        userId=id; username=name;
+        localStorage.setItem('onpa_user_id',id);
+        localStorage.setItem('onpa_username',name);
+        localStorage.setItem('onpa_avatar',userAvatar);
+        if(userPhoto)localStorage.setItem('onpa_photo',userPhoto);
+        document.getElementById('setupScreen').style.display='none';
+        document.getElementById('homeScreen').classList.add('active');
+        updateHomeDisplay();
+        initializePeer();
+    }
     
-    function updateHomeDisplay(){const as=document.getElementById('userAvatarSmall');const mca=document.getElementById('myCallAvatar');if(userPhoto){as.style.backgroundImage=`url(${userPhoto})`;as.className='user-avatar-small';mca.style.backgroundImage=`url(${userPhoto})`;mca.className='call-avatar';}else{as.className='user-avatar-small '+userAvatar;mca.className='call-avatar '+userAvatar;}document.getElementById('myCallName').textContent=username;}
+    function updateHomeDisplay(){
+        const as=document.getElementById('userAvatarSmall');
+        const mca=document.getElementById('myCallAvatar');
+        if(userPhoto){
+            as.style.backgroundImage=`url(${userPhoto})`; as.className='user-avatar-small';
+            mca.style.backgroundImage=`url(${userPhoto})`; mca.className='call-avatar';
+        }else{
+            as.className='user-avatar-small '+userAvatar;
+            mca.className='call-avatar '+userAvatar;
+        }
+        document.getElementById('myCallName').textContent=username;
+    }
     
-    async function initializePeer(){try{localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});peer=new Peer('onpa_'+userId,{key:SKYWAY_API_KEY,debug:1});peer.on('open',id=>console.log('Peer:',id));peer.on('call',call=>{call.answer(localStream);currentCall=call;handleIncomingCall(call);});peer.on('error',error=>{if(error.type==='unavailable-id'){alert('This user ID is already in use');localStorage.clear();location.reload();}});}catch(error){alert('Microphone access required');}}
+    async function initializePeer(){
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
+            
+            peer = new Peer(userId, { key: SKYWAY_API_KEY, debug: 3 });
+
+            peer.on('open', id => console.log('My ID:', id));
+
+            peer.on('call', call => {
+                console.log('Incoming call from:', call.remoteId);
+                
+                // Play ringtone
+                if(ringtone) {
+                    ringtone.play().catch(e => console.log('Ringtone play failed:', e));
+                }
+                
+                call.answer(localStream);
+                setupCallEvents(call);
+            });
+
+            peer.on('error', err => {
+                console.error('Peer Error:', err);
+                if(err.type === 'unavailable-id') alert('IDが既に使われています');
+            });
+        } catch(e) {
+            alert('マイクが使えません。設定を確認してください。');
+        }
+    }
     
-    function startCall(){const friendId=document.getElementById('friendIdInput').value.trim();if(!friendId)return alert('Enter friend ID');if(!peer||!localStream)return alert('Please wait...');document.getElementById('homeScreen').classList.remove('active');document.getElementById('callScreen').classList.add('active');document.getElementById('friendCallName').textContent='@'+friendId;const call=peer.call('onpa_'+friendId,localStream);currentCall=call;call.on('stream',s=>{playRemoteStream(s);onCallConnected();});call.on('close',()=>endCall());}
+    function startCall(){
+        const friendId = document.getElementById('friendIdInput').value.trim();
+        if(!friendId) return alert('相手のIDを入力してください');
+        if(!peer) return alert('準備中です...');
+
+        console.log('Calling:', friendId);
+        const call = peer.call(friendId, localStream);
+        setupCallEvents(call);
+    }
+
+    function setupCallEvents(call) {
+        currentCall = call;
+        
+        document.getElementById('homeScreen').classList.remove('active');
+        document.getElementById('callScreen').classList.add('active');
+        document.getElementById('friendCallName').textContent = '@' + call.remoteId;
+
+        call.on('stream', stream => {
+            console.log('Received remote stream');
+            playRemoteStream(stream);
+            onCallConnected();
+        });
+
+        call.on('close', () => endCall());
+    }
     
-    function handleIncomingCall(call){const friendId=call.peer.replace('onpa_','');document.getElementById('homeScreen').classList.remove('active');document.getElementById('callScreen').classList.add('active');document.getElementById('friendCallName').textContent='@'+friendId;call.on('stream',s=>{playRemoteStream(s);onCallConnected();});call.on('close',()=>endCall());}
+    function onCallConnected(){
+        // Stop ringtone
+        if(ringtone) {
+            ringtone.pause();
+            ringtone.currentTime = 0;
+        }
+        
+        document.getElementById('callStatus').textContent='Connected';
+        document.getElementById('connectionWave').classList.add('hidden');
+        document.getElementById('participantsContainer').classList.add('connected');
+        if(callTimer) clearInterval(callTimer);
+        callDuration=0;
+        callTimer=setInterval(()=>{
+            callDuration++;
+            const m=Math.floor(callDuration/60);
+            const s=callDuration%60;
+            document.getElementById('callTimer').textContent=`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        },1000);
+        
+        document.getElementById('myCallAvatar').classList.add('speaking');
+        setTimeout(() => document.getElementById('friendCallAvatar').classList.add('speaking'), 1000);
+    }
     
-    function onCallConnected(){document.getElementById('callStatus').textContent='On call';document.getElementById('connectionWave').classList.add('hidden');document.getElementById('participantsContainer').classList.add('connected');callDuration=0;callTimer=setInterval(()=>{callDuration++;const m=Math.floor(callDuration/60);const s=callDuration%60;document.getElementById('callTimer').textContent=`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;},1000);setTimeout(()=>{document.getElementById('myCallAvatar').classList.add('speaking');setTimeout(()=>{document.getElementById('myCallAvatar').classList.remove('speaking');document.getElementById('friendCallAvatar').classList.add('speaking');},2500);},1000);}
+    function endCall(){
+        // Stop ringtone if still playing
+        if(ringtone) {
+            ringtone.pause();
+            ringtone.currentTime = 0;
+        }
+        
+        if(currentCall) { currentCall.close(); currentCall = null; }
+        if(callTimer) { clearInterval(callTimer); callTimer = null; }
+        document.getElementById('callScreen').classList.remove('active');
+        document.getElementById('homeScreen').classList.add('active');
+        document.getElementById('connectionWave').classList.remove('hidden');
+        document.getElementById('participantsContainer').classList.remove('connected');
+        const audio = document.getElementById('remoteAudio');
+        if(audio) audio.remove();
+    }
     
-    function endCall(){if(currentCall){currentCall.close();currentCall=null;}if(callTimer){clearInterval(callTimer);callTimer=null;}callDuration=0;document.getElementById('callTimer').textContent='00:00';document.getElementById('connectionWave').classList.remove('hidden');document.getElementById('participantsContainer').classList.remove('connected');document.getElementById('myCallAvatar').classList.remove('speaking');document.getElementById('friendCallAvatar').classList.remove('speaking');document.getElementById('callScreen').classList.remove('active');document.getElementById('homeScreen').classList.add('active');}
+    function toggleMute(){
+        if(localStream){
+            const at=localStream.getAudioTracks()[0];
+            at.enabled=!at.enabled;
+            isMuted=!at.enabled;
+            event.target.textContent=isMuted?'🔇':'🎤';
+        }
+    }
     
-    function toggleMute(){if(localStream){const at=localStream.getAudioTracks()[0];at.enabled=!at.enabled;isMuted=!at.enabled;event.target.textContent=isMuted?'🔇':'🎤';}}
+    function playRemoteStream(stream){
+        let a = document.getElementById('remoteAudio');
+        if(!a) {
+            a = document.createElement('audio');
+            a.id = 'remoteAudio';
+            a.autoplay = true;
+            a.playsInline = true;
+            document.body.appendChild(a);
+        }
+        a.srcObject = stream;
+        a.play().catch(e => console.error("Audio Play Error:", e));
+    }
     
-    function playRemoteStream(stream){const ex=document.getElementById('remoteAudio');if(ex)ex.remove();const a=document.createElement('audio');a.id='remoteAudio';a.srcObject=stream;a.autoplay=true;a.playsInline=true;document.body.appendChild(a);}
+    function editProfile(){
+        document.getElementById('homeScreen').classList.remove('active');
+        document.getElementById('setupScreen').style.display='block';
+    }
     
-    function editProfile(){document.getElementById('homeScreen').classList.remove('active');document.getElementById('setupScreen').style.display='block';document.getElementById('userIdInput').value=userId;document.getElementById('usernameInput').value=username;const c=document.getElementById('avatarCircle');if(userPhoto){c.style.backgroundImage=`url(${userPhoto})`;c.className='avatar-circle';}else{c.className='avatar-circle '+userAvatar;}}
-    
-    window.onload=function(){const si=localStorage.getItem('onpa_user_id');const sn=localStorage.getItem('onpa_username');const sa=localStorage.getItem('onpa_avatar');const sp=localStorage.getItem('onpa_photo');if(si&&sn){userId=si;username=sn;userAvatar=sa||'gradient-1';userPhoto=sp;currentGradientIndex=gradients.indexOf(userAvatar);document.getElementById('setupScreen').style.display='none';document.getElementById('homeScreen').classList.add('active');updateHomeDisplay();initializePeer();}};
+    window.onload=function(){
+        // Load ringtone
+        ringtone = new Audio();
+        ringtone.src = 'ringtone.wav';
+        ringtone.loop = true;
+        
+        const si=localStorage.getItem('onpa_user_id');
+        const sn=localStorage.getItem('onpa_username');
+        const sa=localStorage.getItem('onpa_avatar');
+        const sp=localStorage.getItem('onpa_photo');
+        if(si&&sn){
+            userId=si; username=sn; userAvatar=sa||'gradient-1'; userPhoto=sp;
+            currentGradientIndex=gradients.indexOf(userAvatar);
+            document.getElementById('setupScreen').style.display='none';
+            document.getElementById('homeScreen').classList.add('active');
+            updateHomeDisplay();
+            initializePeer();
+        }
+    };
 </script>
 ```
 
