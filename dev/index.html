@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -6,115 +7,132 @@
     <title>Onpa - 音楽シェア通話アプリ</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #000;
-            color: #fff;
-        }
-        .container {
-            max-width: 430px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .logo {
-            font-size: 32px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-        }
-        .spotify-login {
-            background: #1DB954;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        .search-bar {
-            width: 100%;
-            padding: 14px;
-            border-radius: 25px;
-            border: 1px solid #333;
-            background: #222;
-            color: white;
-            margin-bottom: 15px;
-        }
-        .search-result-item {
-            background: #222;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .result-artwork {
-            width: 50px;
-            height: 50px;
-            border-radius: 6px;
-        }
-        .result-info {
-            flex: 1;
-        }
-        .result-track {
-            font-weight: 600;
-            margin-bottom: 3px;
-        }
-        .result-artist {
-            font-size: 12px;
-            color: #888;
-        }
-        .result-play-btn {
-            background: #1DB954;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-        }
-        .status {
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .device-info {
-            background: #222;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 12px;
-        }
-    </style>
+
+```
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #000;
+        color: #fff;
+    }
+
+    .container {
+        max-width: 430px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .logo {
+        font-size: 32px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 20px;
+    }
+
+    .spotify-login {
+        background: #1DB954;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .search-bar {
+        width: 100%;
+        padding: 14px;
+        border-radius: 25px;
+        border: 1px solid #333;
+        background: #222;
+        color: white;
+        margin-bottom: 15px;
+    }
+
+    .search-result-item {
+        background: #222;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .result-artwork {
+        width: 50px;
+        height: 50px;
+        border-radius: 6px;
+    }
+
+    .result-info {
+        flex: 1;
+    }
+
+    .result-track {
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+
+    .result-artist {
+        font-size: 12px;
+        color: #888;
+    }
+
+    .result-play-btn {
+        background: #1DB954;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+    }
+
+    .status {
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+
+    .device-info {
+        background: #222;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        font-size: 12px;
+    }
+</style>
+```
+
 </head>
 <body>
     <div class="container">
         <div class="logo">Onpa</div>
 
-        <button class="spotify-login" id="loginBtn" onclick="loginSpotify()">
-            🎵 Spotifyでログイン
-        </button>
+```
+    <button class="spotify-login" id="loginBtn" onclick="loginSpotify()">
+        🎵 Spotifyでログイン
+    </button>
 
-        <div id="status"></div>
+    <div id="status"></div>
 
-        <div id="player" style="display: none;">
-            <div class="device-info" id="deviceInfo">デバイス: 読み込み中...</div>
-            
-            <input 
-                type="text" 
-                id="searchInput" 
-                class="search-bar" 
-                placeholder="曲を検索..."
-                onkeypress="if(event.key==='Enter') search()"
-            >
-            <div id="results"></div>
-        </div>
+    <div id="player" style="display: none;">
+        <div class="device-info" id="deviceInfo">デバイス: 読み込み中...</div>
+        
+        <input 
+            type="text" 
+            id="searchInput" 
+            class="search-bar" 
+            placeholder="曲を検索..."
+            onkeypress="if(event.key==='Enter') search()"
+        >
+        <div id="results"></div>
     </div>
+</div>
 
 <script>
     // ========================================
@@ -122,11 +140,14 @@
     // ========================================
     const CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
     const REDIRECT_URI = window.location.origin + window.location.pathname;
+    
+    console.log('Redirect URI:', REDIRECT_URI);
     // ========================================
 
     let token = null;
     let deviceId = null;
 
+    // 初期化
     window.onload = () => {
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
@@ -142,10 +163,11 @@
         }
     };
 
+    // Spotifyログイン（Gemini修正版）
     function loginSpotify() {
         const scopes = 'user-read-playback-state user-modify-playback-state streaming user-read-private user-read-email';
         
-        // 【修正完了】Spotify認証URLの形式を正しく修正
+        // URLSearchParamsで正しく構築
         const authUrl = 'https://accounts.spotify.com/authorize';
         const queryParams = new URLSearchParams({
             client_id: CLIENT_ID,
@@ -155,9 +177,11 @@
             show_dialog: 'true'
         });
 
+        console.log('Auth URL:', `${authUrl}?${queryParams.toString()}`);
         window.location.href = `${authUrl}?${queryParams.toString()}`;
     }
 
+    // デバイス取得
     async function getDevices() {
         try {
             const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
@@ -170,50 +194,64 @@
                 deviceId = active.id;
                 document.getElementById('deviceInfo').textContent = 
                     `デバイス: ${active.name} (${active.type})`;
+                console.log('Device selected:', active);
             } else {
                 document.getElementById('deviceInfo').innerHTML = 
                     '⚠️ デバイスなし - Spotifyアプリで何か再生してください';
             }
         } catch (e) {
-            console.error(e);
+            console.error('Device error:', e);
         }
     }
 
+    // 検索
     async function search() {
         const q = document.getElementById('searchInput').value;
         if (!q) return;
 
-        const res = await fetch(
-            `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=JP&limit=10`,
-            { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        const data = await res.json();
-        displayResults(data.tracks.items);
+        try {
+            const res = await fetch(
+                `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=JP&limit=10`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            const data = await res.json();
+            displayResults(data.tracks.items);
+        } catch (e) {
+            console.error('Search error:', e);
+        }
     }
 
+    // 結果表示
     function displayResults(tracks) {
         const div = document.getElementById('results');
         div.innerHTML = '';
 
+        if (!tracks || tracks.length === 0) {
+            div.innerHTML = '<div style="text-align: center; padding: 20px; color: #888;">結果なし</div>';
+            return;
+        }
+
         tracks.forEach(t => {
-            div.innerHTML += `
-                <div class="search-result-item">
-                    <img src="${t.album.images[0]?.url}" class="result-artwork">
-                    <div class="result-info">
-                        <div class="result-track">${t.name}</div>
-                        <div class="result-artist">${t.artists[0].name}</div>
-                    </div>
-                    <button class="result-play-btn" onclick="play('${t.uri}')">▶️</button>
+            const trackDiv = document.createElement('div');
+            trackDiv.className = 'search-result-item';
+            trackDiv.innerHTML = `
+                <img src="${t.album.images[0]?.url || ''}" class="result-artwork">
+                <div class="result-info">
+                    <div class="result-track">${t.name}</div>
+                    <div class="result-artist">${t.artists[0].name}</div>
                 </div>
+                <button class="result-play-btn" onclick="play('${t.uri}')">▶️</button>
             `;
+            div.appendChild(trackDiv);
         });
     }
 
+    // 再生
     async function play(uri) {
         if (!deviceId) {
             await getDevices();
             if (!deviceId) {
-                alert('デバイスが見つかりません。Spotifyアプリで曲を一度再生してください。');
+                alert('デバイスが見つかりません。\n\nSpotifyアプリで曲を一度再生してください。');
                 return;
             }
         }
@@ -231,22 +269,31 @@
                 }
             );
 
-            if (res.ok) {
-                showStatus('✅ 再生リクエストを送信しました', '#1DB954');
+            if (res.ok || res.status === 204) {
+                showStatus('✅ 再生中', '#1DB954');
+            } else if (res.status === 404) {
+                alert('デバイスが見つかりません。Spotifyアプリを確認してください。');
+                deviceId = null;
+                await getDevices();
             } else {
                 const err = await res.json();
-                showStatus('❌ エラー: ' + err.error.message, '#f55');
+                console.error('Play error:', err);
+                showStatus('❌ エラー: ' + (err.error?.message || 'Unknown'), '#f55');
             }
         } catch (e) {
+            console.error('Play error:', e);
             showStatus('❌ 再生エラー', '#f55');
         }
     }
 
+    // ステータス表示
     function showStatus(msg, color) {
         const s = document.getElementById('status');
         s.innerHTML = `<div class="status" style="background: ${color}22; border: 1px solid ${color};">${msg}</div>`;
         setTimeout(() => s.innerHTML = '', 5000);
     }
 </script>
+```
+
 </body>
 </html>
