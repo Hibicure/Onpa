@@ -117,12 +117,13 @@
     </div>
 
     <script>
-        // ========================================
-        // 🔑 設定
-        // ========================================
         const CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
-        const REDIRECT_URI = window.location.origin + window.location.pathname;
-        // ========================================
+        
+        // redirectUriがnullにならないように修正
+        let redirectUri = window.location.origin + window.location.pathname;
+        if (redirectUri.includes('null')) {
+            redirectUri = 'https://on-pa.net/dev/index.html';
+        }
 
         let token = null;
         let deviceId = null;
@@ -148,7 +149,7 @@
             const queryParams = new URLSearchParams({
                 client_id: CLIENT_ID,
                 response_type: 'token',
-                redirect_uri: REDIRECT_URI,
+                redirect_uri: redirectUri,
                 scope: scopes,
                 show_dialog: 'true'
             });
@@ -208,7 +209,7 @@
                     body: JSON.stringify({ uris: [uri] })
                 });
                 if (res.ok || res.status === 204) { showStatus('✅ 再生中', '#1DB954'); }
-                else { showStatus('❌ エラー', '#f55'); }
+                else { showStatus('❌ 再生できませんでした', '#f55'); }
             } catch (e) { showStatus('❌ 再生エラー', '#f55'); }
         }
 
