@@ -1,668 +1,367 @@
 <!DOCTYPE html>
-<html lang="ja">
+
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Onpa - 音楽シェア通話アプリ</title>
+    <title>Onpa</title>
+    <script src="https://cdn.webrtc.ecl.ntt.com/skyway-4.4.5.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #000;
-            color: #fff;
-        }
+        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; min-height: 100vh; }
+        .container { max-width: 430px; width: 100%; margin: 0 auto; padding: 40px; }
 
-        .container {
-            max-width: 430px;
-            margin: 0 auto;
-            padding: 20px;
+```
+    .logo { 
+        font-size: 48px; 
+        font-weight: 800; 
+        text-align: center; 
+        margin-bottom: 10px;
+        background: linear-gradient(90deg, #ec4899, #6366f1, #8b5cf6, #a855f7, #feca57, #ff6b6b, #ec4899);
+        background-size: 400% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 0 30px rgba(236, 72, 153, 0.5))
+                drop-shadow(0 0 60px rgba(99, 102, 241, 0.3))
+                contrast(0.95) saturate(1.1);
+        animation: logoGradientFlow 30s linear infinite;
+        position: relative;
+    }
+    .logo::after {
+        content: 'Onpa';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: inherit;
+        background-clip: text;
+        -webkit-background-clip: text;
+        opacity: 0.15;
+        filter: blur(1px);
+        z-index: -1;
+    }
+    @keyframes logoGradientFlow {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 400% 50%; }
+    }
+    
+    .subtitle { text-align: center; font-size: 14px; color: #666; margin-bottom: 50px; }
+    .avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; }
+    .avatar-container { position: relative; margin-bottom: 15px; }
+    .avatar-circle { 
+        width: 120px; height: 120px; border-radius: 50%; cursor: pointer; 
+        transition: all 0.3s; background-size: cover; background-position: center;
+    }
+    .avatar-circle:active { transform: scale(0.95); }
+    
+    .gradient-1 { background: radial-gradient(circle at 30% 20%, #667eea, transparent 50%), radial-gradient(circle at 70% 80%, #f093fb, transparent 50%), linear-gradient(135deg, #667eea, #764ba2); filter: drop-shadow(0 0 15px rgba(102, 126, 234, 0.6)); }
+    .gradient-2 { background: radial-gradient(circle at 20% 70%, #f5576c, transparent 45%), radial-gradient(circle at 80% 30%, #ffd140, transparent 55%), linear-gradient(120deg, #f093fb, #f5576c); filter: drop-shadow(0 0 15px rgba(245, 87, 108, 0.6)); }
+    .gradient-3 { background: radial-gradient(circle at 65% 15%, #00f2fe, transparent 50%), radial-gradient(circle at 25% 85%, #43e97b, transparent 50%), linear-gradient(140deg, #4facfe, #00f2fe); filter: drop-shadow(0 0 15px rgba(79, 172, 254, 0.6)); }
+    .gradient-4 { background: radial-gradient(circle at 40% 75%, #38f9d7, transparent 48%), radial-gradient(circle at 75% 25%, #4facfe, transparent 52%), linear-gradient(155deg, #43e97b, #38f9d7); filter: drop-shadow(0 0 15px rgba(67, 233, 123, 0.6)); }
+    .gradient-5 { background: radial-gradient(circle at 15% 35%, #fa709a, transparent 47%), radial-gradient(circle at 85% 65%, #30cfd0, transparent 53%), linear-gradient(125deg, #fa709a, #fee140); filter: drop-shadow(0 0 15px rgba(250, 112, 154, 0.6)); }
+    .gradient-6 { background: radial-gradient(circle at 55% 25%, #30cfd0, transparent 44%), radial-gradient(circle at 35% 75%, #c471f5, transparent 56%), linear-gradient(110deg, #30cfd0, #330867); filter: drop-shadow(0 0 15px rgba(196, 113, 245, 0.6)); }
+    .gradient-7 { background: radial-gradient(circle at 70% 60%, #fed6e3, transparent 49%), radial-gradient(circle at 30% 40%, #fbc2eb, transparent 51%), linear-gradient(145deg, #a8edea, #fed6e3); filter: drop-shadow(0 0 15px rgba(254, 214, 227, 0.6)); }
+    .gradient-8 { background: radial-gradient(circle at 45% 80%, #fecfef, transparent 46%), radial-gradient(circle at 60% 20%, #ffc3a0, transparent 54%), linear-gradient(130deg, #ff9a9e, #fecfef); filter: drop-shadow(0 0 15px rgba(255, 154, 158, 0.6)); }
+    
+    .add-photo-btn { position: absolute; bottom: 5px; right: 5px; width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: 3px solid #000; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(99, 102, 241, 0.6); }
+    .plus-icon { width: 20px; height: 20px; position: relative; }
+    .plus-icon::before, .plus-icon::after { content: ''; position: absolute; background: white; border-radius: 2px; }
+    .plus-icon::before { width: 16px; height: 3px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .plus-icon::after { width: 3px; height: 16px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    
+    .avatar-hint { font-size: 12px; color: #666; text-align: center; }
+    .input-group { margin-bottom: 25px; }
+    .input-label { font-size: 11px; color: #666; margin-bottom: 10px; letter-spacing: 0.5px; font-weight: 500; }
+    .input-container { display: flex; align-items: center; background: #0a0a0a; border: 2px solid #1a1a1a; border-radius: 14px; padding: 0 18px; transition: all 0.3s; }
+    .input-container:focus-within { 
+        border-color: #6366f1; 
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.3),
+                    0 0 40px rgba(99, 102, 241, 0.1);
+    }
+    .input-prefix { color: #666; font-size: 20px; font-weight: 700; margin-right: 5px; }
+    .input-field { flex: 1; padding: 16px 0; background: transparent; border: none; color: white; font-size: 16px; font-weight: 600; outline: none; }
+    .input-field::placeholder { color: #333; }
+    .btn { 
+        width: 100%; padding: 16px; 
+        background: linear-gradient(135deg, #6366f1, #ec4899); 
+        border: none; border-radius: 14px; color: white; font-weight: 700; font-size: 16px; cursor: pointer; 
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.5),
+                    0 0 40px rgba(236, 72, 153, 0.3);
+    }
+    .btn:active { transform: scale(0.98); }
+    
+    input[type="file"] { display: none; }
+    .home-screen, .call-screen { display: none; }
+    .home-screen.active, .call-screen.active { display: block; }
+    
+    .home-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .home-logo { 
+        font-size: 32px; font-weight: 800;
+        background: linear-gradient(90deg, #ec4899, #6366f1, #8b5cf6, #a855f7, #feca57, #ff6b6b, #ec4899);
+        background-size: 400% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 0 25px rgba(236, 72, 153, 0.5))
+                drop-shadow(0 0 50px rgba(99, 102, 241, 0.3))
+                contrast(0.95) saturate(1.1);
+        animation: logoGradientFlow 30s linear infinite;
+    }
+    .user-avatar-small { 
+        width: 50px; height: 50px; border-radius: 50%; cursor: pointer; 
+        border: 2px solid #1a1a1a; transition: all 0.3s; background-size: cover; background-position: center; 
+    }
+    .user-avatar-small:hover { border-color: #6366f1; transform: scale(1.05); }
+    
+    .call-btn-section { text-align: center; margin: 60px 0; display: flex; justify-content: center; }
+    .call-btn { 
+        width: 140px; height: 140px; border-radius: 50%; 
+        background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3) 0%, transparent 50%), 
+                    radial-gradient(circle at 50% 50%, #ec4899 0%, #6366f1 50%, #1e1b4b 100%);
+        border: none;
+        cursor: pointer; 
+        box-shadow: 0 0 60px rgba(236, 72, 153, 0.4),
+                    0 0 120px rgba(99, 102, 241, 0.2),
+                    inset 0 2px 20px rgba(255, 255, 255, 0.15),
+                    inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        font-size: 60px; display: flex; align-items: center; justify-content: center; 
+        position: relative; overflow: visible;
+        animation: orbColorShift 30s ease-in-out infinite;
+    }
+    
+    .call-btn::before {
+        content: '';
+        position: absolute;
+        inset: -20px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(236, 72, 153, 0.4), transparent 70%);
+        filter: blur(25px);
+        z-index: -1;
+        animation: pulseGlow 3s ease-in-out infinite;
+    }
+    
+    @keyframes orbColorShift {
+        0% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #ec4899 0%, #6366f1 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(236, 72, 153, 0.5), 0 0 100px rgba(99, 102, 241, 0.3),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
         }
+        16.6% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #6366f1 0%, #8b5cf6 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(99, 102, 241, 0.6), 0 0 100px rgba(139, 92, 246, 0.4),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        }
+        33.3% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #8b5cf6 0%, #a855f7 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(139, 92, 246, 0.6), 0 0 100px rgba(168, 85, 247, 0.4),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        }
+        50% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #a855f7 0%, #ec4899 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(168, 85, 247, 0.6), 0 0 100px rgba(236, 72, 153, 0.4),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        }
+        66.6% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #feca57 0%, #ff6b6b 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(254, 202, 87, 0.6), 0 0 100px rgba(255, 107, 107, 0.4),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        }
+        83.3% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #ff6b6b 0%, #ec4899 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(255, 107, 107, 0.5), 0 0 100px rgba(236, 72, 153, 0.4),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        }
+        100% {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.3), transparent 50%), 
+                        radial-gradient(circle at 50% 50%, #ec4899 0%, #6366f1 50%, #1e1b4b 100%);
+            box-shadow: 0 0 50px rgba(236, 72, 153, 0.5), 0 0 100px rgba(99, 102, 241, 0.3),
+                        inset 0 2px 20px rgba(255, 255, 255, 0.15), inset 0 -20px 40px rgba(0, 0, 0, 0.4);
+        }
+    }
+    
+    @keyframes pulseGlow {
+        0%, 100% { opacity: 0.4; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(1.15); }
+    }
+    
+    .call-btn:active { transform: scale(0.95); }
+    
+    .call-screen { min-height: 100vh; padding: 40px 20px; text-align: center; }
+    .call-screen-logo { 
+        font-size: 32px; font-weight: 800; margin-bottom: 40px;
+        background: linear-gradient(90deg, #ec4899, #6366f1, #8b5cf6, #a855f7, #feca57, #ff6b6b, #ec4899);
+        background-size: 400% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 0 25px rgba(236, 72, 153, 0.5))
+                drop-shadow(0 0 50px rgba(99, 102, 241, 0.3))
+                contrast(0.95) saturate(1.1);
+        animation: logoGradientFlow 30s linear infinite;
+    }
+    .call-status { font-size: 16px; color: #666; margin-bottom: 20px; }
+    .call-timer { font-size: 64px; font-weight: 700; color: #fff; margin-bottom: 60px; }
+    
+    .participants-container { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 60px; position: relative; transition: gap 0.8s; }
+    .participants-container.connected { gap: 0; }
+    .participant { display: flex; flex-direction: column; align-items: center; }
+    .call-avatar { 
+        width: 120px; height: 120px; border-radius: 50%; 
+        background-size: cover; background-position: center; 
+        transition: all 0.3s; border: 4px solid transparent; 
+    }
+    .participants-container.connected .call-avatar { margin: 0 -20px; }
+    .call-avatar.speaking { 
+        animation: pulse 1.5s ease-in-out infinite;
+        filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.8));
+    }
+    @keyframes pulse { 
+        0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); } 
+        50% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); } 
+    }
+    .participant-name { font-size: 14px; color: #666; margin-top: 15px; font-weight: 600; }
+    
+    .connection-wave { position: absolute; left: 50%; transform: translateX(-50%); transition: opacity 0.3s; }
+    .connection-wave.hidden { opacity: 0; }
+    .wave-line { width: 80px; height: 4px; position: relative; }
+    .wave-dot { 
+        position: absolute; width: 10px; height: 10px; 
+        background: linear-gradient(135deg, #6366f1, #ec4899); 
+        border-radius: 50%; 
+        animation: waveDot 2s ease-in-out infinite;
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.8);
+    }
+    .wave-dot:nth-child(1) { animation-delay: 0s; }
+    .wave-dot:nth-child(2) { animation-delay: 0.2s; }
+    .wave-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes waveDot { 
+        0% { left: 0; transform: translateY(0); } 
+        25% { transform: translateY(-12px); } 
+        50% { left: 50%; transform: translateY(0); } 
+        75% { transform: translateY(12px); } 
+        100% { left: 100%; transform: translateY(0); } 
+    }
+    
+    .call-actions { display: flex; justify-content: center; gap: 25px; margin-top: 40px; }
+    .call-action-btn { 
+        width: 65px; height: 65px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    .call-action-btn:active { transform: scale(0.9); }
+    .call-action-btn.mute { 
+        background: linear-gradient(135deg, #4a5568, #2d3748);
+        box-shadow: 0 0 15px rgba(74, 85, 104, 0.5);
+    }
+    .call-action-btn.end { 
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
+    }
+</style>
+```
 
-        .logo {
-            font-size: 32px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-        }
-
-        .platform-selector {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        .platform-btn {
-            flex: 1;
-            padding: 10px 4px;
-            border-radius: 12px;
-            border: 2px solid #333;
-            background: #111;
-            color: #888;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .platform-btn svg {
-            transition: all 0.3s;
-        }
-
-        .platform-btn.active svg {
-            filter: drop-shadow(0 0 4px currentColor);
-        }
-
-        .platform-btn.active {
-            border-color: #1DB954;
-            background: #1DB95422;
-            color: #1DB954;
-        }
-
-        .platform-btn.spotify.active {
-            border-color: #1DB954;
-            background: #1DB95422;
-            color: #1DB954;
-        }
-
-        .platform-btn.soundcloud.active {
-            border-color: #ff5500;
-            background: #ff550022;
-            color: #ff5500;
-        }
-
-        .platform-btn.youtube.active {
-            border-color: #ff0000;
-            background: #ff000022;
-            color: #ff0000;
-        }
-
-        .platform-btn.nina.active {
-            border-color: #00ffc8;
-            background: #00ffc822;
-            color: #00ffc8;
-        }
-
-        .spotify-login {
-            background: #1DB954;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 25px;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .spotify-login.show {
-            display: block;
-        }
-
-        .search-bar {
-            width: 100%;
-            padding: 14px;
-            border-radius: 25px;
-            border: 1px solid #333;
-            background: #222;
-            color: white;
-            margin-bottom: 15px;
-        }
-
-        .search-result-item {
-            background: #222;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .result-artwork {
-            width: 50px;
-            height: 50px;
-            border-radius: 6px;
-            object-fit: cover;
-        }
-
-        .result-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .result-track {
-            font-weight: 600;
-            margin-bottom: 3px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .result-artist {
-            font-size: 12px;
-            color: #888;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .result-play-btn {
-            background: #1DB954;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
-        .status {
-            padding: 12px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .device-info {
-            background: #222;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            font-size: 12px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #888;
-        }
-
-        #player-dock {
-            margin-top: 20px;
-            background: #222;
-            border-radius: 12px;
-            padding: 15px;
-        }
-
-        #player-inner iframe {
-            width: 100%;
-            height: 200px;
-            border: none;
-            border-radius: 8px;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">Onpa</div>
-
-        <!-- プラットフォーム選択 -->
-        <div class="platform-selector">
-            <button class="platform-btn spotify active" onclick="selectPlatform('spotify')" title="Spotify">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-                <div style="font-size: 10px; margin-top: 4px;">Spotify</div>
-            </button>
-            <button class="platform-btn soundcloud" onclick="selectPlatform('soundcloud')" title="SoundCloud">
-                <svg width="32" height="32" viewBox="0 0 200 100" fill="currentColor">
-                    <!-- Waveform bars -->
-                    <rect x="8" y="42" width="3" height="16" rx="1.5"/>
-                    <rect x="14" y="38" width="3" height="24" rx="1.5"/>
-                    <rect x="20" y="34" width="3" height="32" rx="1.5"/>
-                    <rect x="26" y="28" width="3" height="44" rx="1.5"/>
-                    <rect x="32" y="24" width="3" height="52" rx="1.5"/>
-                    <rect x="38" y="18" width="3" height="64" rx="1.5"/>
-                    <rect x="44" y="12" width="3" height="76" rx="1.5"/>
-                    <rect x="50" y="8" width="3" height="84" rx="1.5"/>
-                    <rect x="56" y="16" width="3" height="68" rx="1.5"/>
-                    <rect x="62" y="22" width="3" height="56" rx="1.5"/>
-                    <!-- Cloud shape -->
-                    <ellipse cx="95" cy="55" rx="12" ry="10"/>
-                    <ellipse cx="108" cy="48" rx="14" ry="13"/>
-                    <ellipse cx="125" cy="50" rx="16" ry="14"/>
-                    <ellipse cx="142" cy="55" rx="13" ry="11"/>
-                    <rect x="95" y="55" width="47" height="15" rx="0"/>
-                </svg>
-                <div style="font-size: 10px; margin-top: 4px;">SoundCloud</div>
-            </button>
-            <button class="platform-btn youtube" onclick="selectPlatform('youtube')" title="YouTube">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                </svg>
-                <div style="font-size: 10px; margin-top: 4px;">YouTube</div>
-            </button>
-            <button class="platform-btn nina" onclick="selectPlatform('nina')" title="Nina Protocol">
-                <svg width="32" height="32" viewBox="0 0 100 100" fill="currentColor">
-                    <!-- Headband/arc -->
-                    <path d="M 25 40 Q 50 20 75 40" stroke="currentColor" stroke-width="8" fill="none" stroke-linecap="round"/>
-                    <!-- Left headphone pad -->
-                    <rect x="15" y="35" width="20" height="30" rx="10" fill="none" stroke="currentColor" stroke-width="8"/>
-                    <!-- Right headphone pad -->
-                    <rect x="65" y="35" width="20" height="30" rx="10" fill="none" stroke="currentColor" stroke-width="8"/>
-                    <!-- Head -->
-                    <circle cx="50" cy="50" r="20"/>
-                    <!-- Eyes -->
-                    <circle cx="43" cy="47" r="3" fill="white"/>
-                    <circle cx="57" cy="47" r="3" fill="white"/>
-                    <!-- Smile -->
-                    <path d="M 42 56 Q 50 60 58 56" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
-                    <!-- Body -->
-                    <line x1="50" y1="70" x2="50" y2="90" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-                    <!-- Arms -->
-                    <line x1="50" y1="75" x2="35" y2="85" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-                    <line x1="50" y1="75" x2="65" y2="85" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
-                </svg>
-                <div style="font-size: 10px; margin-top: 4px;">Nina</div>
-            </button>
+        <div id="setupScreen">
+            <div class="logo">Onpa</div>
+            <div class="subtitle">Create your profile</div>
+            <div class="avatar-section">
+                <div class="avatar-container">
+                    <div class="avatar-circle gradient-1" id="avatarCircle" onclick="cycleGradient()"></div>
+                    <div class="add-photo-btn" onclick="document.getElementById('photoInput').click()"><div class="plus-icon"></div></div>
+                    <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(event)">
+                </div>
+                <div class="avatar-hint">Tap circle to change color</div>
+            </div>
+            <div class="input-group">
+                <div class="input-label">Your Name</div>
+                <div class="input-container"><input type="text" class="input-field" id="usernameInput" placeholder="display name" maxlength="30" style="padding-left:18px;"></div>
+            </div>
+            <div class="input-group">
+                <div class="input-label">User iD</div>
+                <div class="input-container"><span class="input-prefix">@</span><input type="text" class="input-field" id="userIdInput" placeholder="your_id" maxlength="20"></div>
+            </div>
+            <button class="btn" onclick="completeSetup()">Start</button>
         </div>
 
-        <!-- Spotifyログインボタン（Spotifyのみ表示） -->
-        <button class="spotify-login show" id="loginBtn">
-            🎵 Spotifyでログイン
-        </button>
-
-        <div id="status"></div>
-
-        <!-- 検索エリア -->
-        <div id="player">
-            <div class="device-info" id="deviceInfo" style="display: none;">デバイス: 読み込み中...</div>
-            
-            <input 
-                type="text" 
-                id="searchInput" 
-                class="search-bar" 
-                placeholder="🔍 曲を検索..."
-                onkeypress="if(event.key==='Enter') search()"
-            >
-            <div id="results"></div>
+```
+    <div class="home-screen" id="homeScreen">
+        <div class="home-header">
+            <div class="home-logo">Onpa</div>
+            <div class="user-avatar-small" id="userAvatarSmall" onclick="editProfile()"></div>
         </div>
-
-        <!-- YouTube Player Dock -->
-        <div id="player-dock" style="display: none;">
-            <div id="player-inner"></div>
-            <button onclick="closePlayer()" style="width: 100%; padding: 10px; background: #f55; border: none; border-radius: 8px; color: white; margin-top: 10px; cursor: pointer;">閉じる</button>
+        <div class="call-btn-section">
+            <button class="call-btn" onclick="startCall()">📞</button>
+        </div>
+        <div class="input-group">
+            <div class="input-label">Call Friend</div>
+            <div class="input-container"><span class="input-prefix">@</span><input type="text" class="input-field" id="friendIdInput" placeholder="friend_id" maxlength="20"></div>
         </div>
     </div>
 
-    <script>
-        // ========================================
-        // 🔑 API設定
-        // ========================================
-        const API_KEYS = {
-            spotify: {
-                clientId: '1ff4e8ebb2f94fb5a20149d697df21fc',
-                redirectUri: 'https://on-pa.net/dev/'
-            },
-            soundcloud: {
-                clientId: 'nJJvQWHJTAzFljrCtmXSU03y7JVZPxXA'
-            },
-            youtube: {
-                apiKey: 'AIzaSyCO0ZnLZAugZDAu39pj0z7JaNJ43zdBJRI'
-            }
-        };
-        // ========================================
+    <div class="call-screen" id="callScreen">
+        <div class="call-screen-logo">Onpa</div>
+        <div class="call-status" id="callStatus">Calling...</div>
+        <div class="call-timer" id="callTimer">00:00</div>
+        <div class="participants-container" id="participantsContainer">
+            <div class="participant">
+                <div class="call-avatar" id="myCallAvatar"></div>
+                <div class="participant-name" id="myCallName">You</div>
+            </div>
+            <div class="connection-wave" id="connectionWave">
+                <div class="wave-line"><div class="wave-dot"></div><div class="wave-dot"></div><div class="wave-dot"></div></div>
+            </div>
+            <div class="participant">
+                <div class="call-avatar gradient-3" id="friendCallAvatar"></div>
+                <div class="participant-name" id="friendCallName">Friend</div>
+            </div>
+        </div>
+        <div class="call-actions">
+            <button class="call-action-btn mute" onclick="toggleMute()">🎤</button>
+            <button class="call-action-btn end" onclick="endCall()">📞</button>
+        </div>
+    </div>
+</div>
 
-        let currentPlatform = 'spotify';
-        let spotifyToken = null;
-        let spotifyDeviceId = null;
-        let currentAudio = null;
+<script>
+    const SKYWAY_API_KEY = '174e3781-3f39-45f1-bce4-9b474b93385e';
+    let userId=null,username=null,userAvatar='gradient-1',userPhoto=null,currentGradientIndex=0;
+    const gradients=['gradient-1','gradient-2','gradient-3','gradient-4','gradient-5','gradient-6','gradient-7','gradient-8'];
+    let peer=null,localStream=null,currentCall=null,callDuration=0,callTimer=null,isMuted=false;
 
-        console.log("🎵 Onpa起動");
+    function cycleGradient(){if(userPhoto)return;currentGradientIndex=(currentGradientIndex+1)%gradients.length;userAvatar=gradients[currentGradientIndex];document.getElementById('avatarCircle').className='avatar-circle '+userAvatar;}
+    function handlePhotoUpload(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=function(e){userPhoto=e.target.result;const c=document.getElementById('avatarCircle');c.style.backgroundImage=`url(${userPhoto})`;c.className='avatar-circle';};r.readAsDataURL(f);}
+    
+    function completeSetup(){const id=document.getElementById('userIdInput').value.trim();const name=document.getElementById('usernameInput').value.trim();if(!id||id.length<3)return alert('User ID must be at least 3 characters');if(!name)return alert('Please enter your name');userId=id;username=name;localStorage.setItem('onpa_user_id',id);localStorage.setItem('onpa_username',name);localStorage.setItem('onpa_avatar',userAvatar);if(userPhoto)localStorage.setItem('onpa_photo',userPhoto);document.getElementById('setupScreen').style.display='none';document.getElementById('homeScreen').classList.add('active');updateHomeDisplay();initializePeer();}
+    
+    function updateHomeDisplay(){const as=document.getElementById('userAvatarSmall');const mca=document.getElementById('myCallAvatar');if(userPhoto){as.style.backgroundImage=`url(${userPhoto})`;as.className='user-avatar-small';mca.style.backgroundImage=`url(${userPhoto})`;mca.className='call-avatar';}else{as.className='user-avatar-small '+userAvatar;mca.className='call-avatar '+userAvatar;}document.getElementById('myCallName').textContent=username;}
+    
+    async function initializePeer(){try{localStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});peer=new Peer('onpa_'+userId,{key:SKYWAY_API_KEY,debug:1});peer.on('open',id=>console.log('Peer:',id));peer.on('call',call=>{call.answer(localStream);currentCall=call;handleIncomingCall(call);});peer.on('error',error=>{if(error.type==='unavailable-id'){alert('This user ID is already in use');localStorage.clear();location.reload();}});}catch(error){alert('Microphone access required');}}
+    
+    function startCall(){const friendId=document.getElementById('friendIdInput').value.trim();if(!friendId)return alert('Enter friend ID');if(!peer||!localStream)return alert('Please wait...');document.getElementById('homeScreen').classList.remove('active');document.getElementById('callScreen').classList.add('active');document.getElementById('friendCallName').textContent='@'+friendId;const call=peer.call('onpa_'+friendId,localStream);currentCall=call;call.on('stream',s=>{playRemoteStream(s);onCallConnected();});call.on('close',()=>endCall());}
+    
+    function handleIncomingCall(call){const friendId=call.peer.replace('onpa_','');document.getElementById('homeScreen').classList.remove('active');document.getElementById('callScreen').classList.add('active');document.getElementById('friendCallName').textContent='@'+friendId;call.on('stream',s=>{playRemoteStream(s);onCallConnected();});call.on('close',()=>endCall());}
+    
+    function onCallConnected(){document.getElementById('callStatus').textContent='On call';document.getElementById('connectionWave').classList.add('hidden');document.getElementById('participantsContainer').classList.add('connected');callDuration=0;callTimer=setInterval(()=>{callDuration++;const m=Math.floor(callDuration/60);const s=callDuration%60;document.getElementById('callTimer').textContent=`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;},1000);setTimeout(()=>{document.getElementById('myCallAvatar').classList.add('speaking');setTimeout(()=>{document.getElementById('myCallAvatar').classList.remove('speaking');document.getElementById('friendCallAvatar').classList.add('speaking');},2500);},1000);}
+    
+    function endCall(){if(currentCall){currentCall.close();currentCall=null;}if(callTimer){clearInterval(callTimer);callTimer=null;}callDuration=0;document.getElementById('callTimer').textContent='00:00';document.getElementById('connectionWave').classList.remove('hidden');document.getElementById('participantsContainer').classList.remove('connected');document.getElementById('myCallAvatar').classList.remove('speaking');document.getElementById('friendCallAvatar').classList.remove('speaking');document.getElementById('callScreen').classList.remove('active');document.getElementById('homeScreen').classList.add('active');}
+    
+    function toggleMute(){if(localStream){const at=localStream.getAudioTracks()[0];at.enabled=!at.enabled;isMuted=!at.enabled;event.target.textContent=isMuted?'🔇':'🎤';}}
+    
+    function playRemoteStream(stream){const ex=document.getElementById('remoteAudio');if(ex)ex.remove();const a=document.createElement('audio');a.id='remoteAudio';a.srcObject=stream;a.autoplay=true;a.playsInline=true;document.body.appendChild(a);}
+    
+    function editProfile(){document.getElementById('homeScreen').classList.remove('active');document.getElementById('setupScreen').style.display='block';document.getElementById('userIdInput').value=userId;document.getElementById('usernameInput').value=username;const c=document.getElementById('avatarCircle');if(userPhoto){c.style.backgroundImage=`url(${userPhoto})`;c.className='avatar-circle';}else{c.className='avatar-circle '+userAvatar;}}
+    
+    window.onload=function(){const si=localStorage.getItem('onpa_user_id');const sn=localStorage.getItem('onpa_username');const sa=localStorage.getItem('onpa_avatar');const sp=localStorage.getItem('onpa_photo');if(si&&sn){userId=si;username=sn;userAvatar=sa||'gradient-1';userPhoto=sp;currentGradientIndex=gradients.indexOf(userAvatar);document.getElementById('setupScreen').style.display='none';document.getElementById('homeScreen').classList.add('active');updateHomeDisplay();initializePeer();}};
+</script>
+```
 
-        // プラットフォーム選択
-        function selectPlatform(platform) {
-            currentPlatform = platform;
-            
-            // ボタンの見た目を更新
-            document.querySelectorAll('.platform-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`.platform-btn.${platform}`).classList.add('active');
-            
-            // Spotifyログインボタンの表示/非表示
-            const loginBtn = document.getElementById('loginBtn');
-            const deviceInfo = document.getElementById('deviceInfo');
-            
-            if (platform === 'spotify') {
-                loginBtn.classList.add('show');
-                if (spotifyToken) {
-                    deviceInfo.style.display = 'block';
-                }
-            } else {
-                loginBtn.classList.remove('show');
-                deviceInfo.style.display = 'none';
-            }
-            
-            // 検索欄のプレースホルダー変更
-            const searchInput = document.getElementById('searchInput');
-            const placeholders = {
-                spotify: '🔍 Spotify検索...',
-                soundcloud: '🔍 SoundCloud検索...',
-                youtube: '🔍 YouTube検索...',
-                nina: '🔍 Nina Protocol検索...'
-            };
-            searchInput.placeholder = placeholders[platform];
-            
-            // 結果をクリア
-            document.getElementById('results').innerHTML = '';
-            
-            console.log('📱 プラットフォーム変更:', platform);
-        }
-
-        // Spotifyログインボタン
-        document.getElementById('loginBtn').addEventListener('click', function() {
-            console.log("🔵 Spotifyログインボタンが押されました");
-            const scopes = 'user-read-playback-state user-modify-playback-state streaming user-read-private user-read-email';
-            
-            const url = `https://accounts.spotify.com/authorize?client_id=${API_KEYS.spotify.clientId}&response_type=token&redirect_uri=${encodeURIComponent(API_KEYS.spotify.redirectUri)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
-            
-            console.log("🌐 送信URL: ", url);
-            window.location.href = url;
-        });
-
-        // ページ読み込み時（Spotify認証後）
-        window.onload = () => {
-            console.log("📄 ページ読み込み完了");
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            spotifyToken = params.get('access_token');
-
-            if (spotifyToken) {
-                console.log("✅ Spotifyトークン取得成功！");
-                window.history.replaceState({}, '', window.location.pathname);
-                document.getElementById('loginBtn').textContent = '✓ Spotify ログイン済み';
-                document.getElementById('loginBtn').disabled = true;
-                document.getElementById('deviceInfo').style.display = 'block';
-                showStatus('✅ Spotifyに接続しました', '#1DB954');
-                getSpotifyDevices();
-            } else if (params.get('error')) {
-                console.error("❌ Spotifyエラー:", params.get('error'));
-                alert("ログインエラー: " + params.get('error'));
-            }
-        };
-
-        // Spotifyデバイス取得
-        async function getSpotifyDevices() {
-            try {
-                const res = await fetch('https://api.spotify.com/v1/me/player/devices', {
-                    headers: { 'Authorization': `Bearer ${spotifyToken}` }
-                });
-                const data = await res.json();
-
-                if (data.devices?.length > 0) {
-                    const active = data.devices.find(d => d.is_active) || data.devices[0];
-                    spotifyDeviceId = active.id;
-                    document.getElementById('deviceInfo').textContent = 
-                        `デバイス: ${active.name} (${active.type})`;
-                    console.log('🎧 Spotifyデバイス:', active);
-                } else {
-                    document.getElementById('deviceInfo').innerHTML = 
-                        '⚠️ デバイスなし - Spotifyアプリで曲を再生してください';
-                }
-            } catch (e) {
-                console.error('❌ Device error:', e);
-            }
-        }
-
-        // 検索（プラットフォーム別）
-        async function search() {
-            const query = document.getElementById('searchInput').value;
-            if (!query) return;
-
-            console.log(`🔍 ${currentPlatform}で検索:`, query);
-            const results = document.getElementById('results');
-            results.innerHTML = '<div class="loading">検索中...</div>';
-
-            try {
-                switch(currentPlatform) {
-                    case 'spotify':
-                        await searchSpotify(query);
-                        break;
-                    case 'soundcloud':
-                        await searchSoundCloud(query);
-                        break;
-                    case 'youtube':
-                        await searchYouTube(query);
-                        break;
-                    case 'nina':
-                        await searchNina(query);
-                        break;
-                }
-            } catch (e) {
-                console.error('❌ 検索エラー:', e);
-                results.innerHTML = '<div class="loading">検索エラー</div>';
-            }
-        }
-
-        // Spotify検索
-        async function searchSpotify(query) {
-            if (!spotifyToken) {
-                alert('Spotifyにログインしてください');
-                document.getElementById('results').innerHTML = '';
-                return;
-            }
-
-            const res = await fetch(
-                `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=JP&limit=10`,
-                { headers: { 'Authorization': `Bearer ${spotifyToken}` } }
-            );
-            const data = await res.json();
-            
-            const tracks = data.tracks.items.map(t => ({
-                title: t.name,
-                artist: t.artists[0].name,
-                artwork: t.album.images[0]?.url,
-                uri: t.uri,
-                platform: 'spotify'
-            }));
-            
-            displayResults(tracks);
-        }
-
-        // SoundCloud検索
-        async function searchSoundCloud(query) {
-            const res = await fetch(
-                `https://api.soundcloud.com/tracks?q=${encodeURIComponent(query)}&client_id=${API_KEYS.soundcloud.clientId}&limit=10`
-            );
-            const data = await res.json();
-            
-            const tracks = data.map(t => ({
-                title: t.title,
-                artist: t.user.username,
-                artwork: t.artwork_url || t.user.avatar_url,
-                streamUrl: t.stream_url + `?client_id=${API_KEYS.soundcloud.clientId}`,
-                platform: 'soundcloud'
-            }));
-            
-            displayResults(tracks);
-        }
-
-        // YouTube検索
-        async function searchYouTube(query) {
-            const res = await fetch(
-                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=10&key=${API_KEYS.youtube.apiKey}`
-            );
-            const data = await res.json();
-            
-            const tracks = data.items.map(item => ({
-                title: item.snippet.title,
-                artist: item.snippet.channelTitle,
-                artwork: item.snippet.thumbnails.medium.url,
-                videoId: item.id.videoId,
-                platform: 'youtube'
-            }));
-            
-            displayResults(tracks);
-        }
-
-        // Nina Protocol検索
-        async function searchNina(query) {
-            const res = await fetch(
-                `https://api.ninaprotocol.com/v1/search?query=${encodeURIComponent(query)}`
-            );
-            const data = await res.json();
-            
-            const tracks = (data.releases || []).map(r => ({
-                title: r.metadata?.properties?.title || r.title || 'Unknown',
-                artist: r.metadata?.properties?.artist || r.artist || 'Unknown',
-                artwork: r.metadata?.image || r.image || '',
-                audioUrl: r.metadata?.animation_url || r.animation_url || '',
-                platform: 'nina'
-            }));
-            
-            displayResults(tracks);
-        }
-
-        // 結果表示
-        function displayResults(tracks) {
-            const div = document.getElementById('results');
-            div.innerHTML = '';
-
-            if (!tracks || tracks.length === 0) {
-                div.innerHTML = '<div class="loading">結果なし</div>';
-                return;
-            }
-
-            tracks.forEach((track, index) => {
-                const trackDiv = document.createElement('div');
-                trackDiv.className = 'search-result-item';
-                trackDiv.innerHTML = `
-                    <img src="${track.artwork || ''}" class="result-artwork" onerror="this.style.background='#333'">
-                    <div class="result-info">
-                        <div class="result-track">${track.title}</div>
-                        <div class="result-artist">${track.artist}</div>
-                    </div>
-                    <button class="result-play-btn" onclick='play(${JSON.stringify(track)})'>▶️</button>
-                `;
-                div.appendChild(trackDiv);
-            });
-
-            console.log(`✅ ${tracks.length}件の結果を表示`);
-        }
-
-        // 再生
-        async function play(track) {
-            console.log('▶️ 再生:', track.title, '/', track.platform);
-
-            // 既存の音声を停止
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-
-            switch(track.platform) {
-                case 'spotify':
-                    await playSpotify(track.uri);
-                    break;
-                case 'soundcloud':
-                    playAudio(track.streamUrl);
-                    break;
-                case 'youtube':
-                    playYouTube(track.videoId);
-                    break;
-                case 'nina':
-                    if (track.audioUrl) {
-                        playAudio(track.audioUrl);
-                    } else {
-                        alert('この曲は再生URLがありません');
-                    }
-                    break;
-            }
-        }
-
-        // YouTube再生（iframe埋め込み - Safari対応）
-        function playYouTube(videoId) {
-            const dock = document.getElementById('player-dock');
-            const inner = document.getElementById('player-inner');
-            dock.style.display = 'block';
-
-            // playsinline=1 が Safariで「全画面に飛ばさない」ための重要な設定
-            inner.innerHTML = `
-                <iframe 
-                    src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1" 
-                    allow="autoplay; encrypted-media; picture-in-picture" 
-                    allowfullscreen 
-                    playsinline
-                    style="width: 100%; height: 200px; border: none; border-radius: 8px;">
-                </iframe>`;
-            
-            console.log('✅ YouTube埋め込み再生開始');
-            showStatus('✅ YouTube再生中', '#ff0000');
-        }
-
-        // プレイヤーを閉じる
-        function closePlayer() {
-            const dock = document.getElementById('player-dock');
-            const inner = document.getElementById('player-inner');
-            dock.style.display = 'none';
-            inner.innerHTML = '';
-            console.log('⏹ プレイヤーを閉じました');
-        }
-
-        // Spotify再生
-        async function playSpotify(uri) {
-            if (!spotifyDeviceId) {
-                await getSpotifyDevices();
-                if (!spotifyDeviceId) {
-                    alert('Spotifyデバイスが見つかりません。\n\nSpotifyアプリで曲を一度再生してください。');
-                    return;
-                }
-            }
-
-            try {
-                const res = await fetch(
-                    `https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`,
-                    {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `Bearer ${spotifyToken}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ uris: [uri] })
-                    }
-                );
-
-                if (res.ok || res.status === 204) {
-                    console.log('✅ Spotify再生成功');
-                    showStatus('✅ Spotifyで再生中', '#1DB954');
-                } else {
-                    const err = await res.json();
-                    console.error('❌ Spotify再生エラー:', err);
-                    showStatus('❌ 再生エラー', '#f55');
-                }
-            } catch (e) {
-                console.error('❌ Spotify再生エラー:', e);
-                showStatus('❌ 再生エラー', '#f55');
-            }
-        }
-
-        // Audio再生（SoundCloud、Nina）
-        function playAudio(url) {
-            currentAudio = new Audio(url);
-            currentAudio.play().then(() => {
-                console.log('✅ Audio再生開始');
-                showStatus('✅ 再生中', '#1DB954');
-            }).catch(err => {
-                console.error('❌ Audio再生エラー:', err);
-                alert('再生できませんでした: ' + err.message);
-            });
-        }
-
-        // ステータス表示
-        function showStatus(msg, color) {
-            const s = document.getElementById('status');
-            s.innerHTML = `<div class="status" style="background: ${color}22; border: 1px solid ${color};">${msg}</div>`;
-            setTimeout(() => s.innerHTML = '', 5000);
-        }
-    </script>
 </body>
 </html>
