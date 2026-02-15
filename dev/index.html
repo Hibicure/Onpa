@@ -114,7 +114,7 @@
         <div class="logo">Onpa</div>
 
 ```
-    <button class="spotify-login" id="loginBtn" onclick="loginSpotify()">
+    <button class="spotify-login" id="loginBtn">
         🎵 Spotifyでログイン
     </button>
 
@@ -135,58 +135,47 @@
 </div>
 
 <script>
-    console.log("🎵 プログラムが動き出しました！");
-    
-    // ========================================
-    // 🔑 設定
-    // ========================================
+    // 確実に動かすための完全固定設定
     const CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
-    const REDIRECT_URI = window.location.origin + window.location.pathname;
-    
-    console.log('✅ CLIENT_ID:', CLIENT_ID);
-    console.log('✅ Redirect URI:', REDIRECT_URI);
-    // ========================================
+    const REDIRECT_URI = 'https://on-pa.net/dev/';
+
+    console.log("🎵 Onpa起動開始: ", REDIRECT_URI);
 
     let token = null;
     let deviceId = null;
 
-    // 初期化
+    // ログインボタンの処理をHTMLからではなく、ここで直接紐付ける
+    document.getElementById('loginBtn').addEventListener('click', function() {
+        console.log("🔵 ログインボタンが押されました");
+        const scopes = 'user-read-playback-state user-modify-playback-state streaming user-read-private user-read-email';
+        
+        // Spotifyへ飛ばす
+        const url = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
+        
+        console.log("🌐 送信URL: ", url);
+        window.location.href = url;
+    });
+
+    // 戻ってきた時の処理
     window.onload = () => {
+        console.log("📄 ページ読み込み完了。ハッシュを確認中...");
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
         token = params.get('access_token');
 
         if (token) {
+            console.log("✅ トークン取得成功！");
             window.history.replaceState({}, '', window.location.pathname);
             document.getElementById('loginBtn').textContent = '✓ ログイン済み';
             document.getElementById('loginBtn').disabled = true;
             document.getElementById('player').style.display = 'block';
             showStatus('✅ Spotifyに接続しました', '#1DB954');
             getDevices();
+        } else if (params.get('error')) {
+            console.error("❌ Spotifyエラー:", params.get('error'));
+            alert("ログインエラー: " + params.get('error'));
         }
     };
-
-    // Spotifyログイン（Gemini修正版）
-    function loginSpotify() {
-        console.log('🔵 loginSpotify() が呼ばれました！');
-        
-        const scopes = 'user-read-playback-state user-modify-playback-state streaming user-read-private user-read-email';
-        
-        // URLSearchParamsで正しく構築
-        const authUrl = 'https://accounts.spotify.com/authorize';
-        const queryParams = new URLSearchParams({
-            client_id: CLIENT_ID,
-            response_type: 'token',
-            redirect_uri: REDIRECT_URI,
-            scope: scopes,
-            show_dialog: 'true'
-        });
-
-        console.log('🌐 Auth URL:', `${authUrl}?${queryParams.toString()}`);
-        console.log('🚀 リダイレクトします...');
-        
-        window.location.href = `${authUrl}?${queryParams.toString()}`;
-    }
 
     // デバイス取得
     async function getDevices() {
@@ -201,13 +190,13 @@
                 deviceId = active.id;
                 document.getElementById('deviceInfo').textContent = 
                     `デバイス: ${active.name} (${active.type})`;
-                console.log('Device selected:', active);
+                console.log('🎧 Device selected:', active);
             } else {
                 document.getElementById('deviceInfo').innerHTML = 
                     '⚠️ デバイスなし - Spotifyアプリで何か再生してください';
             }
         } catch (e) {
-            console.error('Device error:', e);
+            console.error('❌ Device error:', e);
         }
     }
 
@@ -216,15 +205,18 @@
         const q = document.getElementById('searchInput').value;
         if (!q) return;
 
+        console.log('🔍 検索中:', q);
+
         try {
             const res = await fetch(
                 `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=JP&limit=10`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             const data = await res.json();
+            console.log('✅ 検索結果:', data.tracks.items.length, '件');
             displayResults(data.tracks.items);
         } catch (e) {
-            console.error('Search error:', e);
+            console.error('❌ Search error:', e);
         }
     }
 
@@ -255,6 +247,8 @@
 
     // 再生
     async function play(uri) {
+        console.log('▶️ 再生リクエスト:', uri);
+        
         if (!deviceId) {
             await getDevices();
             if (!deviceId) {
@@ -277,6 +271,7 @@
             );
 
             if (res.ok || res.status === 204) {
+                console.log('✅ 再生成功');
                 showStatus('✅ 再生中', '#1DB954');
             } else if (res.status === 404) {
                 alert('デバイスが見つかりません。Spotifyアプリを確認してください。');
@@ -284,11 +279,11 @@
                 await getDevices();
             } else {
                 const err = await res.json();
-                console.error('Play error:', err);
+                console.error('❌ Play error:', err);
                 showStatus('❌ エラー: ' + (err.error?.message || 'Unknown'), '#f55');
             }
         } catch (e) {
-            console.error('Play error:', e);
+            console.error('❌ Play error:', e);
             showStatus('❌ 再生エラー', '#f55');
         }
     }
