@@ -117,13 +117,12 @@
     </div>
 
     <script>
+        // ========================================
+        // 🔑 設定
+        // ========================================
         const CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
-        
-        // redirectUriがnullにならないように修正
-        let redirectUri = window.location.origin + window.location.pathname;
-        if (redirectUri.includes('null')) {
-            redirectUri = 'https://on-pa.net/dev/index.html';
-        }
+        const REDIRECT_URI = 'https://on-pa.net/dev/'; 
+        // ========================================
 
         let token = null;
         let deviceId = null;
@@ -134,6 +133,7 @@
             token = params.get('access_token');
 
             if (token) {
+                // URLからトークンを消して見た目をきれいにする
                 window.history.replaceState({}, '', window.location.pathname);
                 document.getElementById('loginBtn').textContent = '✓ ログイン済み';
                 document.getElementById('loginBtn').disabled = true;
@@ -149,10 +149,11 @@
             const queryParams = new URLSearchParams({
                 client_id: CLIENT_ID,
                 response_type: 'token',
-                redirect_uri: redirectUri,
+                redirect_uri: REDIRECT_URI,
                 scope: scopes,
                 show_dialog: 'true'
             });
+
             window.location.href = `${authUrl}?${queryParams.toString()}`;
         }
 
@@ -162,22 +163,29 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
+
                 if (data.devices?.length > 0) {
                     const active = data.devices.find(d => d.is_active) || data.devices[0];
                     deviceId = active.id;
-                    document.getElementById('deviceInfo').textContent = `デバイス: ${active.name} (${active.type})`;
+                    document.getElementById('deviceInfo').textContent = 
+                        `デバイス: ${active.name} (${active.type})`;
                 } else {
-                    document.getElementById('deviceInfo').innerHTML = '⚠️ デバイスなし - Spotifyアプリで何か再生してください';
+                    document.getElementById('deviceInfo').innerHTML = 
+                        '⚠️ デバイスなし - Spotifyアプリで何か再生してください';
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         async function search() {
             const q = document.getElementById('searchInput').value;
             if (!q) return;
-            const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=JP&limit=10`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+
+            const res = await fetch(
+                `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&market=JP&limit=10`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
             const data = await res.json();
             displayResults(data.tracks.items);
         }
@@ -185,6 +193,7 @@
         function displayResults(tracks) {
             const div = document.getElementById('results');
             div.innerHTML = '';
+
             tracks.forEach(t => {
                 const trackDiv = document.createElement('div');
                 trackDiv.className = 'search-result-item';
@@ -201,16 +210,35 @@
         }
 
         async function play(uri) {
-            if (!deviceId) { await getDevices(); if (!deviceId) { alert('デバイスなし'); return; } }
+            if (!deviceId) {
+                await getDevices();
+                if (!deviceId) {
+                    alert('デバイスが見つかりません。Spotifyアプリで曲を再生してください。');
+                    return;
+                }
+            }
+
             try {
-                const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ uris: [uri] })
-                });
-                if (res.ok || res.status === 204) { showStatus('✅ 再生中', '#1DB954'); }
-                else { showStatus('❌ 再生できませんでした', '#f55'); }
-            } catch (e) { showStatus('❌ 再生エラー', '#f55'); }
+                const res = await fetch(
+                    `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ uris: [uri] })
+                    }
+                );
+
+                if (res.ok || res.status === 204) {
+                    showStatus('✅ 再生リクエスト完了', '#1DB954');
+                } else {
+                    showStatus('❌ 再生できませんでした', '#f55');
+                }
+            } catch (e) {
+                showStatus('❌ 再生エラー', '#f55');
+            }
         }
 
         function showStatus(msg, color) {
