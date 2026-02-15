@@ -672,6 +672,35 @@ index.html
             flex-shrink: 0;
         }
 
+        .result-favorite-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: transparent;
+            border: 2px solid rgba(255, 51, 102, 0.3);
+            color: rgba(255, 51, 102, 0.5);
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-left: 8px;
+            transition: all 0.3s;
+        }
+
+        .result-favorite-btn:hover {
+            transform: scale(1.1);
+            border-color: #ff3366;
+            color: #ff3366;
+        }
+
+        .result-favorite-btn.favorited {
+            background: linear-gradient(135deg, #ff3366, #ffd000);
+            border-color: #ff3366;
+            color: white;
+        }
+
         .loading {
             text-align: center;
             padding: 20px;
@@ -1107,8 +1136,8 @@ index.html
                 <div class="now-playing">
                     <div class="album-art"></div>
                     <div class="track-info">
-                        <div class="track-title">Select a song</div>
-                        <div class="track-artist">YoYou</div>
+                        <div class="track-title">余熱</div>
+                        <div class="track-artist">Hibicure</div>
                     </div>
                     <button class="equalizer-toggle" onclick="toggleEqualizer()">🎛️</button>
                 </div>
@@ -1153,15 +1182,15 @@ index.html
                 <div class="queue-item">
                     <div class="queue-thumb"></div>
                     <div class="queue-info">
-                        <div class="queue-track">202022</div>
-                        <div class="queue-artist">YoYou</div>
+                        <div class="queue-track">Omamory</div>
+                        <div class="queue-artist">Hibicure</div>
                         <div class="queue-user">Added by @friend</div>
                     </div>
                 </div>
                 <div class="queue-item">
                     <div class="queue-thumb" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
                     <div class="queue-info">
-                        <div class="queue-track">how r m</div>
+                        <div class="queue-track">202022</div>
                         <div class="queue-artist">YoYou</div>
                         <div class="queue-user">Added by @you</div>
                     </div>
@@ -1169,8 +1198,8 @@ index.html
                 <div class="queue-item">
                     <div class="queue-thumb" style="background: linear-gradient(135deg, #00ffc8, #0096ff);"></div>
                     <div class="queue-info">
-                        <div class="queue-track">tutumu</div>
-                        <div class="queue-artist">YoYou</div>
+                        <div class="queue-track">Holo Rare</div>
+                        <div class="queue-artist">Hibicure</div>
                         <div class="queue-user">Added by @friend</div>
                     </div>
                 </div>
@@ -1219,28 +1248,28 @@ index.html
             <div class="history-item">
                 <div class="history-thumb"></div>
                 <div class="history-info">
-                    <div class="history-track">5wim - YoYou</div>
+                    <div class="history-track">余熱 - Hibicure</div>
                     <div class="history-time">5 mins ago · Spotify</div>
                 </div>
             </div>
             <div class="history-item">
                 <div class="history-thumb" style="background: linear-gradient(135deg, #ff3366, #ffd000);"></div>
                 <div class="history-info">
-                    <div class="history-track">CUT THROAT - YoYou ft. Oshunda</div>
+                    <div class="history-track">Omamory - Hibicure</div>
                     <div class="history-time">12 mins ago · YouTube</div>
                 </div>
             </div>
             <div class="history-item">
                 <div class="history-thumb" style="background: linear-gradient(135deg, #00ffc8, #ffd000);"></div>
                 <div class="history-info">
-                    <div class="history-track">202022 - YoYou</div>
+                    <div class="history-track">Holo Rare - Hibicure</div>
                     <div class="history-time">25 mins ago · Spotify</div>
                 </div>
             </div>
             <div class="history-item">
                 <div class="history-thumb" style="background: linear-gradient(135deg, #0096ff, #00ffc8);"></div>
                 <div class="history-info">
-                    <div class="history-track">tutumu - YoYou</div>
+                    <div class="history-track">202022 - YoYou</div>
                     <div class="history-time">1 hour ago · SoundCloud</div>
                 </div>
             </div>
@@ -1787,6 +1816,54 @@ index.html
             }
         }
 
+        // Favorites management
+        let favorites = JSON.parse(localStorage.getItem('onpa_favorites') || '[]');
+
+        function toggleFavorite(event, index) {
+            event.stopPropagation();
+            
+            const item = document.querySelector(`[data-index="${index}"]`);
+            const trackName = item.dataset.trackName;
+            const artistName = item.dataset.artistName;
+            const previewUrl = item.dataset.previewUrl;
+            const artworkUrl = item.dataset.artworkUrl;
+            
+            const favoriteBtn = event.target;
+            const favoriteKey = `${trackName}-${artistName}`;
+            
+            const existingIndex = favorites.findIndex(f => f.key === favoriteKey);
+            
+            if (existingIndex >= 0) {
+                // Remove from favorites
+                favorites.splice(existingIndex, 1);
+                favoriteBtn.classList.remove('favorited');
+                favoriteBtn.textContent = '♡';
+                console.log('Removed from favorites:', trackName);
+            } else {
+                // Add to favorites
+                favorites.push({
+                    key: favoriteKey,
+                    trackName,
+                    artistName,
+                    previewUrl,
+                    artworkUrl,
+                    addedAt: new Date().toISOString()
+                });
+                favoriteBtn.classList.add('favorited');
+                favoriteBtn.textContent = '♥';
+                console.log('Added to favorites:', trackName);
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('onpa_favorites', JSON.stringify(favorites));
+        }
+
+        // Check if track is favorited on display
+        function checkFavorited(trackName, artistName) {
+            const favoriteKey = `${trackName}-${artistName}`;
+            return favorites.some(f => f.key === favoriteKey);
+        }
+
         // Audio player for previews
         let currentAudio = null;
         let currentPlayingItem = null;
@@ -1811,7 +1888,7 @@ index.html
             }, 500);
         });
 
-        // Dummy music data (no API calls needed)
+        // Dummy music data (fallback when API fails)
         const dummyMusicData = [
             {
                 trackName: "202022",
@@ -1844,95 +1921,128 @@ index.html
                 previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
             },
             {
-                trackName: "Sample Track 1",
+                trackName: "余熱",
                 artistName: "Hibicure",
                 artworkUrl: "https://via.placeholder.com/100/0096ff/ffffff?text=Hibicure",
                 previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3"
             },
             {
-                trackName: "Sample Track 2",
+                trackName: "Omamory",
                 artistName: "Hibicure",
                 artworkUrl: "https://via.placeholder.com/100/00ffc8/ffffff?text=Hibicure",
                 previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3"
             },
             {
-                trackName: "Demo Song A",
-                artistName: "Test Artist",
-                artworkUrl: "https://via.placeholder.com/100/ffd000/ffffff?text=Test",
+                trackName: "Holo Rare",
+                artistName: "Hibicure",
+                artworkUrl: "https://via.placeholder.com/100/ffd000/ffffff?text=Hibicure",
                 previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3"
-            },
-            {
-                trackName: "Demo Song B",
-                artistName: "Test Artist",
-                artworkUrl: "https://via.placeholder.com/100/ff3366/ffffff?text=Test",
-                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3"
-            },
-            {
-                trackName: "Demo Song C",
-                artistName: "Test Artist",
-                artworkUrl: "https://via.placeholder.com/100/0096ff/ffffff?text=Test",
-                previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
             }
         ];
 
-        async function searchMusic(query) {
-            searchResults.classList.add('active');
-            searchResults.innerHTML = '<div class="loading">Searching locally...</div>';
+        // Spotify API credentials
+        const SPOTIFY_CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
+        const SPOTIFY_CLIENT_SECRET = '3949fc18d1cc4f5697340273174f3211';
+        let spotifyAccessToken = null;
 
-            // Simulate network delay
-            await new Promise(resolve => setTimeout(resolve, 300));
+        // Get Spotify access token
+        async function getSpotifyToken() {
+            if (spotifyAccessToken) return spotifyAccessToken;
 
             try {
-                console.log('Searching local data for:', query);
-                
-                // Filter dummy data based on query
-                const results = dummyMusicData.filter(track => {
-                    const searchTerm = query.toLowerCase();
-                    return track.trackName.toLowerCase().includes(searchTerm) ||
-                           track.artistName.toLowerCase().includes(searchTerm);
+                const response = await fetch('https://accounts.spotify.com/api/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET)
+                    },
+                    body: 'grant_type=client_credentials'
                 });
 
-                console.log('Found', results.length, 'results');
-
-                if (results.length > 0) {
-                    displaySearchResults(results);
-                } else {
-                    searchResults.innerHTML = '<div class="loading">No songs found<br>Try: "YoYou", "Hibicure", or "Test"</div>';
-                }
+                const data = await response.json();
+                spotifyAccessToken = data.access_token;
+                
+                // Token expires in 1 hour, refresh it
+                setTimeout(() => { spotifyAccessToken = null; }, 3500000);
+                
+                return spotifyAccessToken;
             } catch (error) {
-                console.error('Search error:', error);
-                searchResults.innerHTML = `<div class="loading">Search error: ${error.message}</div>`;
+                console.error('Error getting Spotify token:', error);
+                return null;
             }
         }
 
-        function displaySearchResults(results) {
+        async function searchMusic(query) {
+            searchResults.classList.add('active');
+            searchResults.innerHTML = '<div class="loading">Searching Spotify...</div>';
+
+            try {
+                // Get Spotify access token
+                const token = await getSpotifyToken();
+                
+                if (!token) {
+                    throw new Error('Failed to get Spotify access token');
+                }
+
+                // Search Spotify API
+                const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10&market=JP`;
+                
+                console.log('Searching Spotify:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Spotify results:', data);
+
+                if (data.tracks && data.tracks.items && data.tracks.items.length > 0) {
+                    displaySpotifyResults(data.tracks.items);
+                } else {
+                    searchResults.innerHTML = '<div class="loading">No songs found<br>Try different keywords</div>';
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                searchResults.innerHTML = `<div class="loading">Search error: ${error.message}<br>Please try again</div>`;
+            }
+        }
+
+        function displaySpotifyResults(tracks) {
             searchResults.innerHTML = '';
-            console.log('Displaying', results.length, 'results');
+            console.log('Displaying', tracks.length, 'Spotify results');
 
             let displayedCount = 0;
             
-            results.forEach((track, index) => {
-                console.log('Track:', track.trackName, 'Preview:', track.previewUrl);
+            tracks.forEach((track, index) => {
+                console.log('Track:', track.name, 'Preview:', track.preview_url);
                 
                 const item = document.createElement('div');
                 item.className = 'search-result-item';
                 item.dataset.index = displayedCount;
 
-                const artworkUrl = track.artworkUrl || '';
-                const previewUrl = track.previewUrl || '';
+                // Spotify API format
+                const artworkUrl = track.album?.images?.[0]?.url || '';
+                const previewUrl = track.preview_url || '';
+                const artistName = track.artists?.map(a => a.name).join(', ') || 'Unknown Artist';
 
                 item.innerHTML = `
-                    <img src="${artworkUrl}" alt="${track.trackName || 'Unknown'}" class="result-artwork" onerror="this.style.background='linear-gradient(135deg, #0096ff, #00ffc8)'">
+                    <img src="${artworkUrl}" alt="${track.name || 'Unknown'}" class="result-artwork" onerror="this.style.background='linear-gradient(135deg, #0096ff, #00ffc8)'">
                     <div class="result-info">
-                        <div class="result-track">${track.trackName || 'Unknown Track'}</div>
-                        <div class="result-artist">${track.artistName || 'Unknown Artist'}</div>
+                        <div class="result-track">${track.name || 'Unknown Track'}</div>
+                        <div class="result-artist">${artistName}</div>
                     </div>
                     <button class="result-play-btn" onclick="togglePreview(event, ${displayedCount})" ${!previewUrl ? 'disabled' : ''}>▶️</button>
                 `;
 
                 item.dataset.previewUrl = previewUrl;
-                item.dataset.trackName = track.trackName || 'Unknown Track';
-                item.dataset.artistName = track.artistName || 'Unknown Artist';
+                item.dataset.trackName = track.name || 'Unknown Track';
+                item.dataset.artistName = artistName;
                 item.dataset.artworkUrl = artworkUrl;
 
                 searchResults.appendChild(item);
@@ -1942,6 +2052,180 @@ index.html
             if (displayedCount === 0) {
                 searchResults.innerHTML = '<div class="loading">No playable songs found</div>';
             }
+        }
+
+        async function searchMusic_old(query) {
+            searchResults.classList.add('active');
+            searchResults.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                // Try Nina Protocol API first (indie/underground music)
+                console.log('Trying Nina Protocol API...');
+                const ninaUrl = `https://api.ninaprotocol.com/v1/search?query=${encodeURIComponent(query)}`;
+                
+                const ninaResponse = await fetch(ninaUrl);
+                if (ninaResponse.ok) {
+                    const ninaData = await ninaResponse.json();
+                    console.log('Nina Protocol results:', ninaData);
+                    
+                    if (ninaData.releases && ninaData.releases.length > 0) {
+                        displaySearchResults(ninaData.releases, 'nina');
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Nina Protocol failed:', error.message);
+            }
+
+            try {
+                // Try iTunes API as fallback
+                const callbackName = 'jsonpCallback' + Date.now();
+                const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=10&country=US&callback=${callbackName}`;
+                
+                console.log('Trying iTunes API:', url);
+                
+                const data = await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        cleanup();
+                        reject(new Error('Request timeout'));
+                    }, 5000);
+
+                    window[callbackName] = (data) => {
+                        cleanup();
+                        resolve(data);
+                    };
+
+                    function cleanup() {
+                        clearTimeout(timeout);
+                        const script = document.getElementById(callbackName);
+                        if (script && script.parentNode) {
+                            script.parentNode.removeChild(script);
+                        }
+                        delete window[callbackName];
+                    }
+
+                    const script = document.createElement('script');
+                    script.id = callbackName;
+                    script.src = url;
+                    script.onerror = () => {
+                        cleanup();
+                        reject(new Error('Failed to load iTunes API'));
+                    };
+                    
+                    document.head.appendChild(script);
+                });
+
+                console.log('iTunes API results:', data);
+
+                if (data.results && data.results.length > 0) {
+                    displaySearchResults(data.results, 'itunes');
+                } else {
+                    searchResults.innerHTML = '<div class="loading">No songs found on iTunes<br>Try different keywords</div>';
+                }
+            } catch (error) {
+                console.error('iTunes API error:', error.message);
+                console.log('Falling back to local data...');
+                
+                // Fallback to local dummy data
+                await searchLocalData(query);
+            }
+        }
+
+        async function searchLocalData(query) {
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            console.log('Searching local data for:', query);
+            
+            // Filter dummy data based on query
+            const results = dummyMusicData.filter(track => {
+                const searchTerm = query.toLowerCase();
+                return track.trackName.toLowerCase().includes(searchTerm) ||
+                       track.artistName.toLowerCase().includes(searchTerm);
+            });
+
+            console.log('Found', results.length, 'local results');
+
+            if (results.length > 0) {
+                displaySearchResults(results, 'local');
+            } else {
+                searchResults.innerHTML = '<div class="loading">No songs found<br>Try: "YoYou", "Hibicure", "余熱", "Omamory"</div>';
+            }
+        }
+
+        function displaySearchResults(results, source = 'itunes') {
+            searchResults.innerHTML = '';
+            console.log('Displaying', results.length, 'results from', source);
+            console.log('Raw results data:', results);
+
+            let displayedCount = 0;
+            
+            results.forEach((track, index) => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.dataset.index = displayedCount;
+
+                let artworkUrl, previewUrl, trackName, artistName;
+
+                if (source === 'nina') {
+                    // Nina Protocol format
+                    artworkUrl = track.metadata?.image || track.image || '';
+                    previewUrl = track.metadata?.animation_url || track.animation_url || '';
+                    trackName = track.metadata?.properties?.title || track.title || 'Unknown Track';
+                    artistName = track.metadata?.properties?.artist || track.artist || 'Unknown Artist';
+                } else if (source === 'itunes') {
+                    // iTunes API format
+                    artworkUrl = track.artworkUrl100 || track.artworkUrl60 || '';
+                    previewUrl = track.previewUrl || '';
+                    trackName = track.trackName || 'Unknown Track';
+                    artistName = track.artistName || 'Unknown Artist';
+                } else {
+                    // Local data format
+                    artworkUrl = track.artworkUrl || '';
+                    previewUrl = track.previewUrl || '';
+                    trackName = track.trackName || 'Unknown Track';
+                    artistName = track.artistName || 'Unknown Artist';
+                }
+
+                console.log(`Track ${index + 1}:`, trackName);
+                console.log('  Artist:', artistName);
+                console.log('  Preview URL:', previewUrl || '❌ NO PREVIEW URL');
+                console.log('  Artwork:', artworkUrl || '❌ NO ARTWORK');
+
+                const isFavorited = checkFavorited(trackName, artistName);
+                const favoriteIcon = isFavorited ? '♥' : '♡';
+                const favoritedClass = isFavorited ? 'favorited' : '';
+
+                item.innerHTML = `
+                    <img src="${artworkUrl}" alt="${trackName}" class="result-artwork" onerror="this.style.background='linear-gradient(135deg, #0096ff, #00ffc8)'">
+                    <div class="result-info">
+                        <div class="result-track">${trackName}</div>
+                        <div class="result-artist">${artistName}</div>
+                    </div>
+                    <button class="result-play-btn" onclick="togglePreview(event, ${displayedCount})" ${!previewUrl ? 'disabled' : ''}>▶️</button>
+                    <button class="result-favorite-btn ${favoritedClass}" onclick="toggleFavorite(event, ${displayedCount})">${favoriteIcon}</button>
+                `;
+
+                item.dataset.previewUrl = previewUrl;
+                item.dataset.trackName = trackName;
+                item.dataset.artistName = artistName;
+                item.dataset.artworkUrl = artworkUrl;
+
+                searchResults.appendChild(item);
+                displayedCount++;
+            });
+
+            if (displayedCount === 0) {
+                searchResults.innerHTML = '<div class="loading">No playable songs found</div>';
+            }
+            
+            // Summary log
+            const withPreview = results.filter((track, i) => {
+                if (source === 'nina') return track.metadata?.animation_url || track.animation_url;
+                if (source === 'itunes') return track.previewUrl;
+                return track.previewUrl;
+            }).length;
+            console.log(`📊 Summary: ${withPreview}/${results.length} tracks have preview URLs`);
         }
 
         function togglePreview(event, index) {
