@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer-when-downgrade">
     <title>Onpa - 音楽シェア通話アプリ</title>
-    <!-- SkyWay SDK (new version) -->
-    <script src="https://cdn.webrtc.ecl.ntt.com/skyway-4.4.5.js"></script>
+    <!-- PeerJS SDK for WebRTC (replaces deprecated SkyWay Classic) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1127,9 +1127,9 @@
             <!-- Music Player -->
             <div class="music-player">
                 <div class="platform-selector">
-                    <button class="platform-btn active" onclick="selectPlatform('spotify')">Spotify</button>
-                    <button class="platform-btn" onclick="selectPlatform('youtube')">YouTube</button>
-                    <button class="platform-btn" onclick="selectPlatform('soundcloud')">SoundCloud</button>
+                    <button class="platform-btn active" onclick="selectPlatform(event, 'spotify')">Spotify</button>
+                    <button class="platform-btn" onclick="selectPlatform(event, 'youtube')">YouTube</button>
+                    <button class="platform-btn" onclick="selectPlatform(event, 'soundcloud')">SoundCloud</button>
                 </div>
 
                 <div class="now-playing">
@@ -1170,8 +1170,8 @@
 
             <!-- Controls -->
             <div class="controls">
-                <button class="control-btn" onclick="toggleMute()">🎤</button>
-                <button class="control-btn primary" onclick="togglePlay()">▶️</button>
+                <button class="control-btn" onclick="toggleMute(event)">🎤</button>
+                <button class="control-btn primary" onclick="togglePlay(event)">▶️</button>
                 <button class="control-btn danger" onclick="endCall()">📞</button>
             </div>
 
@@ -1219,19 +1219,19 @@
         <div class="theme-content">
             <div class="theme-title">Color Theme</div>
             <div class="theme-options">
-                <div class="theme-option selected" onclick="changeTheme('rainbow')">
+                <div class="theme-option selected" onclick="changeTheme(event, 'rainbow')">
                     <div style="height: 40px; background: linear-gradient(135deg, #ff3366, #0096ff, #00ffc8); border-radius: 8px; margin-bottom: 8px;"></div>
                     Rainbow
                 </div>
-                <div class="theme-option" onclick="changeTheme('ocean')">
+                <div class="theme-option" onclick="changeTheme(event, 'ocean')">
                     <div style="height: 40px; background: linear-gradient(135deg, #0096ff, #00ffc8); border-radius: 8px; margin-bottom: 8px;"></div>
                     Ocean
                 </div>
-                <div class="theme-option" onclick="changeTheme('sunset')">
+                <div class="theme-option" onclick="changeTheme(event, 'sunset')">
                     <div style="height: 40px; background: linear-gradient(135deg, #ff3366, #ffd000); border-radius: 8px; margin-bottom: 8px;"></div>
                     Sunset
                 </div>
-                <div class="theme-option" onclick="changeTheme('neon')">
+                <div class="theme-option" onclick="changeTheme(event, 'neon')">
                     <div style="height: 40px; background: linear-gradient(135deg, #00ffc8, #ffd000); border-radius: 8px; margin-bottom: 8px;"></div>
                     Neon
                 </div>
@@ -1363,10 +1363,7 @@
     </div>
 
     <script>
-        // SkyWay API Key (embedded)
-        const SKYWAY_API_KEY = '174e3781-3f39-45f1-bce4-9b474b93385e';
-        
-        // SkyWay variables
+        // WebRTC variables (PeerJS)
         let peer = null;
         let localStream = null;
         let currentCall = null;
@@ -1426,11 +1423,8 @@
                 updateCallStatus('Connecting...');
                 console.log('Initializing SkyWay with User ID:', myUserId);
 
-                // Initialize SkyWay Peer with custom ID
-                peer = new Peer(myUserId, {
-                    key: SKYWAY_API_KEY,
-                    debug: 3
-                });
+                // Initialize PeerJS Peer with custom ID
+                peer = new Peer(myUserId);
 
                 peer.on('open', (id) => {
                     console.log('Connected with ID:', id);
@@ -1959,8 +1953,11 @@
                 });
 
                 const data = await response.json();
+                if (!data.access_token) {
+                    throw new Error('No access token in response');
+                }
                 spotifyAccessToken = data.access_token;
-                
+
                 // Token expires in 1 hour, refresh it
                 setTimeout(() => { spotifyAccessToken = null; }, 3500000);
                 
@@ -1995,6 +1992,9 @@
                 });
 
                 if (!response.ok) {
+                    if (response.status === 401) {
+                        spotifyAccessToken = null;
+                    }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
@@ -2319,7 +2319,7 @@
         }, 100);
 
         // Platform selection
-        function selectPlatform(platform) {
+        function selectPlatform(event, platform) {
             document.querySelectorAll('.platform-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
@@ -2328,13 +2328,13 @@
 
         // Control functions
         let isMuted = false;
-        function toggleMute() {
+        function toggleMute(event) {
             isMuted = !isMuted;
             event.target.textContent = isMuted ? '🔇' : '🎤';
         }
 
         let isPlaying = true;
-        function togglePlay() {
+        function togglePlay(event) {
             if (currentAudio) {
                 if (currentAudio.paused) {
                     currentAudio.play();
@@ -2409,10 +2409,10 @@
             modal.classList.toggle('active');
         }
 
-        function changeTheme(theme) {
+        function changeTheme(event, theme) {
             const themeOptions = document.querySelectorAll('.theme-option');
             themeOptions.forEach(opt => opt.classList.remove('selected'));
-            event.target.classList.add('selected');
+            event.currentTarget.classList.add('selected');
             
             // Apply theme colors (simplified version)
             const gradientBg = document.querySelector('.gradient-bg');

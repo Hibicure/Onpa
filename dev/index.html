@@ -5,14 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Onpa</title>
-    <script src="https://cdn.webrtc.ecl.ntt.com/skyway-4.4.5.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; min-height: 100vh; }
         .container { max-width: 430px; width: 100%; margin: 0 auto; padding: 40px; }
 
-```
-    .logo { 
+    .logo {
         font-size: 48px; 
         font-weight: 800; 
         text-align: center; 
@@ -250,7 +249,6 @@
         box-shadow: 0 0 25px rgba(239, 68, 68, 0.7);
     }
 </style>
-```
 
 </head>
 <body>
@@ -277,7 +275,6 @@
             <button class="btn" onclick="completeSetup()">Start</button>
         </div>
 
-```
     <div class="home-screen" id="homeScreen">
         <div class="home-header">
             <div class="home-logo">Onpa</div>
@@ -310,15 +307,13 @@
             </div>
         </div>
         <div class="call-actions">
-            <button class="call-action-btn mute" onclick="toggleMute()">🎤</button>
+            <button class="call-action-btn mute" onclick="toggleMute(event)">🎤</button>
             <button class="call-action-btn end" onclick="endCall()">📞</button>
         </div>
     </div>
 </div>
 
 <script>
-    const SKYWAY_API_KEY = '174e3781-3f39-45f1-bce4-9b474b93385e';
-    
     let userId=null, username=null, userAvatar='gradient-1', userPhoto=null, currentGradientIndex=0;
     const gradients=['gradient-1','gradient-2','gradient-3','gradient-4','gradient-5','gradient-6','gradient-7','gradient-8'];
     let peer=null, localStream=null, currentCall=null, callDuration=0, callTimer=null, isMuted=false;
@@ -360,12 +355,12 @@
         try {
             localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
             
-            peer = new Peer(userId, { key: SKYWAY_API_KEY, debug: 3 });
+            peer = new Peer(userId);
 
             peer.on('open', id => console.log('My ID:', id));
 
             peer.on('call', call => {
-                console.log('Incoming call from:', call.remoteId);
+                console.log('Incoming call from:', call.peer);
                 
                 // Play ringtone
                 if(ringtone) {
@@ -400,7 +395,7 @@
         
         document.getElementById('homeScreen').classList.remove('active');
         document.getElementById('callScreen').classList.add('active');
-        document.getElementById('friendCallName').textContent = '@' + call.remoteId;
+        document.getElementById('friendCallName').textContent = '@' + call.peer;
 
         call.on('stream', stream => {
             console.log('Received remote stream');
@@ -451,7 +446,7 @@
         if(audio) audio.remove();
     }
     
-    function toggleMute(){
+    function toggleMute(event){
         if(localStream){
             const at=localStream.getAudioTracks()[0];
             at.enabled=!at.enabled;
@@ -498,7 +493,6 @@
         }
     };
 </script>
-```
 
 </body>
 </html>
