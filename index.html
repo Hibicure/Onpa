@@ -1933,199 +1933,31 @@
             }
         ];
 
-        // Spotify API credentials
-        const SPOTIFY_CLIENT_ID = '1ff4e8ebb2f94fb5a20149d697df21fc';
-        const SPOTIFY_CLIENT_SECRET = '3949fc18d1cc4f5697340273174f3211';
-        let spotifyAccessToken = null;
-
-        // Get Spotify access token
-        async function getSpotifyToken() {
-            if (spotifyAccessToken) return spotifyAccessToken;
-
-            try {
-                const response = await fetch('https://accounts.spotify.com/api/token', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET)
-                    },
-                    body: 'grant_type=client_credentials'
-                });
-
-                const data = await response.json();
-                if (!data.access_token) {
-                    throw new Error('No access token in response');
-                }
-                spotifyAccessToken = data.access_token;
-
-                // Token expires in 1 hour, refresh it
-                setTimeout(() => { spotifyAccessToken = null; }, 3500000);
-                
-                return spotifyAccessToken;
-            } catch (error) {
-                console.error('Error getting Spotify token:', error);
-                return null;
-            }
-        }
-
         async function searchMusic(query) {
-            searchResults.classList.add('active');
-            searchResults.innerHTML = '<div class="loading">Searching Spotify...</div>';
-
-            try {
-                // Get Spotify access token
-                const token = await getSpotifyToken();
-                
-                if (!token) {
-                    throw new Error('Failed to get Spotify access token');
-                }
-
-                // Search Spotify API
-                const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10&market=JP`;
-                
-                console.log('Searching Spotify:', url);
-                
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        spotifyAccessToken = null;
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                console.log('Spotify results:', data);
-
-                if (data.tracks && data.tracks.items && data.tracks.items.length > 0) {
-                    displaySpotifyResults(data.tracks.items);
-                } else {
-                    searchResults.innerHTML = '<div class="loading">No songs found<br>Try different keywords</div>';
-                }
-            } catch (error) {
-                console.error('Search error:', error);
-                searchResults.innerHTML = `<div class="loading">Search error: ${error.message}<br>Please try again</div>`;
-            }
-        }
-
-        function displaySpotifyResults(tracks) {
-            searchResults.innerHTML = '';
-            console.log('Displaying', tracks.length, 'Spotify results');
-
-            let displayedCount = 0;
-            
-            tracks.forEach((track, index) => {
-                console.log('Track:', track.name, 'Preview:', track.preview_url);
-                
-                const item = document.createElement('div');
-                item.className = 'search-result-item';
-                item.dataset.index = displayedCount;
-
-                // Spotify API format
-                const artworkUrl = track.album?.images?.[0]?.url || '';
-                const previewUrl = track.preview_url || '';
-                const artistName = track.artists?.map(a => a.name).join(', ') || 'Unknown Artist';
-
-                item.innerHTML = `
-                    <img src="${artworkUrl}" alt="${track.name || 'Unknown'}" class="result-artwork" onerror="this.style.background='linear-gradient(135deg, #0096ff, #00ffc8)'">
-                    <div class="result-info">
-                        <div class="result-track">${track.name || 'Unknown Track'}</div>
-                        <div class="result-artist">${artistName}</div>
-                    </div>
-                    <button class="result-play-btn" onclick="togglePreview(event, ${displayedCount})" ${!previewUrl ? 'disabled' : ''}>▶️</button>
-                `;
-
-                item.dataset.previewUrl = previewUrl;
-                item.dataset.trackName = track.name || 'Unknown Track';
-                item.dataset.artistName = artistName;
-                item.dataset.artworkUrl = artworkUrl;
-
-                searchResults.appendChild(item);
-                displayedCount++;
-            });
-
-            if (displayedCount === 0) {
-                searchResults.innerHTML = '<div class="loading">No playable songs found</div>';
-            }
-        }
-
-        async function searchMusic_old(query) {
             searchResults.classList.add('active');
             searchResults.innerHTML = '<div class="loading">Searching...</div>';
 
             try {
-                // Try Nina Protocol API first (indie/underground music)
-                console.log('Trying Nina Protocol API...');
-                const ninaUrl = `https://api.ninaprotocol.com/v1/search?query=${encodeURIComponent(query)}`;
-                
-                const ninaResponse = await fetch(ninaUrl);
-                if (ninaResponse.ok) {
-                    const ninaData = await ninaResponse.json();
-                    console.log('Nina Protocol results:', ninaData);
-                    
-                    if (ninaData.releases && ninaData.releases.length > 0) {
-                        displaySearchResults(ninaData.releases, 'nina');
-                        return;
-                    }
+                // iTunes API: 無料・認証不要・30秒プレビューあり
+                const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=20&country=JP`;
+                console.log('Searching iTunes:', url);
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
                 }
-            } catch (error) {
-                console.log('Nina Protocol failed:', error.message);
-            }
 
-            try {
-                // Try iTunes API as fallback
-                const callbackName = 'jsonpCallback' + Date.now();
-                const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=10&country=US&callback=${callbackName}`;
-                
-                console.log('Trying iTunes API:', url);
-                
-                const data = await new Promise((resolve, reject) => {
-                    const timeout = setTimeout(() => {
-                        cleanup();
-                        reject(new Error('Request timeout'));
-                    }, 5000);
-
-                    window[callbackName] = (data) => {
-                        cleanup();
-                        resolve(data);
-                    };
-
-                    function cleanup() {
-                        clearTimeout(timeout);
-                        const script = document.getElementById(callbackName);
-                        if (script && script.parentNode) {
-                            script.parentNode.removeChild(script);
-                        }
-                        delete window[callbackName];
-                    }
-
-                    const script = document.createElement('script');
-                    script.id = callbackName;
-                    script.src = url;
-                    script.onerror = () => {
-                        cleanup();
-                        reject(new Error('Failed to load iTunes API'));
-                    };
-                    
-                    document.head.appendChild(script);
-                });
-
-                console.log('iTunes API results:', data);
+                const data = await response.json();
+                console.log('iTunes results:', data.resultCount, 'tracks');
 
                 if (data.results && data.results.length > 0) {
                     displaySearchResults(data.results, 'itunes');
                 } else {
-                    searchResults.innerHTML = '<div class="loading">No songs found on iTunes<br>Try different keywords</div>';
+                    // ローカルデータにフォールバック
+                    await searchLocalData(query);
                 }
             } catch (error) {
-                console.error('iTunes API error:', error.message);
-                console.log('Falling back to local data...');
-                
-                // Fallback to local dummy data
+                console.error('iTunes search error:', error);
                 await searchLocalData(query);
             }
         }
