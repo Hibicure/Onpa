@@ -1320,12 +1320,9 @@
             </div>
 
             <div class="settings-section">
-                <div class="settings-label">Audio Quality</div>
-                <select class="settings-select">
-                    <option value="high">High Quality</option>
-                    <option value="normal" selected>Normal</option>
-                    <option value="low">Low (Data Saver)</option>
-                </select>
+                <div class="settings-label">YouTube API Key（フル再生用）</div>
+                <input type="text" class="settings-input" id="youtubeApiKeyInput" placeholder="AIza...">
+                <div class="settings-hint">設定するとフル再生に切り替わります。<br>取得: console.cloud.google.com → YouTube Data API v3を有効化</div>
             </div>
 
             <button class="save-btn" onclick="saveSettings()">Save</button>
@@ -1742,15 +1739,19 @@
             }
         }
 
+        let youtubeApiKey = localStorage.getItem('onpa_youtube_key') || '';
+
         function loadSettings() {
             const usernameInput = document.getElementById('usernameInput');
             const displayNameInput = document.getElementById('displayNameInput');
             const volumeSlider = document.getElementById('volumeSlider');
             const volumeValue = document.getElementById('volumeValue');
+            const youtubeApiKeyInput = document.getElementById('youtubeApiKeyInput');
 
             if (usernameInput) usernameInput.value = username;
             if (displayNameInput) displayNameInput.value = displayName;
-            
+            if (youtubeApiKeyInput) youtubeApiKeyInput.value = youtubeApiKey;
+
             const savedVolume = localStorage.getItem('onpa_volume') || '80';
             if (volumeSlider) {
                 volumeSlider.value = savedVolume;
@@ -1762,17 +1763,21 @@
             const usernameInput = document.getElementById('usernameInput');
             const displayNameInput = document.getElementById('displayNameInput');
             const volumeSlider = document.getElementById('volumeSlider');
+            const youtubeApiKeyInput = document.getElementById('youtubeApiKeyInput');
 
             const newUsername = usernameInput.value.trim() || 'you';
             const newDisplayName = displayNameInput.value.trim();
+            const newYoutubeKey = youtubeApiKeyInput ? youtubeApiKeyInput.value.trim() : '';
 
             // Save to localStorage
             localStorage.setItem('onpa_username', newUsername);
             localStorage.setItem('onpa_displayname', newDisplayName);
             localStorage.setItem('onpa_volume', volumeSlider.value);
+            localStorage.setItem('onpa_youtube_key', newYoutubeKey);
 
             username = newUsername;
             displayName = newDisplayName;
+            youtubeApiKey = newYoutubeKey;
 
             updateUsername();
             
@@ -2059,65 +2064,100 @@
             console.log(`📊 Summary: ${withPreview}/${results.length} tracks have preview URLs`);
         }
 
-        function togglePreview(event, index) {
-            event.stopPropagation();
-            
-            const items = document.querySelectorAll('.search-result-item');
-            const item = items[index];
-            const playBtn = item.querySelector('.result-play-btn');
-            const previewUrl = item.dataset.previewUrl;
-
-            // Stop current audio if playing
+        function stopCurrentPlayback() {
+            // Stop audio
             if (currentAudio && !currentAudio.paused) {
                 currentAudio.pause();
                 currentAudio.currentTime = 0;
-                
-                if (currentPlayingItem) {
-                    currentPlayingItem.classList.remove('playing');
-                    const oldBtn = currentPlayingItem.querySelector('.result-play-btn');
-                    oldBtn.textContent = '▶️';
-                }
             }
+            // Remove YouTube iframe
+            const oldIframe = document.getElementById('youtubePlayer');
+            if (oldIframe) oldIframe.remove();
 
-            // If clicking the same track, just stop
-            if (currentPlayingItem === item && currentAudio && currentAudio.paused) {
+            if (currentPlayingItem) {
+                currentPlayingItem.classList.remove('playing');
+                const oldBtn = currentPlayingItem.querySelector('.result-play-btn');
+                if (oldBtn) oldBtn.textContent = '▶️';
+            }
+        }
+
+        async function togglePreview(event, index) {
+            event.stopPropagation();
+
+            const items = document.querySelectorAll('.search-result-item');
+            const item = items[index];
+            const playBtn = item.querySelector('.result-play-btn');
+            const trackName = item.dataset.trackName;
+            const artistName = item.dataset.artistName;
+            const previewUrl = item.dataset.previewUrl;
+
+            const isSameItem = currentPlayingItem === item;
+            stopCurrentPlayback();
+
+            if (isSameItem) {
                 currentPlayingItem = null;
                 return;
             }
 
-            // Play new track
-            currentAudio = new Audio(previewUrl);
-            
-            // Apply saved volume
-            const savedVolume = localStorage.getItem('onpa_volume') || '80';
-            currentAudio.volume = savedVolume / 100;
-            
             currentPlayingItem = item;
             item.classList.add('playing');
-            playBtn.textContent = '⏸️';
+            updateMainPlayer(trackName, artistName, item.dataset.artworkUrl);
 
-            currentAudio.play();
-
-            // Update UI when playing
-            currentAudio.addEventListener('play', () => {
+            if (youtubeApiKey) {
+                // YouTubeでフル再生
+                playBtn.textContent = '⏳';
+                const videoId = await searchYouTube(trackName, artistName);
+                if (videoId) {
+                    playBtn.textContent = '▶️';
+                    showYouTubePlayer(videoId);
+                } else {
+                    playBtn.textContent = '❌';
+                    console.error('YouTube video not found');
+                }
+            } else {
+                // iTunesの30秒プレビュー
+                if (!previewUrl) return;
+                currentAudio = new Audio(previewUrl);
+                const savedVolume = localStorage.getItem('onpa_volume') || '80';
+                currentAudio.volume = savedVolume / 100;
                 playBtn.textContent = '⏸️';
-            });
+                currentAudio.play();
+                currentAudio.addEventListener('pause', () => { playBtn.textContent = '▶️'; item.classList.remove('playing'); });
+                currentAudio.addEventListener('ended', () => { playBtn.textContent = '▶️'; item.classList.remove('playing'); currentPlayingItem = null; });
+            }
+        }
 
-            // Update UI when paused
-            currentAudio.addEventListener('pause', () => {
-                playBtn.textContent = '▶️';
-                item.classList.remove('playing');
-            });
+        async function searchYouTube(trackName, artistName) {
+            const query = `${trackName} ${artistName}`;
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=1&key=${youtubeApiKey}`;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.error) {
+                    console.error('YouTube API error:', data.error.message);
+                    return null;
+                }
+                return data.items?.[0]?.id?.videoId || null;
+            } catch (e) {
+                console.error('YouTube search failed:', e);
+                return null;
+            }
+        }
 
-            // Update UI when ended
-            currentAudio.addEventListener('ended', () => {
-                playBtn.textContent = '▶️';
-                item.classList.remove('playing');
-                currentPlayingItem = null;
-            });
+        function showYouTubePlayer(videoId) {
+            const existing = document.getElementById('youtubePlayer');
+            if (existing) existing.remove();
 
-            // Update main player display
-            updateMainPlayer(item.dataset.trackName, item.dataset.artistName, item.dataset.artworkUrl);
+            const iframe = document.createElement('iframe');
+            iframe.id = 'youtubePlayer';
+            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+            iframe.allow = 'autoplay; encrypted-media; fullscreen';
+            iframe.allowFullscreen = true;
+            iframe.style.cssText = 'width:100%;height:220px;border-radius:12px;border:none;margin-top:10px;display:block;';
+
+            // 検索結果エリアの上に表示
+            const searchResultsEl = document.getElementById('searchResults');
+            searchResultsEl.insertAdjacentElement('beforebegin', iframe);
         }
 
         function updateMainPlayer(trackName, artistName, artworkUrl) {
