@@ -383,6 +383,15 @@
   .hero b { display: block; font-family: var(--display); font-size: 18px; letter-spacing: -0.02em; margin-bottom: 6px; }
   .hero p { color: var(--mute); font-size: 14px; margin-bottom: 14px; }
   .hero .row2 { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  /* ---------- SoundCloudで入る ---------- */
+  .sc-go { height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--on-ink); background: var(--ink); margin-bottom: 18px; }
+  .sc-go svg { width: 26px; height: 26px; }
+  .ob-or { display: flex; align-items: center; gap: 12px; color: var(--mute); font-size: 13px; margin: 2px 0 18px; }
+  .ob-or::before, .ob-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+  .ob-who { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface); margin-bottom: 18px; font-size: 14px; }
+  .ob-who .avatar { width: 40px; height: 40px; }
+  .ob-who b { display: block; font-size: 15px; }
+  .ob-who span { color: var(--mute); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -394,13 +403,17 @@
 <section class="onboard" id="onboard" hidden>
   <div class="disc spinning"><div class="platter"></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
   <h1>Talk and listen,<br>at the same time.</h1>
-  <p>Pick a name and a handle. No email, no password.</p>
+  <p id="obLead">Sign in with SoundCloud to use your account on every device.</p>
+  <button class="sc-go" id="obSC"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 10.2a4.6 4.6 0 0 0-8.8-1.6 3.3 3.3 0 0 0-1 .3v8.6h9.8a3.6 3.6 0 0 0 0-7.3zM6.6 9.4v8.1H5.8V9.6l.8-.2zM4.7 10.3v7.2h-.8v-7l.8-.2zM2.8 11.6v5.9H2v-5.6l.8-.3z"/></svg>Continue with SoundCloud</button>
+  <div class="ob-or" id="obOr"><span>or pick a handle</span></div>
+  <div class="ob-who" id="obWho" hidden></div>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
   <label class="f"><span>Handle</span><div class="at"><input id="obHandle" maxlength="15" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="hibiki"></div></label>
   <p class="fine">Friends search this to add you. Letters, numbers and _ only.</p>
   <div class="err" id="obErr"></div>
   <button class="go" id="obGo">Get started</button>
 </section>
+<div class="boot" id="authWait" hidden><div class="disc spinning"><div class="platter"></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div></div>
 
 <!-- メイン -->
 <div class="shell" id="app" hidden>
@@ -612,17 +625,91 @@ db.ref('.info/serverTimeOffset').on('value', (s) => { serverOffset = s.val() || 
 const serverNow = () => Date.now() + serverOffset;
 
 // ===================== 起動とログイン =====================
+let authBusy = false, scProfile = null;
+const isScUser = (user) => !!(user && (user.email || '').startsWith('sc-'));
+
+// SoundCloudのアカウントで Otocloud に入る。
+// この端末で使っていたアカウントがあれば、そのまま SoundCloud に結びつける（@IDも友達もそのまま）。
+// 別の端末ですでに結びつけてあれば、そっちのアカウントに入る。
+async function scSignIn() {
+  authBusy = true;
+  try {
+    const at = await scToken();
+    if (!at) return false;
+    const r = await fetch(`${WORKER}/auth/sc`, { headers: { 'X-SC-Token': at } });
+    const c = await r.json();
+    if (!r.ok) throw new Error(c.error || r.status);
+    scProfile = c;
+    const auth = firebase.auth();
+    const cur = auth.currentUser;
+    if (cur && cur.isAnonymous) {
+      try {
+        await cur.linkWithCredential(firebase.auth.EmailAuthProvider.credential(c.email, c.password));
+        return true;
+      } catch (e) {
+        if (!/already-in-use/.test(e.code || '')) throw e;
+      }
+    }
+    try {
+      await auth.signInWithEmailAndPassword(c.email, c.password);
+    } catch (e) {
+      if (!/user-not-found|invalid-credential|invalid-login/.test(e.code || '')) throw e;
+      await auth.createUserWithEmailAndPassword(c.email, c.password);
+    }
+    return true;
+  } catch (e) {
+    toast("Couldn't sign in with SoundCloud (" + e.message + ')');
+    return false;
+  } finally {
+    authBusy = false;
+  }
+}
+
+async function routeUser(user) {
+  let u = null;
+  try { u = (await db.ref('users/' + user.uid).get()).val(); }
+  catch (e) { toast("Can't reach the server (" + e.message + ')'); return; }
+  $('authWait').hidden = true;
+  if (u && u.handle) {
+    me = { uid: user.uid, handle: u.handle, name: u.name, avatar: u.avatar || '' };
+    $('onboard').hidden = true;
+    if ($('app').hidden) startApp(); else { $('meLabel').textContent = '@' + me.handle; $('myHandle').textContent = '@' + me.handle; setFace($('myAvatar'), me); }
+  } else { showOnboard(); }
+  $('boot').hidden = true;
+}
+
+function showOnboard() {
+  const linked = isScUser(firebase.auth().currentUser) && scProfile;
+  $('obSC').hidden = !!linked;
+  $('obOr').hidden = !!linked;
+  $('obWho').hidden = !linked;
+  $('obLead').textContent = linked ? 'Almost there. Pick your name and handle.' : 'Sign in with SoundCloud to use your account on every device.';
+  if (linked) {
+    const pic = (scProfile.avatar || '').replace('-large.', '-t500x500.');
+    $('obWho').innerHTML = `<div class="avatar">${face({ name: scProfile.username, avatar: pic })}</div><div><b>${esc(scProfile.username)}</b><span>SoundCloud connected</span></div>`;
+    if (!$('obName').value) $('obName').value = scProfile.username.slice(0, 20);
+    if (!$('obHandle').value) $('obHandle').value = scProfile.username.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 15);
+  }
+  $('onboard').hidden = false;
+}
+$('obSC').addEventListener('click', () => connectSC());
+
 firebase.auth().onAuthStateChanged(async (user) => {
+  if (authBusy) return;
   if (!user) {
     try { await firebase.auth().signInAnonymously(); } catch (e) { toast("Can't reach the server. Check your connection."); }
     return;
   }
-  let u = null;
-  try { u = (await db.ref('users/' + user.uid).get()).val(); }
-  catch (e) { toast("Can't reach the server (" + e.message + ')'); return; }
-  if (u && u.handle) { me = { uid: user.uid, handle: u.handle, name: u.name, avatar: u.avatar || '' }; startApp(); }
-  else { $('onboard').hidden = false; }
-  $('boot').hidden = true;
+  // SoundCloudから戻ってきたばかりなら、SoundCloudのアカウントに入る（または結びつける）
+  if (sc && !isScUser(user)) {
+    $('authWait').hidden = false; $('boot').hidden = true;
+    const ok = await scSignIn();
+    if (ok) { await routeUser(firebase.auth().currentUser); if (me && me.uid !== user.uid) toast('Signed in with your SoundCloud account'); return; }
+  }
+  if (sc && isScUser(user) && !scProfile) {
+    scToken().then((at) => at && fetch(`${WORKER}/auth/sc`, { headers: { 'X-SC-Token': at } })).then((r) => r && r.json()).then((c) => { if (c && c.username) scProfile = c; }).catch(() => {});
+  }
+  await routeUser(user);
 });
 
 $('obHandle').addEventListener('input', (e) => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); });

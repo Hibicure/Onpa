@@ -429,6 +429,23 @@ export default {
       if (p === '/sc/callback') return scCallback(request, url, env);
       if (p === '/sc/refresh' && request.method === 'POST') return scRefresh(request, env, cors);
 
+      // ---- SoundCloudのアカウントで Otocloud に入る: /auth/sc
+      // SoundCloudの合鍵を確かめて、そのSoundCloudアカウント専用のログイン情報を返す。
+      // 同じSoundCloudなら、どの端末でも同じ Otocloud アカウントになる。
+      if (p === '/auth/sc') {
+        if (!userToken) return json({ error: 'SoundCloudにログインしていません' }, 401, cors);
+        if (!env.AUTH_SECRET) return json({ error: 'AUTH_SECRET が未設定です' }, 500, cors);
+        const r = await scUser('/me', userToken);
+        if (!r.ok || !r.body || !r.body.id) return json({ error: 'SoundCloudの確認に失敗しました' }, 401, cors);
+        const id = String(r.body.id);
+        const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.AUTH_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('sc:' + id)));
+        const password = btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const res = json({ email: `sc-${id}@users.on-pa.net`, password, scId: id, username: r.body.username || '', avatar: r.body.avatar_url || '' }, 200, cors);
+        res.headers.set('Cache-Control', 'no-store');
+        return res;
+      }
+
       // ---- ここから先は、ログインした本人の合鍵が必要
       if (p.startsWith('/sc/')) {
         if (!userToken) return json({ error: 'SoundCloudにログインしていません' }, 401, cors);
