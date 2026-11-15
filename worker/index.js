@@ -448,6 +448,13 @@ export default {
           return json(listOf(r.body).map(mapTrack), 200, cors);
         }
 
+        // 自分がアップロードした曲
+        if (p === '/sc/tracks') {
+          const r = await scUser('/me/tracks?limit=50&linked_partitioning=true', userToken);
+          if (!r.ok) return json({ error: 'tracks ' + r.status }, r.status, cors);
+          return json(listOf(r.body).map(mapTrack), 200, cors);
+        }
+
         // 自分のプレイリスト一覧
         if (p === '/sc/playlists') {
           const r = await scUser('/me/playlists?limit=50&show_tracks=false&linked_partitioning=true', userToken);

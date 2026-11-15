@@ -339,6 +339,50 @@
   }
   .schost { position: fixed; left: 0; bottom: 0; width: 320px; height: 166px; opacity: .01; pointer-events: none; z-index: -1; }
   .schost iframe { width: 100%; height: 100%; border: 0; }
+  /* ---------- ガラスのボタン（再生・通話） ---------- */
+  .liquid { background: linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.18) 55%, rgba(255,255,255,.32) 100%);
+    -webkit-backdrop-filter: blur(18px) saturate(1.8); backdrop-filter: blur(18px) saturate(1.8); color: var(--ink);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.95), inset 0 -1px 2px rgba(0,0,0,.08), inset 0 0 0 .5px rgba(255,255,255,.6),
+      0 0 0 .5px rgba(0,0,0,.14), 0 10px 22px -10px rgba(0,0,0,.35); }
+  :root[data-theme="dark"] .liquid { background: linear-gradient(180deg, rgba(255,255,255,.2) 0%, rgba(255,255,255,.05) 55%, rgba(255,255,255,.1) 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.35), inset 0 0 0 .5px rgba(255,255,255,.14), 0 0 0 .5px rgba(0,0,0,.5), 0 10px 22px -10px rgba(0,0,0,.6); }
+  .pp.liquid, .controls .pp.liquid { color: var(--ink); }
+  .controls .pp.liquid { background: linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 55%, rgba(255,255,255,.38) 100%); }
+  :root[data-theme="dark"] .controls .pp.liquid { background: linear-gradient(180deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,.06) 55%, rgba(255,255,255,.12) 100%); }
+  .btn.call.liquid { color: var(--ink); height: 36px; padding: 0 14px; }
+  .btn.call.liquid:disabled { opacity: .4; }
+  .disc .peer i { display: none; }
+
+  /* ---------- 下のナビ：真ん中に検索 ---------- */
+  .nav .in { align-items: center; padding: 0 12px; gap: 8px; }
+  .nav .find { flex: 1.6; height: 44px; flex-direction: row; gap: 8px; border-radius: 99px; font-size: 14px; font-weight: 600; color: var(--mute); }
+  .nav .find svg { width: 18px; height: 18px; }
+  .nav .find[aria-current="page"] { color: var(--ink); }
+
+  /* ---------- ホーム ---------- */
+  .home { padding: 4px 0 8px; }
+  .hsec { margin-top: 18px; }
+  .hhead { display: flex; align-items: center; justify-content: space-between; margin: 0 20px 10px; }
+  .htitle { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+  .hrow { display: flex; gap: 12px; overflow-x: auto; padding: 0 20px 4px; scroll-padding-inline: 20px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .hrow::-webkit-scrollbar { display: none; }
+  .jk { flex: 0 0 auto; width: 132px; scroll-snap-align: start; text-align: left; }
+  .jk .cover { width: 132px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; position: relative; background: var(--chip);
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.12), 0 10px 20px -14px rgba(0,0,0,.5); }
+  .jk .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .jk .cover img:not([src]) { display: none; }
+  .jk .who { position: absolute; left: 8px; bottom: 8px; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+    background: var(--holo); font-family: var(--display); font-weight: 700; font-size: 12px; color: #151517; box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
+  .jk .who .pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .jk .t { font-size: 13px; font-weight: 600; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jk .s { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .jgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 20px; }
+  .jgrid .jk { width: auto; }
+  .jgrid .jk .cover { width: 100%; }
+  .hero { margin: 18px 16px 0; padding: 22px 20px; border-radius: 22px; background: var(--surface); text-align: center; }
+  .hero b { display: block; font-family: var(--display); font-size: 18px; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .hero p { color: var(--mute); font-size: 14px; margin-bottom: 14px; }
+  .hero .row2 { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -375,8 +419,33 @@
     <button class="round end" id="cbEnd" aria-label="End call"></button>
   </div>
 
-  <!-- 聴く -->
-  <main id="viewListen">
+  <!-- ホーム：開いてすぐ再生できるもの -->
+  <main id="viewHome" class="home">
+    <section class="hsec" id="hMineSec" hidden>
+      <div class="hhead"><div class="htitle">Your tracks</div></div>
+      <div class="hrow" id="hMine"></div>
+    </section>
+    <section class="hsec" id="hFriendsSec" hidden>
+      <div class="hhead"><div class="htitle">Friends listening</div></div>
+      <div class="hrow" id="hFriends"></div>
+    </section>
+    <section class="hsec" id="hRecentSec" hidden>
+      <div class="hhead"><div class="htitle">Recently played</div></div>
+      <div class="hrow" id="hRecent"></div>
+    </section>
+    <section class="hsec" id="hLikesSec" hidden>
+      <div class="hhead"><div class="htitle">Your likes</div><button class="btn ghost" id="hShuffle">Shuffle</button></div>
+      <div class="jgrid" id="hLikes"></div>
+    </section>
+    <div class="hero" id="hHero" hidden>
+      <b>Start with your music</b>
+      <p>Connect SoundCloud to bring your likes and playlists here, or search for anything.</p>
+      <div class="row2"><button class="btn primary sc-connect" id="hConnect">Connect SoundCloud</button><button class="btn ghost" id="hSearch">Search</button></div>
+    </div>
+  </main>
+
+  <!-- 検索・ライブラリ -->
+  <main id="viewListen" hidden>
     <div class="seg" role="tablist" id="seg">
       <button role="tab" data-mode="search" aria-selected="true">Search</button>
       <button role="tab" data-mode="likes" aria-selected="false">Likes</button>
@@ -413,7 +482,8 @@
 
   <nav class="nav">
     <div class="in">
-      <button id="tabListen" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Listen</button>
+      <button id="tabHome" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Home</button>
+      <button id="tabListen" class="find glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search</button>
       <button id="tabFriends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.5-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.7 2.5 3 5.2"/></svg>Friends</button>
     </div>
   </nav>
@@ -423,7 +493,7 @@
 <div class="mini" id="mini" hidden>
   <div class="disc-s"><img id="miniArt" alt=""></div>
   <button class="open" id="miniOpen"><div class="t" id="miniT"></div><div class="s" id="miniS"></div></button>
-  <button class="pp" id="miniPP" aria-label="Play or pause"></button>
+  <button class="pp liquid" id="miniPP" aria-label="Play or pause"></button>
   <div class="bar"><i id="miniBar"></i></div>
 </div>
 
@@ -444,7 +514,7 @@
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><div class="modes"><button class="mode glass" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip glass" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip glass" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button><div class="volwrap"><button class="mode glass" id="npVol" aria-label="Volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
+    <div class="controls"><div class="modes"><button class="mode glass" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip glass" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp liquid" id="npPP" aria-label="Play or pause"></button><button class="skip glass" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button><div class="volwrap"><button class="mode glass" id="npVol" aria-label="Volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
       <div class="volpop glass" id="volPop" hidden>
         <div class="vcol" id="colMusic"><div class="vslot"><input type="range" id="volMusic" min="0" max="100" value="80"></div><span class="vi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5V6.2l10-2v10.3a2.6 2.6 0 1 1-1.8-2.5V8.1L10.8 9.4v8.1A2.6 2.6 0 1 1 9 15z"/></svg></span></div>
         <div class="vcol" id="colVoice"><div class="vslot"><input type="range" id="volVoice" min="0" max="100" value="100" disabled></div><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div>
@@ -591,6 +661,7 @@ function startApp() {
     const ref = db.ref('users/' + me.uid);
     ref.child('online').onDisconnect().set(false);
     ref.child('lastSeen').onDisconnect().set(TS);
+    ref.child('now').onDisconnect().remove();
     ref.update({ online: true });
   });
   watchFriends();
@@ -600,13 +671,21 @@ function startApp() {
 
 // ===================== タブ =====================
 function showTab(which) {
+  $('viewHome').hidden = which !== 'home';
   $('viewListen').hidden = which !== 'listen';
   $('viewFriends').hidden = which !== 'friends';
-  for (const [id, name] of [['tabListen', 'listen'], ['tabFriends', 'friends']]) {
+  for (const [id, name] of [['tabHome', 'home'], ['tabListen', 'listen'], ['tabFriends', 'friends']]) {
     if (which === name) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
   }
+  if (which === 'home') renderHome();
 }
-$('tabListen').addEventListener('click', () => showTab('listen'));
+$('tabHome').addEventListener('click', () => showTab('home'));
+$('tabListen').addEventListener('click', () => {
+  const again = !$('viewListen').hidden;
+  showTab('home');
+  if (mode !== 'search') setMode('search');
+  if (again || !searchList) setTimeout(() => $('q').focus(), 50);
+});
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
@@ -1086,6 +1165,7 @@ async function loadTrack(meta) {
     await player.load(meta.trackId);
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
+    rememberPlayed(meta);
     return true;
   } catch (e) {
     if (my === loadToken) { toast("This track can't be played"); setPP('play'); }
@@ -1141,8 +1221,8 @@ function markNow() {
   document.querySelectorAll('#results .row').forEach((r) => r.classList.toggle('now', !!track && String(track.trackId) === r.dataset.id && !player.paused));
 }
 const isReal = () => !!loadedId;
-player.addEventListener('playing', () => { if (!isReal()) return; setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
-player.addEventListener('pause', () => { if (!isReal()) return; if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
+player.addEventListener('playing', () => { if (!isReal()) return; publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
+player.addEventListener('pause', () => { if (!isReal()) return; publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
 player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
 player.addEventListener('ended', () => {
   if (!isReal()) return;
@@ -1185,6 +1265,76 @@ $('volMusic').addEventListener('input', (e) => { paintRange(e.target); setMusicV
 $('volVoice').addEventListener('input', (e) => { paintRange(e.target); applyVoiceVolume(); });
 paintRange($('volMusic')); paintRange($('volVoice'));
 
+// ===================== ホーム =====================
+const RECENT_KEY = 'oto_recent';
+let recent = [];
+try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { recent = []; }
+function rememberPlayed(meta) {
+  const t = { id: meta.trackId, title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0 };
+  recent = [t, ...recent.filter((r) => String(r.id) !== String(t.id))].slice(0, 30);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch { /* 無視 */ }
+  if (!$('viewHome').hidden) renderHome();
+}
+const big = (a) => (a || '').replace('-large.', '-t300x300.');
+function jkHTML(t, list, i, who) {
+  return `<button class="jk" data-list="${list}" data-i="${i}">
+    <div class="cover"><img src="${esc(big(t.artwork))}" alt="" loading="lazy" onerror="this.removeAttribute('src')">${who ? `<span class="who">${face(who)}</span>` : ''}</div>
+    <div class="t">${esc(t.title)}</div><div class="s">${esc(who ? who.name : t.artist)}</div></button>`;
+}
+let homeLists = { mine: [], friends: [], recent: [], likes: [] };
+let myTracks = null, myTracksLoading = false;
+function renderHome() {
+  // 自分がSoundCloudに上げた曲
+  homeLists.mine = myTracks || [];
+  $('hMineSec').hidden = !homeLists.mine.length;
+  $('hMine').innerHTML = homeLists.mine.map((t, i) => jkHTML(t, 'mine', i)).join('');
+  if (sc && !myTracks && !myTracksLoading) {
+    myTracksLoading = true;
+    scApi('/sc/tracks').then((d) => { myTracks = d.map(splitArtist); if (!$('viewHome').hidden) renderHome(); }).catch(() => { myTracks = []; }).finally(() => { myTracksLoading = false; });
+  }
+  // 友達が今聴いている曲
+  const now = [...friends.values()].filter((f) => f.online && f.now && f.now.playing && f.now.trackId);
+  homeLists.friends = now.map((f) => ({ id: f.now.trackId, title: f.now.title, artist: f.now.artist, artwork: f.now.artwork, who: f }));
+  $('hFriendsSec').hidden = !homeLists.friends.length;
+  $('hFriends').innerHTML = homeLists.friends.map((t, i) => jkHTML(t, 'friends', i, t.who)).join('');
+  // 最近聴いた曲
+  homeLists.recent = recent.slice(0, 20);
+  $('hRecentSec').hidden = !homeLists.recent.length;
+  $('hRecent').innerHTML = homeLists.recent.map((t, i) => jkHTML(t, 'recent', i)).join('');
+  // いいね
+  homeLists.likes = likesList ? likesList.slice(0, 12) : [];
+  $('hLikesSec').hidden = !homeLists.likes.length;
+  $('hLikes').innerHTML = homeLists.likes.map((t, i) => jkHTML(t, 'likes', i)).join('');
+  if (sc && !likesList) loadLikes().then(() => { if (!$('viewHome').hidden) renderHome(); }).catch(() => {});
+  // 何もない時は、つなぐか探すかを案内
+  $('hHero').hidden = !!(homeLists.mine.length || homeLists.recent.length || homeLists.likes.length || homeLists.friends.length) && !!sc;
+  $('hConnect').hidden = !!sc;
+}
+$('viewHome').addEventListener('click', (e) => {
+  if (e.target.closest('#hConnect')) { connectSC(); return; }
+  if (e.target.closest('#hSearch')) { $('tabListen').click(); return; }
+  if (e.target.closest('#hShuffle')) {
+    if (!likesList || !likesList.length) return;
+    const list = shuffled(likesList); playFrom(list, 0); return;
+  }
+  const b = e.target.closest('.jk');
+  if (!b) return;
+  const which = b.dataset.list, i = Number(b.dataset.i);
+  const list = which === 'likes' ? likesList : homeLists[which];
+  if (list && list[i]) playFrom(list, i);
+});
+
+// 自分が今聴いている曲を友達に見せる
+let lastNow = '';
+function publishNow(playing) {
+  if (!me || !track) return;
+  const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', playing: !!playing, at: TS };
+  const key = `${v.trackId}:${v.playing}`;
+  if (key === lastNow) return;
+  lastNow = key;
+  db.ref(`users/${me.uid}/now`).set(v).catch(() => {});
+}
+
 // ===================== 友達 =====================
 function watchFriends() {
   db.ref('friends/' + me.uid).on('value', (s) => {
@@ -1201,6 +1351,7 @@ function watchFriends() {
 }
 
 function renderFriends() {
+  if (!$('viewHome').hidden) renderHome();
   const list = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0));
   $('friendsTitle').textContent = list.length === 1 ? '1 friend' : list.length ? `${list.length} friends` : 'Friends';
   if (!list.length) { $('friends').innerHTML = '<div class="empty"><b>No friends yet</b>Search a handle above to add someone</div>'; return; }
@@ -1209,7 +1360,7 @@ function renderFriends() {
     <div class="row">
       <div class="avatar">${face(f)}<span class="dot ${f.online ? 'on' : ''}"></span></div>
       <div class="txt"><div class="t">${esc(f.name)}</div><div class="s">@${esc(f.handle)}${f.online ? ' <span class="on">online</span>' : ''}</div></div>
-      <button class="btn call" data-call="${uid}" ${busy || !f.online ? 'disabled' : ''}>${ICON.phone}Call</button>
+      <button class="btn call liquid" data-call="${uid}" ${busy || !f.online ? 'disabled' : ''}>${ICON.phone}Call</button>
     </div>`).join('');
 }
 $('friends').addEventListener('click', (e) => {
