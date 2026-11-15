@@ -174,9 +174,16 @@
   /* ---------- 再生画面 ---------- */
   .np { position: fixed; inset: 0; background: var(--paper); z-index: 40; display: flex; flex-direction: column; transform: translateY(100%); transition: transform .42s cubic-bezier(.2,.8,.2,1); }
   .np.open { transform: translateY(0); }
-  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: calc(14px + env(safe-area-inset-top)) 24px calc(24px + var(--safe-b)); overflow-y: auto; }
+  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: calc(6px + env(safe-area-inset-top)) 24px calc(24px + var(--safe-b)); overflow: hidden; }
   .np .in > * { flex-shrink: 0; }
-  .np .top { display: flex; align-items: center; justify-content: space-between; }
+  /* 画面は動かさない（スクロールさせない）。上をつまんで下に引くと閉じる */
+  .np { overscroll-behavior: none; touch-action: none; }
+  .np .top { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 34px; padding-top: 6px; touch-action: none; cursor: grab; }
+  .np .grab { width: 100%; height: 22px; display: grid; place-items: center; }
+  .np .grab i { width: 40px; height: 5px; border-radius: 3px; background: var(--line); }
+  .np.dragging { transition: none; }
+  .np .in > .upnext { flex: 1 1 0; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+  .np input[type=range], .np .seek { touch-action: none; }
   /* iOSのガラス風ボタン */
   .glass { background: linear-gradient(180deg, var(--glass-a) 0%, var(--glass-b) 100%); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
     box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -2px 3px rgba(20,20,24,.05), 0 0 0 .5px rgba(20,20,24,.12), 0 8px 18px -8px rgba(20,20,24,.35); }
@@ -228,7 +235,7 @@
     box-shadow: inset 0 2px 4px rgba(0,0,0,.38), 0 0 0 .5px rgba(0,0,0,.22), 0 1px 0 rgba(255,255,255,.5); }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* ジャケットを左右にスワイプして曲送り */
-  .np .disc { touch-action: pan-y; cursor: grab; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
+  .np .disc { touch-action: none; cursor: grab; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np .disc.dragging { transition: none; cursor: grabbing; }
   .titlebar { display: flex; align-items: flex-start; gap: 12px; }
   .titlebar .tt { flex: 1; min-width: 0; }
@@ -517,9 +524,8 @@
 <section class="np" id="np" aria-hidden="true">
   <div class="in">
     <div class="top">
-      <button class="round glass" id="npClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
-      <div style="width:40px"></div>
     </div>
     <div class="stage">
       <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
@@ -1412,8 +1418,34 @@ function drawProgress(t) {
 }
 $('miniPP').addEventListener('click', () => { unlockAudio(); togglePlay(); });
 $('npPP').addEventListener('click', () => { unlockAudio(); togglePlay(); });
-$('miniOpen').addEventListener('click', () => { $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); });
-$('npClose').addEventListener('click', () => { $('np').classList.remove('open'); $('np').setAttribute('aria-hidden', 'true'); });
+$('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
+function closeNp() { const n = $('np'); n.classList.remove('open', 'dragging'); n.style.transform = ''; n.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+$('npClose').addEventListener('click', closeNp);
+// 上の部分（ディスクより上）をつまんで下に引くと、引き出しのように閉じる
+(() => {
+  const np = $('np');
+  let y0 = 0, t0 = 0, dy = 0, id = null;
+  const startOk = (e) => e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc'));
+  np.addEventListener('pointerdown', (e) => {
+    if (!np.classList.contains('open') || !startOk(e)) return;
+    id = e.pointerId; y0 = e.clientY; t0 = performance.now(); dy = 0;
+    np.setPointerCapture(id); np.classList.add('dragging');
+  });
+  np.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    dy = Math.max(0, e.clientY - y0);
+    np.style.transform = `translateY(${dy}px)`;
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null; np.classList.remove('dragging');
+    const fast = dy / Math.max(1, performance.now() - t0) > 0.6;
+    if (dy > 110 || (fast && dy > 30)) closeNp();
+    else np.style.transform = '';
+  };
+  np.addEventListener('pointerup', end);
+  np.addEventListener('pointercancel', end);
+})();
 
 // シークバー
 const seekEl = $('seek');
