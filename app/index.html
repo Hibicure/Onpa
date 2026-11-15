@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://w.soundcloud.com/player/api.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
 <style>
   :root {
@@ -284,6 +284,8 @@
     .disc .platter, .row.now .art, .incoming .avatar, .callbar .pulse { animation: none !important; }
     .np, .toast { transition: none; }
   }
+  .schost { position: fixed; left: 0; bottom: 0; width: 320px; height: 166px; opacity: .01; pointer-events: none; z-index: -1; }
+  .schost iframe { width: 100%; height: 100%; border: 0; }
 </style>
 </head>
 <body>
@@ -411,6 +413,8 @@
 </section>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<!-- 音を鳴らす係：SoundCloud公式の埋め込みプレーヤー（見えないように置いて、Onpaのボタンで操作する） -->
+<div class="schost" aria-hidden="true"><iframe id="scw" title="SoundCloud player" tabindex="-1" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F293&amp;auto_play=false&amp;visual=false"></iframe></div>
 
 <script>
 // ===================== 設定 =====================
@@ -553,7 +557,6 @@ function renderTracks(list, emptyHTML) {
   lastResults = list;
   $('results').innerHTML = list.length ? list.map(rowHTML).join('') : emptyHTML;
   markNow();
-  list.slice(0, 3).forEach((t) => getPlay(t.id).catch(() => {}));
 }
 const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</div>`;
 
@@ -891,55 +894,64 @@ function splitArtist(t) {
 }
 
 // ===================== 音楽：再生のしくみ =====================
-const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-const player = new Audio();
-player.preload = 'auto';
-let hls = null, track = null, loadedId = null, loadToken = 0, loading = false;
-const playCache = new Map();
-
-function getPlay(id) {
-  const key = String(id);
-  const hit = playCache.get(key);
-  if (hit && hit.exp > Date.now()) return hit.p;
-  const p = scHeaders().then((h) => fetch(`${WORKER}/play?id=${id}`, { headers: h })).then(async (r) => {
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || r.status);
-    return d;
-  });
-  playCache.set(key, { p, exp: Date.now() + 8 * 60 * 1000 });
-  p.catch(() => playCache.delete(key));
-  return p;
+// SoundCloud公式の埋め込みプレーヤーを、普通の<audio>と同じ使い方で操作できるようにする係。
+// Onpaのサーバーを通さないので、アプリ全体の1日の再生回数の上限を使わない。
+class WidgetMedia extends EventTarget {
+  constructor(iframe) {
+    super();
+    this.w = SC.Widget(iframe);
+    this._t = 0; this._d = NaN; this._paused = true; this._vol = 1;
+    this.ready = new Promise((ok) => this.w.bind(SC.Widget.Events.READY, ok));
+    const E = SC.Widget.Events;
+    this.w.bind(E.PLAY, () => { this._paused = false; this.fire('play'); this.fire('playing'); });
+    this.w.bind(E.PAUSE, () => { if (this._paused) return; this._paused = true; this.fire('pause'); });
+    this.w.bind(E.FINISH, () => { this._paused = true; this.fire('pause'); this.fire('ended'); });
+    this.w.bind(E.PLAY_PROGRESS, (p) => { this._t = p.currentPosition / 1000; this.fire('timeupdate'); });
+    this.w.bind(E.ERROR, () => this.fire('error'));
+  }
+  fire(name) { this.dispatchEvent(new Event(name)); }
+  get currentTime() { return this._t; }
+  set currentTime(v) { this._t = Math.max(0, v || 0); this.w.seekTo(Math.round(this._t * 1000)); this.fire('timeupdate'); }
+  get duration() { return this._d; }
+  get paused() { return this._paused; }
+  get volume() { return this._vol; }
+  set volume(v) { this._vol = v; this.w.setVolume(Math.round(v * 100)); }
+  play() {
+    this.w.play();
+    if (!this._paused) return Promise.resolve();
+    return new Promise((ok, ng) => {
+      const t = setTimeout(() => { this.removeEventListener('playing', on); const e = new Error('play blocked'); e.name = 'NotAllowedError'; ng(e); }, 5000);
+      const on = () => { clearTimeout(t); ok(); };
+      this.addEventListener('playing', on, { once: true });
+    });
+  }
+  pause() { this.w.pause(); }
+  async load(trackId) {
+    await this.ready;
+    this._paused = true; this._t = 0; this._d = NaN;
+    await new Promise((ok, ng) => {
+      const t = setTimeout(() => ng(new Error('timeout')), 15000);
+      this.w.load('https://api.soundcloud.com/tracks/' + trackId, {
+        auto_play: false, visual: false, show_artwork: false, buying: false, sharing: false,
+        download: false, show_comments: false, show_user: false, show_teaser: false,
+        callback: () => {
+          this.w.setVolume(Math.round(this._vol * 100));
+          this.w.getDuration((d) => { clearTimeout(t); if (d > 0) { this._d = d / 1000; ok(); } else ng(new Error('unplayable')); });
+        },
+      });
+    });
+  }
 }
+const player = new WidgetMedia(document.getElementById('scw'));
+let track = null, loadedId = null, loadToken = 0, loading = false;
 
-// 音楽の音量は、iPhoneでも効くようにWeb Audio経由で変える
-let actx = null, gain = null;
-// Safariでは、音楽をWeb Audioに通すと鳴らなくなることがあるため使わない
-// （iPhoneの音楽の音量は本体ボタンで。アプリ版では別々に調整できる）
-function ensureGraph() {
-  return;
-  if (actx) { if (actx.state === 'suspended') actx.resume().catch(() => {}); return; }
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext;
-    actx = new AC();
-    const src = actx.createMediaElementSource(player);
-    gain = actx.createGain();
-    gain.gain.value = volMusic();
-    src.connect(gain);
-    gain.connect(actx.destination);
-  } catch (e) { console.warn(e); actx = null; gain = null; }
-}
-function setMusicVol() { if (gain) gain.gain.value = volMusic(); else player.volume = volMusic(); }
+function setMusicVol() { player.volume = volMusic(); }
 
-function unlockAudio() {
-  ensureGraph();
-  // iPhoneは「タップした瞬間」に鳴らし始めないと、あとで再生できない
-  // （一度鳴らしたプレーヤーは、その後は自由に再生できる）
-  if (!loadedId && !player.src) { player.src = SILENT; player.play().catch(() => {}); }
-}
+// 埋め込みプレーヤーは準備が要らないので、何もしない（呼び出し元はそのまま）
+function unlockAudio() {}
 
 async function loadTrack(meta) {
   const my = ++loadToken;
-  if (hls) { hls.destroy(); hls = null; }
   loading = true; loadedId = null;
   if (track && !goingBack && track.trackId !== meta.trackId) { playHistory.push(track); if (playHistory.length > 50) playHistory.shift(); }
   goingBack = false;
@@ -947,28 +959,13 @@ async function loadTrack(meta) {
   renderTrack();
   setPP('load');
   try {
-    const d = await getPlay(meta.trackId);
-    if (my !== loadToken) return false;
-    if (d.hls && window.Hls && Hls.isSupported()) {
-      hls = new Hls({ maxBufferLength: 20, startFragPrefetch: true });
-      hls.loadSource(d.url);
-      hls.attachMedia(player);
-      await new Promise((ok, ng) => {
-        hls.once(Hls.Events.MANIFEST_PARSED, ok);
-        hls.on(Hls.Events.ERROR, (ev, x) => { if (x.fatal) ng(new Error(x.details)); });
-      });
-    } else {
-      player.src = d.url;
-      await new Promise((ok, ng) => {
-        player.addEventListener('loadedmetadata', ok, { once: true });
-        player.addEventListener('error', () => ng(new Error('load failed')), { once: true });
-      });
-    }
+    player.pause();
+    await player.load(meta.trackId);
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     return true;
   } catch (e) {
-    if (my === loadToken) { playCache.delete(String(meta.trackId)); toast("This track can't be played"); setPP('play'); }
+    if (my === loadToken) { toast("This track can't be played"); setPP('play'); }
     return false;
   } finally {
     if (my === loadToken) loading = false;
@@ -1316,7 +1313,7 @@ async function applyRoomState(s) {
       if (!ok || !roomState || roomState.trackId !== s.trackId) return;
     }
     const target = expectedPos(roomState);
-    if (Math.abs(player.currentTime - target) > 0.7) player.currentTime = target;
+    if (Math.abs(player.currentTime - target) > 1) player.currentTime = target;
     setMusicVol();
     if (roomState.playing) await player.play(); else player.pause();
   } catch (e) {
@@ -1329,11 +1326,10 @@ const shouldPlay = () => !!(roomState && roomState.playing);
 setInterval(() => {
   if (call.state !== 'live' || !roomState || applying || loadedId !== roomState.trackId || !roomState.playing || player.paused) return;
   const diff = player.currentTime - expectedPos(roomState);
-  if (Math.abs(diff) > 0.5) player.currentTime = expectedPos(roomState);
+  if (Math.abs(diff) > 1.2) player.currentTime = expectedPos(roomState);
 }, 4000);
 // iPhoneで自動再生が止められたとき、どこかタップで追いつく
 document.addEventListener('pointerdown', () => {
-  if (actx && actx.state !== 'running') actx.resume().catch(() => {});
   if (call.state === 'live' && roomState && roomState.playing && player.paused && loadedId === roomState.trackId) {
     player.currentTime = expectedPos(roomState);
     player.play().catch(() => {});
