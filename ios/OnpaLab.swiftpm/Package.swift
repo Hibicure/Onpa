@@ -1,5 +1,5 @@
 // swift-tools-version: 5.9
-// Onpa Lab：iPhoneで「通話しながら音楽」を確かめるためのテストアプリ
+// Otocloud Lab：iPhoneで「通話しながら音楽」を確かめるためのテストアプリ
 // Xcodeでこのフォルダ（OnpaLab.swiftpm）を開くと、そのままiPhoneで動かせます。
 
 import PackageDescription
@@ -12,7 +12,7 @@ let package = Package(
     ],
     products: [
         .iOSApplication(
-            name: "Onpa Lab",
+            name: "Otocloud Lab",
             targets: ["AppModule"],
             bundleIdentifier: "net.onpa.lab",
             teamIdentifier: "",
@@ -27,8 +27,8 @@ let package = Package(
                 .portrait
             ],
             capabilities: [
-                .microphone(purposeString: "Onpaで通話するためにマイクを使います。"),
-                .camera(purposeString: "Onpaはカメラを使いません（通話の部品が必要とするため記載しています）。")
+                .microphone(purposeString: "Otocloudで通話するためにマイクを使います。"),
+                .camera(purposeString: "Otocloudはカメラを使いません（通話の部品が必要とするため記載しています）。")
             ]
         )
     ],

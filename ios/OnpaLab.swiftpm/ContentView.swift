@@ -33,7 +33,7 @@ struct ContentView: View {
                 .zIndex(showWidget ? 1 : 0)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Onpa Lab")
+                    Text("Otocloud Lab")
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.ink)
                     Text("通話しながら音楽を流して、声と音楽の音量を別々に調整できるかを試すアプリです。")
@@ -127,7 +127,7 @@ struct ContentView: View {
             }
             .pickerStyle(.segmented)
             Text(lab.engine == .stream
-                 ? "Onpaのサーバー経由で鳴らします（1日の再生回数に上限あり）"
+                 ? "Otocloudのサーバー経由で鳴らします（1日の再生回数に上限あり）"
                  : "SoundCloud公式のプレーヤーで鳴らします（回数の上限を使わない）")
                 .font(.footnote).foregroundStyle(Color.mute)
             if lab.engine == .widget {

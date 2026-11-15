@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#D9DADD">
-<title>Onpa</title>
+<title>Otocloud</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Instrument+Sans:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
@@ -151,7 +151,7 @@
 
   /* ---------- ミニプレーヤー ---------- */
   .mini { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(72px + var(--safe-b)); width: calc(100% - 20px); max-width: 420px; padding: 8px 8px 8px 10px; border-radius: 20px; background: var(--surface); box-shadow: 0 8px 30px rgba(20,20,24,.14); display: flex; align-items: center; gap: 12px; z-index: 20; }
-  .mini .disc-s { width: 44px; height: 44px; border-radius: 50%; background: var(--holo); position: relative; flex-shrink: 0; overflow: hidden; }
+  .mini .disc-s { width: 44px; height: 44px; border-radius: 50%; background: conic-gradient(from 25deg, #DDE0E4, #F3E3EA 30deg, #E9F3E6 50deg, #DCE7F3 70deg, #C9CDD3 110deg, #EEF0F2 170deg, #F0E6D8 210deg, #DCEBF1 235deg, #C7CBD1 280deg, #DDE0E4); position: relative; flex-shrink: 0; overflow: hidden; }
   .mini .disc-s img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .mini .disc-s img:not([src]) { display: none; }
   .mini .disc-s::after { content: ''; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 1px 2px rgba(20,20,24,.45), 0 0 0 3px rgba(236,240,246,.75); }
@@ -188,23 +188,26 @@
   .disc { width: min(84vw, 360px, 46dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative;
     box-shadow: 0 28px 48px -22px rgba(0,0,0,.45), 0 10px 16px -10px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.35), 0 0 0 .5px rgba(0,0,0,.22); }
   .disc .platter { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; animation: spin 9s linear infinite; animation-play-state: paused;
-    background: radial-gradient(circle closest-side, #D5D6D9 0 34%, #CCCED1 66%, #C4C6CA 92%, #BBBDC2 100%); }
+    /* 何も印刷されていない銀のCD：虹色の回折は盤と一緒に回る */
+    background:
+      conic-gradient(from 25deg, rgba(255,255,255,0) 0deg, rgba(255,150,190,.38) 10deg, rgba(255,226,140,.38) 18deg, rgba(150,240,200,.36) 26deg, rgba(140,200,255,.36) 34deg, rgba(200,160,255,.3) 42deg, rgba(255,255,255,0) 54deg,
+        rgba(255,255,255,0) 180deg, rgba(255,150,190,.32) 190deg, rgba(255,226,140,.32) 198deg, rgba(150,240,200,.3) 206deg, rgba(140,200,255,.3) 214deg, rgba(200,160,255,.26) 222deg, rgba(255,255,255,0) 234deg),
+      repeating-radial-gradient(circle closest-side, rgba(255,255,255,0) 0 .55%, rgba(0,0,0,.022) .55% 1.1%),
+      radial-gradient(circle closest-side, #E9EBEE 0 33%, #F6F7F8 34.5% 37%, #C9CDD3 38.5%, #D3D6DB 70%, #C6CAD0 95%, #DADDE1 97%, #B7BBC2 100%); }
   .disc.spinning .platter { animation-play-state: running; }
   .disc .L { position: absolute; inset: 0; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
-  .disc .rim { background: var(--holo); opacity: .85;
-    -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 93.4%, #000 93.9% 97.2%, transparent 97.7%);
-    mask-image: radial-gradient(circle closest-side, transparent 0 93.4%, #000 93.9% 97.2%, transparent 97.7%); }
-  .disc .win { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%2F%3E%3C%2Fsvg%3E"); }
-  /* ジャケット画像は手を加えず、盤面いっぱいにそのまま出す（画像がない時だけ印刷デザインが見える） */
+  /* ジャケット画像は手を加えず、盤面いっぱいにそのまま出す（画像がない時は、何も印刷されていない銀のCD） */
   .disc .face { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .disc .face:not([src]) { display: none; }
-  .disc .wline { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.1%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.1%27%2F%3E%3C%2Fsvg%3E"); }
-  .disc .d1 { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M64%2085%20C72%2079%2082%2073%2090%2063%20C88%2074%2081%2083%2070%2088%20C65%2090%2061%2087%2064%2085%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M64%2085%20C72%2079%2082%2073%2090%2063%20C88%2074%2081%2083%2070%2088%20C65%2090%2061%2087%2064%2085%20Z%27%2F%3E%3C%2Fsvg%3E"); }
-  .disc .d2 { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M74%2051%20C79%2048%2087%2048%2089%2052%20C90%2056%2084%2058%2079%2057%20C76%2056%2072%2053%2074%2051%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M74%2051%20C79%2048%2087%2048%2089%2052%20C90%2056%2084%2058%2079%2057%20C76%2056%2072%2053%2074%2051%20Z%27%2F%3E%3C%2Fsvg%3E"); }
-  .disc .core { background: #141416; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M23%2059%20C33%2059%2038%2031%2050%2031%20C62%2031%2067%2059%2077%2059%20C69%2062%2060%2066%2050%2066%20C40%2066%2031%2062%2023%2059%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M23%2059%20C33%2059%2038%2031%2050%2031%20C62%2031%2067%2059%2077%2059%20C69%2062%2060%2066%2050%2066%20C40%2066%2031%2062%2023%2059%20Z%27%2F%3E%3C%2Fsvg%3E"); }
-  .disc .print { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .disc .print text { fill: rgba(20,20,22,.5); font-family: var(--body); white-space: pre; }
-  .disc .print .cat { fill: rgba(20,20,22,.42); font-family: Georgia, 'Times New Roman', serif; font-style: italic; }
+  /* 光の反射（盤が回っても動かない）：金属のつやと、上から当たる光 */
+  .disc .shine { border-radius: 50%; pointer-events: none;
+    background:
+      conic-gradient(from 300deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,.7) 22deg, rgba(255,255,255,0) 48deg, rgba(255,255,255,0) 150deg, rgba(0,0,0,.10) 185deg, rgba(0,0,0,0) 215deg,
+        rgba(255,255,255,0) 290deg, rgba(255,255,255,.45) 312deg, rgba(255,255,255,0) 334deg),
+      radial-gradient(120% 90% at 30% 15%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%);
+    -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 37%, #000 39% 98%, transparent 99%);
+    mask-image: radial-gradient(circle closest-side, transparent 0 37%, #000 39% 98%, transparent 99%); }
+  .disc:has(.face[src]) .shine { display: none; }
   /* ふち：細い銀の面取り。上が明るく下が暗い光で、盤の厚みを出す */
   .disc .edge { border-radius: 50%; pointer-events: none;
     box-shadow: inset 0 0 0 .5px rgba(0,0,0,.35), inset 0 0 0 2px rgba(232,234,238,.9), inset 0 0 0 2.5px rgba(0,0,0,.16), inset 0 0 10px rgba(0,0,0,.14); }
@@ -341,11 +344,11 @@
 <body>
 
 <!-- 起動中 -->
-<div class="boot" id="boot"><div class="disc spinning"><div class="platter"><div class="L rim"></div><div class="L win"></div><div class="L wline"></div><div class="L d1"></div><div class="L d2"></div><div class="L core"></div><svg class="print" viewBox="0 0 100 100" aria-hidden="true"><defs><path id="rimP0" d="M50 50 m-44.6 0 a44.6 44.6 0 1 1 89.2 0 a44.6 44.6 0 1 1 -89.2 0"/></defs><text font-size="1.55" letter-spacing=".42"><textPath href="#rimP0">ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   </textPath></text><text class="cat" x="15" y="80" font-size="5.2" transform="rotate(-8 15 80)">ONP-01</text></svg></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div></div>
+<div class="boot" id="boot"><div class="disc spinning"><div class="platter"></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div></div>
 
 <!-- 初回：名前と@IDを決める -->
 <section class="onboard" id="onboard" hidden>
-  <div class="disc spinning"><div class="platter"><div class="L rim"></div><div class="L win"></div><div class="L wline"></div><div class="L d1"></div><div class="L d2"></div><div class="L core"></div><svg class="print" viewBox="0 0 100 100" aria-hidden="true"><defs><path id="rimP1" d="M50 50 m-44.6 0 a44.6 44.6 0 1 1 89.2 0 a44.6 44.6 0 1 1 -89.2 0"/></defs><text font-size="1.55" letter-spacing=".42"><textPath href="#rimP1">ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   </textPath></text><text class="cat" x="15" y="80" font-size="5.2" transform="rotate(-8 15 80)">ONP-01</text></svg></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
+  <div class="disc spinning"><div class="platter"></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
   <h1>Talk and listen,<br>at the same time.</h1>
   <p>Pick a name and a handle. No email, no password.</p>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
@@ -358,7 +361,7 @@
 <!-- メイン -->
 <div class="shell" id="app" hidden>
   <header class="head">
-    <div class="mark">Onpa</div>
+    <div class="mark">Otocloud</div>
     <div class="right">
       <div class="me" id="meLabel"></div>
       <button class="theme glass" id="themeBtn" aria-label="Switch to night mode"></button>
@@ -433,7 +436,7 @@
       <div style="width:40px"></div>
     </div>
     <div class="stage">
-      <div class="disc" id="disc"><div class="platter"><div class="L rim"></div><div class="L win"></div><div class="L wline"></div><div class="L d1"></div><div class="L d2"></div><div class="L core"></div><svg class="print" viewBox="0 0 100 100" aria-hidden="true"><defs><path id="rimP2" d="M50 50 m-44.6 0 a44.6 44.6 0 1 1 89.2 0 a44.6 44.6 0 1 1 -89.2 0"/></defs><text font-size="1.55" letter-spacing=".42"><textPath href="#rimP2" id="discRim">ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   </textPath></text><text class="cat" x="15" y="80" font-size="5.2" transform="rotate(-8 15 80)" id="discCat">ONP-01</text></svg><img class="face" id="npArt" alt=""></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
+      <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
@@ -872,7 +875,7 @@ function setMode(m) {
   }
   if (!sc) {
     $('libbar').hidden = true;
-    $('results').innerHTML = msg('Connect SoundCloud', 'Play your likes and playlists, and like tracks right from Onpa.<br><button class="btn primary sc-connect">Connect SoundCloud</button>');
+    $('results').innerHTML = msg('Connect SoundCloud', 'Play your likes and playlists, and like tracks right from Otocloud.<br><button class="btn primary sc-connect">Connect SoundCloud</button>');
     return;
   }
   if (m === 'likes') showLikes();
@@ -1129,9 +1132,6 @@ function renderTrack() {
   $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
   $('npT').textContent = track.title; $('npS').textContent = track.artist;
   // 再生画面は大きい画像（SoundCloudは-large=100px、-t500x500=500px）
-  const rimLine = `ONPA   ${track.title}   ${track.artist}   LISTEN TOGETHER   ON-PA.NET   `.toUpperCase();
-  $('discRim').textContent = (rimLine.length > 60 ? rimLine : rimLine.repeat(2)).slice(0, 150);
-  $('discCat').textContent = 'ONP-' + String(track.trackId).slice(-4).padStart(4, '0');
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').removeAttribute('src'); $('npArt').removeAttribute('src'); }
   paintHeart();

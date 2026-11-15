@@ -1,4 +1,4 @@
-# Onpa Lab（iPhoneテストアプリ）
+# Otocloud Lab（iPhoneテストアプリ）
 
 「通話しながら音楽を流して、声と音楽の音量を別々に変えられるか」をiPhoneで確かめるための小さなアプリです。
 

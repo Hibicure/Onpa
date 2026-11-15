@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Onpa – Embed Test</title>
+<title>Otocloud – Embed Test</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Instrument+Sans:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
@@ -63,7 +63,7 @@
 <body>
 <div class="wrap">
   <h1>Embed test</h1>
-  <p class="sub">SoundCloud公式の埋め込みプレーヤーを隠して、Onpaのボタンで操作できるかを試すページです。Onpaのサーバーを通さないので、1日の再生回数の上限を使いません。</p>
+  <p class="sub">SoundCloud公式の埋め込みプレーヤーを隠して、Otocloudのボタンで操作できるかを試すページです。Otocloudのサーバーを通さないので、1日の再生回数の上限を使いません。</p>
 
   <div class="field">
     <input type="text" id="q" placeholder="曲名やアーティストで検索" enterkeyhint="search" autocomplete="off">
@@ -170,7 +170,7 @@ async function search() {
   $('q').blur();
   $('list').innerHTML = '<div class="msg">検索中…</div>';
   try {
-    // Onpa本体でSoundCloudに連携していれば、その合鍵で検索する（回数制限に左右されにくい）
+    // Otocloud本体でSoundCloudに連携していれば、その合鍵で検索する（回数制限に左右されにくい）
     let h = {};
     try { const sc = JSON.parse(localStorage.getItem('onpa_sc') || 'null'); if (sc && sc.at && sc.exp > Date.now()) h = { 'X-SC-Token': sc.at }; } catch {}
     const r = await fetch(WORKER + '/search?q=' + encodeURIComponent(q), { headers: h });
