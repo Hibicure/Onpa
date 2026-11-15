@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#EEF0F4">
+<meta name="theme-color" content="#D9DADD">
 <title>Onpa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,54 +18,54 @@
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
 <style>
   :root {
-    --paper: #EEF0F4;
-    --surface: #FFFFFF;
-    --ink: #161A33;
-    --mute: #6A6F88;
-    --line: #D7DBE4;
+    --paper: #D9DADD;
+    --surface: #E8E9EB;
+    --ink: #151517;
+    --mute: #74767C;
+    --line: #C2C4C8;
     --cobalt: #2446F5;
     --live: #12A867;
     --danger: #E5484D;
-    --holo: conic-gradient(from 210deg, #c9f0ff, #e7d4ff, #ffd6ec, #fff1c7, #d2ffe9, #c9f0ff, #e7d4ff, #ffd6ec, #c9f0ff);
+    --holo: conic-gradient(from 140deg, #EBC8B6, #F1E4B4, #CDE7CF, #BFD8E4, #D3C8EC, #EEC6C4, #EBC8B6);
     --display: 'Unbounded', system-ui, sans-serif;
     --body: 'Instrument Sans', 'Zen Kaku Gothic New', -apple-system, 'Hiragino Sans', sans-serif;
     --safe-b: env(safe-area-inset-bottom);
     --on-ink: #FFFFFF;
-    --chip: #E1E4EB;
-    --nav: rgba(238,240,244,.92);
-    --dot-off: #B9BDCB;
-    --mode-ic: #9EA3B5;
-    --glass-a: rgba(255,255,255,.82);
-    --glass-b: rgba(255,255,255,.42);
+    --chip: #CDCFD3;
+    --nav: rgba(217,218,221,.92);
+    --dot-off: #A6A8AE;
+    --mode-ic: #8C8E94;
+    --glass-a: rgba(246,247,248,.9);
+    --glass-b: rgba(210,212,216,.6);
     --glass-hi: rgba(255,255,255,.95);
-    --pop-a: rgba(255,255,255,.94);
-    --pop-b: rgba(255,255,255,.8);
-    --pp-a: #3B4068;
-    --pp-b: #161A33;
+    --pop-a: rgba(236,237,239,.96);
+    --pop-b: rgba(222,223,226,.92);
+    --pp-a: #3C3D42;
+    --pp-b: #151517;
     --pp-ic: #FFFFFF;
     color-scheme: light;
   }
-  /* ナイトモード：深い紺。CDは銀のまま */
+  /* ナイトモード：ほぼ黒のグレー。CDは印刷された銀盤のまま */
   :root[data-theme="dark"] {
-    --paper: #0D0F1E;
-    --surface: #171A2E;
-    --ink: #ECEEF6;
-    --mute: #8A8FAA;
-    --line: #2A2E4A;
-    --cobalt: #5B78FF;
-    --on-ink: #0D0F1E;
-    --chip: #1D2140;
-    --nav: rgba(13,15,30,.9);
-    --dot-off: #4A4F6E;
-    --mode-ic: #7B809C;
-    --glass-a: rgba(64,70,110,.55);
-    --glass-b: rgba(30,34,60,.35);
+    --paper: #111214;
+    --surface: #1B1C1F;
+    --ink: #E8E9EB;
+    --mute: #8A8C92;
+    --line: #2C2D31;
+    --cobalt: #6A82FF;
+    --on-ink: #111214;
+    --chip: #222326;
+    --nav: rgba(17,18,20,.9);
+    --dot-off: #45474D;
+    --mode-ic: #7A7C82;
+    --glass-a: rgba(72,74,80,.55);
+    --glass-b: rgba(36,37,41,.4);
     --glass-hi: rgba(255,255,255,.14);
-    --pop-a: rgba(38,42,72,.96);
-    --pop-b: rgba(26,29,52,.92);
+    --pop-a: rgba(40,41,45,.96);
+    --pop-b: rgba(30,31,34,.92);
     --pp-a: #FFFFFF;
-    --pp-b: #CDD2E4;
-    --pp-ic: #0D0F1E;
+    --pp-b: #C9CBD0;
+    --pp-ic: #111214;
     color-scheme: dark;
   }
   html { transition: background-color .3s; }
@@ -111,7 +111,7 @@
   /* ---------- 聴くタブの切り替え ---------- */
   .seg { display: flex; gap: 4px; margin: 8px 16px 0; padding: 4px; border-radius: 13px; background: var(--chip); }
   .seg button { flex: 1; height: 34px; border-radius: 10px; font-weight: 600; font-size: 13px; color: var(--mute); }
-  .seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(22,26,51,.12); }
+  .seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(20,20,24,.12); }
   .libbar { display: flex; align-items: center; gap: 10px; margin: 14px 16px 2px; }
   .libbar .round { background: var(--surface); }
   .libtitle { flex: 1; min-width: 0; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -150,11 +150,11 @@
   .btn:disabled { opacity: .45; cursor: default; }
 
   /* ---------- ミニプレーヤー ---------- */
-  .mini { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(72px + var(--safe-b)); width: calc(100% - 20px); max-width: 420px; padding: 8px 8px 8px 10px; border-radius: 20px; background: var(--surface); box-shadow: 0 8px 30px rgba(22,26,51,.14); display: flex; align-items: center; gap: 12px; z-index: 20; }
+  .mini { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(72px + var(--safe-b)); width: calc(100% - 20px); max-width: 420px; padding: 8px 8px 8px 10px; border-radius: 20px; background: var(--surface); box-shadow: 0 8px 30px rgba(20,20,24,.14); display: flex; align-items: center; gap: 12px; z-index: 20; }
   .mini .disc-s { width: 44px; height: 44px; border-radius: 50%; background: var(--holo); position: relative; flex-shrink: 0; overflow: hidden; }
   .mini .disc-s img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .mini .disc-s img:not([src]) { display: none; }
-  .mini .disc-s::after { content: ''; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 1px 2px rgba(22,26,51,.45), 0 0 0 3px rgba(236,240,246,.75); }
+  .mini .disc-s::after { content: ''; position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 1px 2px rgba(20,20,24,.45), 0 0 0 3px rgba(236,240,246,.75); }
   .mini .open { flex: 1; min-width: 0; text-align: left; }
   .mini .t { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mini .s { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -179,46 +179,45 @@
   .np .top { display: flex; align-items: center; justify-content: space-between; }
   /* iOSのガラス風ボタン */
   .glass { background: linear-gradient(180deg, var(--glass-a) 0%, var(--glass-b) 100%); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
-    box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -2px 3px rgba(22,26,51,.05), 0 0 0 .5px rgba(22,26,51,.12), 0 8px 18px -8px rgba(22,26,51,.35); }
+    box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 -2px 3px rgba(20,20,24,.05), 0 0 0 .5px rgba(20,20,24,.12), 0 8px 18px -8px rgba(20,20,24,.35); }
   .glass:active { transform: scale(.94); }
   .np .top .round { background: transparent; }
   .np .together { font-size: 13px; color: var(--cobalt); font-weight: 700; }
   .stage { flex: 1 0 auto; display: grid; place-items: center; padding: 18px 0 22px; }
-  /* CD：盤面全体にジャケット、真ん中に透明なリングと穴 */
-  .disc { width: min(76vw, 320px, 40dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative; box-shadow: 0 34px 60px -18px rgba(22,26,51,.45), 0 14px 22px -10px rgba(22,26,51,.3), 0 0 0 1px rgba(22,26,51,.08); }
-  /* CDのふち：均一な細い銀色の縁 */
-  .disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 4;
-    box-shadow: inset 0 0 0 .5px rgba(22,26,51,.22), inset 0 0 0 1.5px rgba(240,242,247,.85); }
-  .onboard .disc::after, .boot .disc::after { display: none; }
-  .disc .platter { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: var(--holo); animation: spin 7s linear infinite; animation-play-state: paused; }
+  /* CD：印刷されたマットな銀盤。ジャケットは有機的な窓の中、虹色の箔は窓のふちと雫だけ */
+  .disc { width: min(76vw, 320px, 40dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative;
+    box-shadow: 0 22px 44px -24px rgba(0,0,0,.42), 0 0 0 .5px rgba(0,0,0,.2); }
+  .disc .platter { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; animation: spin 9s linear infinite; animation-play-state: paused;
+    background: radial-gradient(circle closest-side, #D5D6D9 0 34%, #CCCED1 66%, #C4C6CA 92%, #BBBDC2 100%); }
   .disc.spinning .platter { animation-play-state: running; }
-  .disc .face { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .disc .face:not([src]) { display: none; }
-  /* CDの銀色の反射：回らない光の筋＋うっすら虹色 */
-  .disc .sheen { position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
-    background:
-      conic-gradient(from 200deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,.62) 14deg, rgba(255,255,255,.12) 34deg, rgba(255,255,255,0) 60deg,
-        rgba(255,255,255,0) 180deg, rgba(255,255,255,.5) 194deg, rgba(255,255,255,.1) 214deg, rgba(255,255,255,0) 240deg),
-      conic-gradient(from 200deg, rgba(120,200,255,.0) 0deg, rgba(255,140,220,.22) 22deg, rgba(255,230,140,.2) 40deg, rgba(140,255,200,.18) 58deg, rgba(120,200,255,0) 80deg,
-        rgba(120,200,255,0) 180deg, rgba(255,140,220,.2) 202deg, rgba(255,230,140,.18) 220deg, rgba(140,255,200,.16) 238deg, rgba(120,200,255,0) 260deg),
-      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 0 1.5px, rgba(255,255,255,.06) 1.5px 2.5px),
-      radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 62%, rgba(220,226,236,.25) 96%, rgba(255,255,255,.5) 100%);
-    mix-blend-mode: screen; }
-  .disc .sheen::after { content: ''; position: absolute; inset: 0; border-radius: 50%;
-    background: linear-gradient(135deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,.18) 100%); mix-blend-mode: overlay; }
-  .disc .hub { position: absolute; inset: 33%; border-radius: 50%; pointer-events: none;
-    background: radial-gradient(circle, rgba(236,240,246,.92) 0 52%, rgba(255,255,255,.55) 53% 70%, rgba(220,226,236,.6) 71% 100%);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 0 0 3px rgba(22,26,51,.06), 0 0 0 1px rgba(22,26,51,.10), 0 1px 3px rgba(22,26,51,.18); }
+  .disc .L { position: absolute; inset: 0; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+  .disc .rim { background: var(--holo); opacity: .85;
+    -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 93.4%, #000 93.9% 97.2%, transparent 97.7%);
+    mask-image: radial-gradient(circle closest-side, transparent 0 93.4%, #000 93.9% 97.2%, transparent 97.7%); }
+  .disc .win { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%2F%3E%3C%2Fsvg%3E"); }
+  .disc .win .face { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .disc .win .face:not([src]) { display: none; }
+  .disc .wline { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.1%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M12%2036%20C16%2016%2040%205%2062%208%20C80%2010%2091%2021%2087%2033%20C84%2042%2073%2041%2063%2041%20C55%2041%2049%2042%2041%2050%20C33%2058%2024%2070%2015%2064%20C9%2059%209%2047%2012%2036%20Z%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.1%27%2F%3E%3C%2Fsvg%3E"); }
+  .disc .d1 { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M64%2085%20C72%2079%2082%2073%2090%2063%20C88%2074%2081%2083%2070%2088%20C65%2090%2061%2087%2064%2085%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M64%2085%20C72%2079%2082%2073%2090%2063%20C88%2074%2081%2083%2070%2088%20C65%2090%2061%2087%2064%2085%20Z%27%2F%3E%3C%2Fsvg%3E"); }
+  .disc .d2 { background: var(--holo); -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M74%2051%20C79%2048%2087%2048%2089%2052%20C90%2056%2084%2058%2079%2057%20C76%2056%2072%2053%2074%2051%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M74%2051%20C79%2048%2087%2048%2089%2052%20C90%2056%2084%2058%2079%2057%20C76%2056%2072%2053%2074%2051%20Z%27%2F%3E%3C%2Fsvg%3E"); }
+  .disc .core { background: #141416; -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M23%2059%20C33%2059%2038%2031%2050%2031%20C62%2031%2067%2059%2077%2059%20C69%2062%2060%2066%2050%2066%20C40%2066%2031%2062%2023%2059%20Z%27%2F%3E%3C%2Fsvg%3E"); mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpath%20d%3D%27M23%2059%20C33%2059%2038%2031%2050%2031%20C62%2031%2067%2059%2077%2059%20C69%2062%2060%2066%2050%2066%20C40%2066%2031%2062%2023%2059%20Z%27%2F%3E%3C%2Fsvg%3E"); }
+  .disc .print { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .disc .print text { fill: rgba(20,20,22,.5); font-family: var(--body); white-space: pre; }
+  .disc .print .cat { fill: rgba(20,20,22,.42); font-family: Georgia, 'Times New Roman', serif; font-style: italic; }
+  .disc .edge { border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), inset 0 0 0 1.6px rgba(0,0,0,.18); }
+  /* 真ん中：透明なプラスチックのリングと穴 */
+  .disc .hub { position: absolute; inset: 34%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle closest-side, rgba(238,239,242,.97) 0 56%, rgba(255,255,255,.35) 58% 84%, rgba(214,216,220,.75) 86% 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.85), 0 0 0 .5px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.22); transition: inset .35s cubic-bezier(.2,.8,.2,1); }
   /* 通話中は、CDの真ん中に相手が出る */
   .disc .peer { position: absolute; inset: 28.5%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
-    font-family: var(--display); font-weight: 700; font-size: clamp(28px, 11vw, 48px); color: var(--ink);
-    box-shadow: 0 0 0 3px rgba(255,255,255,.85), 0 0 0 4px rgba(22,26,51,.10), 0 4px 10px rgba(22,26,51,.25); }
+    font-family: var(--display); font-weight: 700; font-size: clamp(28px, 11vw, 48px); color: #151517;
+    box-shadow: 0 0 0 3px rgba(240,241,243,.9), 0 0 0 3.5px rgba(0,0,0,.2), 0 4px 10px rgba(0,0,0,.25); }
   .disc .peer i { position: absolute; right: 6%; bottom: 6%; width: 17%; height: 17%; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
   .disc.incall .hole { display: none; }
-  .disc .hub { transition: inset .35s cubic-bezier(.2,.8,.2,1); }
   .disc.incall .hub { inset: 26.5%; }
-  .disc .hole { position: absolute; left: 50%; top: 50%; width: 12%; height: 12%; margin: -6% 0 0 -6%; border-radius: 50%; background: var(--paper);
-    box-shadow: inset 0 3px 6px rgba(22,26,51,.45), inset 0 -1px 1px rgba(255,255,255,.7), 0 0 0 1px rgba(22,26,51,.14), 0 1px 0 rgba(255,255,255,.6); }
+  .disc .hole { position: absolute; left: 44%; top: 44%; width: 12%; height: 12%; border-radius: 50%; background: var(--paper);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.38), 0 0 0 .5px rgba(0,0,0,.22), 0 1px 0 rgba(255,255,255,.5); }
   @keyframes spin { to { transform: rotate(360deg); } }
   .titlebar { display: flex; align-items: flex-start; gap: 12px; }
   .titlebar .tt { flex: 1; min-width: 0; }
@@ -252,7 +251,7 @@
   .mode { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--mode-ic); position: relative; transition: transform .12s, background .2s, color .2s; }
   .mode .ic { display: grid; place-items: center; }
   .mode svg { width: 20px; height: 20px; }
-  .mode:not([data-mode="off"]) { background: var(--ink); color: var(--on-ink); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 8px 18px -8px rgba(22,26,51,.55); }
+  .mode:not([data-mode="off"]) { background: var(--ink); color: var(--on-ink); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 8px 18px -8px rgba(20,20,24,.55); }
   .mode .one { position: absolute; top: 6px; right: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--cobalt); color: #fff; font-family: var(--display); font-size: 8px; font-weight: 700; line-height: 14px; text-align: center; display: none; }
   .mode[data-mode="one"] .one { display: block; }
   .skip { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); transition: transform .12s; }
@@ -273,7 +272,7 @@
   .row .add svg { width: 16px; height: 16px; }
   .row .add:active { background: var(--line); }
   .row[role=button] { cursor: pointer; }
-  .controls .pp { width: 72px; height: 72px; background: radial-gradient(120% 95% at 50% 0%, var(--pp-a) 0%, var(--pp-b) 62%); color: var(--pp-ic); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -3px 6px rgba(0,0,0,.25), 0 12px 26px -10px rgba(22,26,51,.6); transition: transform .12s; }
+  .controls .pp { width: 72px; height: 72px; background: radial-gradient(120% 95% at 50% 0%, var(--pp-a) 0%, var(--pp-b) 62%); color: var(--pp-ic); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -3px 6px rgba(0,0,0,.25), 0 12px 26px -10px rgba(20,20,24,.6); transition: transform .12s; }
   .controls .pp:active { transform: scale(.95); }
   .controls .pp svg { width: 34px; height: 34px; }
   .mix { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--surface); display: grid; gap: 12px; }
@@ -288,7 +287,7 @@
   .mix .note { font-size: 12px; color: var(--mute); }
 
   /* ---------- 着信 ---------- */
-  .incoming { position: fixed; inset: 0; z-index: 60; background: rgba(22,26,51,.96); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
+  .incoming { position: fixed; inset: 0; z-index: 60; background: rgba(20,20,24,.96); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
   .incoming .avatar { width: 112px; height: 112px; font-size: 40px; margin-bottom: 10px; animation: ring 1.4s ease-in-out infinite; }
   @keyframes ring { 50% { transform: scale(1.06); } }
   .incoming h3 { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; }
@@ -334,11 +333,11 @@
 <body>
 
 <!-- 起動中 -->
-<div class="boot" id="boot"><div class="disc spinning"><div class="platter"></div><div class="sheen"></div><div class="hub"></div><div class="hole"></div></div></div>
+<div class="boot" id="boot"><div class="disc spinning"><div class="platter"><div class="L rim"></div><div class="L win"></div><div class="L wline"></div><div class="L d1"></div><div class="L d2"></div><div class="L core"></div><svg class="print" viewBox="0 0 100 100" aria-hidden="true"><defs><path id="rimP0" d="M50 50 m-44.6 0 a44.6 44.6 0 1 1 89.2 0 a44.6 44.6 0 1 1 -89.2 0"/></defs><text font-size="1.55" letter-spacing=".42"><textPath href="#rimP0">ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   </textPath></text><text class="cat" x="15" y="80" font-size="5.2" transform="rotate(-8 15 80)">ONP-01</text></svg><div class="L edge"></div></div><div class="hub"></div><div class="hole"></div></div></div>
 
 <!-- 初回：名前と@IDを決める -->
 <section class="onboard" id="onboard" hidden>
-  <div class="disc spinning"><div class="platter"></div><div class="sheen"></div><div class="hub"></div><div class="hole"></div></div>
+  <div class="disc spinning"><div class="platter"><div class="L rim"></div><div class="L win"></div><div class="L wline"></div><div class="L d1"></div><div class="L d2"></div><div class="L core"></div><svg class="print" viewBox="0 0 100 100" aria-hidden="true"><defs><path id="rimP1" d="M50 50 m-44.6 0 a44.6 44.6 0 1 1 89.2 0 a44.6 44.6 0 1 1 -89.2 0"/></defs><text font-size="1.55" letter-spacing=".42"><textPath href="#rimP1">ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   </textPath></text><text class="cat" x="15" y="80" font-size="5.2" transform="rotate(-8 15 80)">ONP-01</text></svg><div class="L edge"></div></div><div class="hub"></div><div class="hole"></div></div>
   <h1>Talk and listen,<br>at the same time.</h1>
   <p>Pick a name and a handle. No email, no password.</p>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
@@ -426,7 +425,7 @@
       <div style="width:40px"></div>
     </div>
     <div class="stage">
-      <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="sheen"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
+      <div class="disc" id="disc"><div class="platter"><div class="L rim"></div><div class="L win"><img class="face" id="npArt" alt=""></div><div class="L wline"></div><div class="L d1"></div><div class="L d2"></div><div class="L core"></div><svg class="print" viewBox="0 0 100 100" aria-hidden="true"><defs><path id="rimP2" d="M50 50 m-44.6 0 a44.6 44.6 0 1 1 89.2 0 a44.6 44.6 0 1 1 -89.2 0"/></defs><text font-size="1.55" letter-spacing=".42"><textPath href="#rimP2" id="discRim">ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   ONPA   LISTEN TOGETHER   ON-PA.NET   SOUND AND VOICE   </textPath></text><text class="cat" x="15" y="80" font-size="5.2" transform="rotate(-8 15 80)" id="discCat">ONP-01</text></svg><div class="L edge"></div></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
@@ -471,7 +470,7 @@ function applyTheme(t) {
   const b = document.getElementById('themeBtn');
   if (b) { b.innerHTML = t === 'dark' ? SUN : MOON; b.setAttribute('aria-label', t === 'dark' ? 'Switch to day mode' : 'Switch to night mode'); }
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = t === 'dark' ? '#0D0F1E' : '#EEF0F4';
+  if (m) m.content = t === 'dark' ? '#111214' : '#D9DADD';
 }
 (() => {
   let t = null;
@@ -1076,6 +1075,9 @@ function renderTrack() {
   $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
   $('npT').textContent = track.title; $('npS').textContent = track.artist;
   // 再生画面は大きい画像（SoundCloudは-large=100px、-t500x500=500px）
+  const rimLine = `ONPA   ${track.title}   ${track.artist}   LISTEN TOGETHER   ON-PA.NET   `.toUpperCase();
+  $('discRim').textContent = (rimLine.length > 60 ? rimLine : rimLine.repeat(2)).slice(0, 150);
+  $('discCat').textContent = 'ONP-' + String(track.trackId).slice(-4).padStart(4, '0');
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').removeAttribute('src'); $('npArt').removeAttribute('src'); }
   paintHeart();
