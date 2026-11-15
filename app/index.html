@@ -65,6 +65,16 @@
   .field input:focus { border-color: var(--ink); }
   .field svg { position: absolute; left: 14px; top: 15px; width: 18px; height: 18px; color: var(--mute); }
 
+  /* ---------- 聴くタブの切り替え ---------- */
+  .seg { display: flex; gap: 4px; margin: 8px 16px 0; padding: 4px; border-radius: 13px; background: #E1E4EB; }
+  .seg button { flex: 1; height: 34px; border-radius: 10px; font-weight: 600; font-size: 13px; color: var(--mute); }
+  .seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(22,26,51,.12); }
+  .libbar { display: flex; align-items: center; gap: 10px; margin: 14px 16px 2px; }
+  .libbar .round { background: var(--surface); }
+  .libtitle { flex: 1; min-width: 0; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty .btn { margin-top: 14px; }
+  .row .art.sq { border-radius: 10px; }
+
   /* ---------- 一覧 ---------- */
   .list { margin: 4px 16px 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
@@ -122,15 +132,22 @@
   .np .top { display: flex; align-items: center; justify-content: space-between; }
   .np .top .round { background: var(--surface); }
   .np .together { font-size: 13px; color: var(--cobalt); font-weight: 700; }
-  .stage { flex: 1; display: grid; place-items: center; padding: 22px 0 16px; min-height: 300px; }
-  .disc { width: min(76vw, 320px); aspect-ratio: 1; border-radius: 50%; position: relative; background: var(--holo); box-shadow: 0 30px 60px -20px rgba(22,26,51,.35), inset 0 0 0 1px rgba(255,255,255,.6); animation: spin 7s linear infinite; animation-play-state: paused; }
+  .stage { flex: 1 0 auto; display: grid; place-items: center; padding: 18px 0 22px; }
+  .disc { width: min(76vw, 320px, 40dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative; background: var(--holo); box-shadow: 0 30px 60px -20px rgba(22,26,51,.35), inset 0 0 0 1px rgba(255,255,255,.6); animation: spin 7s linear infinite; animation-play-state: paused; }
   .disc.spinning { animation-play-state: running; }
   .disc::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 0 2px, rgba(255,255,255,.35) 2px 3px); mix-blend-mode: soft-light; }
   .disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(115deg, rgba(255,255,255,.65) 0%, rgba(255,255,255,0) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,.4) 100%); }
-  .disc .label { position: absolute; inset: 27%; border-radius: 50%; overflow: hidden; background: var(--ink); box-shadow: 0 0 0 6px rgba(255,255,255,.5); z-index: 1; }
+  .disc .label { position: absolute; inset: 21%; border-radius: 50%; overflow: hidden; background: var(--ink); box-shadow: 0 0 0 6px rgba(255,255,255,.5); z-index: 1; }
   .disc .label img { width: 100%; height: 100%; object-fit: cover; }
   .disc .hole { position: absolute; left: 50%; top: 50%; width: 9%; height: 9%; margin: -4.5% 0 0 -4.5%; border-radius: 50%; background: var(--paper); box-shadow: inset 0 1px 3px rgba(0,0,0,.25); z-index: 2; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .titlebar { display: flex; align-items: flex-start; gap: 12px; }
+  .titlebar .tt { flex: 1; min-width: 0; }
+  .heart { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--ink); flex-shrink: 0; }
+  .heart svg { width: 22px; height: 22px; fill: none; transition: transform .15s; }
+  .heart[aria-pressed="true"] { color: #E0245E; }
+  .heart[aria-pressed="true"] svg { fill: currentColor; }
+  .heart:active svg { transform: scale(.85); }
   .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
   .np .artist { color: var(--mute); margin-top: 4px; }
   .seek { position: relative; height: 26px; margin-top: 18px; cursor: pointer; touch-action: none; }
@@ -229,9 +246,19 @@
 
   <!-- 聴く -->
   <main id="viewListen">
-    <div class="field">
+    <div class="seg" role="tablist" id="seg">
+      <button role="tab" data-mode="search" aria-selected="true">Search</button>
+      <button role="tab" data-mode="likes" aria-selected="false">Likes</button>
+      <button role="tab" data-mode="playlists" aria-selected="false">Playlists</button>
+    </div>
+    <div class="field" id="searchField">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Search songs or artists" autocomplete="off" enterkeyhint="search">
+    </div>
+    <div class="libbar" id="libbar" hidden>
+      <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
+      <div class="libtitle" id="libTitle"></div>
+      <button class="btn ghost" id="shuffle">Shuffle</button>
     </div>
     <div class="list" id="results">
       <div class="empty"><b>Find something to play</b>Full tracks from SoundCloud</div>
@@ -280,8 +307,10 @@
     <div class="stage">
       <div class="disc" id="disc"><div class="label"><img id="npArt" alt=""></div><div class="hole"></div></div>
     </div>
-    <h2 id="npT"></h2>
-    <div class="artist" id="npS"></div>
+    <div class="titlebar">
+      <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
+      <button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>
+    </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
     <div class="controls"><button class="pp" id="npPP" aria-label="Play or pause"></button></div>
@@ -403,6 +432,7 @@ function startApp() {
   });
   watchFriends();
   watchIncoming();
+  if (sc) loadLikes().catch(() => {});
   if (isIOS) $('mixNote').textContent = 'On iPhone, use the side buttons for music. Voice volume is available during a call.';
 }
 
@@ -417,8 +447,11 @@ function showTab(which) {
 $('tabListen').addEventListener('click', () => showTab('listen'));
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
-// ===================== 音楽：検索 =====================
-let searchTimer = null, lastResults = [];
+// ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
+let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
+let queue = [], qi = -1;
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork });
+
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
@@ -426,37 +459,194 @@ $('q').addEventListener('input', (e) => {
   searchTimer = setTimeout(() => search(q), 350);
 });
 
+function rowHTML(t, i) {
+  return `
+    <button class="row" data-i="${i}" data-id="${t.id}">
+      <img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
+      <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}</div></div>
+      <span class="tag">${fmt(t.duration / 1000)}</span>
+    </button>`;
+}
+function renderTracks(list, emptyHTML) {
+  lastResults = list;
+  $('results').innerHTML = list.length ? list.map(rowHTML).join('') : emptyHTML;
+  markNow();
+  list.slice(0, 3).forEach((t) => getPlay(t.id).catch(() => {}));
+}
+const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</div>`;
+
 async function search(q) {
-  $('results').innerHTML = '<div class="empty">Searching…</div>';
+  $('results').innerHTML = msg('Searching…');
   try {
     const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`);
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
-    lastResults = d.map(splitArtist);
-    if (!d.length) { $('results').innerHTML = '<div class="empty"><b>No results</b>Try different words</div>'; return; }
-    $('results').innerHTML = lastResults.map((t, i) => `
-      <button class="row" data-i="${i}" data-id="${t.id}">
-        <img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
-        <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}</div></div>
-        <span class="tag">${fmt(t.duration / 1000)}</span>
-      </button>`).join('');
-    markNow();
-    d.slice(0, 3).forEach((t) => getPlay(t.id).catch(() => {}));
+    searchList = d.map(splitArtist);
+    if (mode === 'search') renderTracks(searchList, msg('No results', 'Try different words'));
   } catch (e) {
-    $('results').innerHTML = `<div class="empty"><b>Search failed</b>${esc(e.message)}</div>`;
+    if (mode === 'search') $('results').innerHTML = msg('Search failed', esc(e.message));
   }
 }
+
 $('results').addEventListener('click', (e) => {
+  if (e.target.closest('.sc-connect')) { connectSC(); return; }
+  const pl = e.target.closest('[data-pl]');
+  if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
   const row = e.target.closest('.row');
   if (!row) return;
-  const t = lastResults[Number(row.dataset.i)];
-  pick({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork });
+  playFrom(lastResults, Number(row.dataset.i));
+});
+
+function playFrom(list, i) {
+  queue = list.slice(); qi = i;
+  pick(toMeta(queue[qi]));
+}
+function hasNext() { return qi >= 0 && qi + 1 < queue.length; }
+function playNext() { if (!hasNext()) return false; qi++; pick(toMeta(queue[qi]), true); return true; }
+
+$('shuffle').addEventListener('click', () => {
+  if (!lastResults.length) return;
+  const list = lastResults.slice();
+  for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+  unlockAudio();
+  playFrom(list, 0);
+});
+
+// タブの切り替え
+$('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('#seg [data-mode]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
+  $('searchField').hidden = m !== 'search';
+  $('libbar').hidden = m === 'search';
+  $('libBack').hidden = true;
+  if (m === 'search') {
+    if (searchList) renderTracks(searchList, msg('No results', 'Try different words'));
+    else $('results').innerHTML = msg('Find something to play', 'Full tracks from SoundCloud');
+    return;
+  }
+  if (!sc) {
+    $('libbar').hidden = true;
+    $('results').innerHTML = msg('Connect SoundCloud', 'Play your likes and playlists, and like tracks right from Onpa.<br><button class="btn primary sc-connect">Connect SoundCloud</button>');
+    return;
+  }
+  if (m === 'likes') showLikes();
+  if (m === 'playlists') showPlaylists();
+}
+
+async function showLikes() {
+  $('libTitle').textContent = 'Your likes';
+  $('shuffle').hidden = false;
+  $('results').innerHTML = msg('Loading your likes…');
+  try {
+    await loadLikes();
+    if (mode === 'likes') renderTracks(likesList, msg('No likes yet', 'Tap the heart on any track to save it here'));
+  } catch (e) { if (mode === 'likes') $('results').innerHTML = msg("Couldn't load your likes", esc(e.message)); }
+}
+
+async function showPlaylists() {
+  $('libTitle').textContent = 'Your playlists';
+  $('shuffle').hidden = true;
+  $('results').innerHTML = msg('Loading your playlists…');
+  try {
+    const d = await scApi('/sc/playlists');
+    if (mode !== 'playlists') return;
+    lastResults = [];
+    $('results').innerHTML = d.length ? d.map((pl) => `
+      <button class="row" data-pl="${pl.id}" data-title="${esc(pl.title)}">
+        <img class="art sq" src="${esc(pl.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
+        <div class="txt"><div class="t">${esc(pl.title)}</div><div class="s">${pl.count} tracks</div></div>
+      </button>`).join('') : msg('No playlists yet');
+  } catch (e) { if (mode === 'playlists') $('results').innerHTML = msg("Couldn't load your playlists", esc(e.message)); }
+}
+
+async function openPlaylist(id, title) {
+  mode = 'playlist';
+  $('libTitle').textContent = title;
+  $('libBack').hidden = false;
+  $('shuffle').hidden = false;
+  $('results').innerHTML = msg('Loading…');
+  try {
+    const d = (await scApi('/sc/playlist?id=' + id)).map(splitArtist);
+    if (mode === 'playlist') renderTracks(d, msg('This playlist is empty'));
+  } catch (e) { $('results').innerHTML = msg("Couldn't load this playlist", esc(e.message)); }
+}
+$('libBack').addEventListener('click', () => setMode('playlists'));
+
+// ===================== SoundCloud連携 =====================
+const SC_KEY = 'onpa_sc';
+let sc = null, likesList = null;
+const likedIds = new Set();
+try { sc = JSON.parse(localStorage.getItem(SC_KEY)); } catch { sc = null; }
+function saveSc(v) {
+  sc = v;
+  try { if (v) localStorage.setItem(SC_KEY, JSON.stringify(v)); else localStorage.removeItem(SC_KEY); } catch { /* 保存できなくても続ける */ }
+}
+// SoundCloudから戻ってきたとき
+(function readReturn() {
+  const h = location.hash;
+  if (h.startsWith('#sc=')) {
+    try { saveSc(JSON.parse(atob(h.slice(4).replace(/-/g, '+').replace(/_/g, '/')))); setTimeout(() => toast('SoundCloud connected'), 600); } catch { /* 無視 */ }
+    history.replaceState(null, '', location.pathname + location.search);
+  } else if (h.startsWith('#sc_error=')) {
+    setTimeout(() => toast("SoundCloud wasn't connected"), 600);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+})();
+
+function connectSC() {
+  location.href = `${WORKER}/sc/login?return=${encodeURIComponent(location.origin + location.pathname)}`;
+}
+async function scToken() {
+  if (!sc) return null;
+  if (Date.now() > sc.exp - 60000 && sc.rt) {
+    const r = await fetch(`${WORKER}/sc/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rt: sc.rt }) });
+    if (!r.ok) { saveSc(null); return null; }
+    saveSc(await r.json());
+  }
+  return sc.at;
+}
+async function scApi(path, method = 'GET') {
+  const at = await scToken();
+  if (!at) throw new Error('Connect SoundCloud first');
+  const r = await fetch(WORKER + path, { method, headers: { 'X-SC-Token': at } });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) { saveSc(null); throw new Error('Please connect SoundCloud again'); }
+  if (!r.ok) throw new Error(d.error || r.status);
+  return d;
+}
+async function loadLikes() {
+  likesList = (await scApi('/sc/likes')).map(splitArtist);
+  likedIds.clear();
+  likesList.forEach((t) => likedIds.add(String(t.id)));
+  paintHeart();
+}
+function paintHeart() {
+  $('heart').setAttribute('aria-pressed', String(!!track && likedIds.has(String(track.trackId))));
+}
+$('heart').addEventListener('click', async () => {
+  if (!track) return;
+  if (!sc) { toast('Connect SoundCloud to like tracks'); setMode('likes'); $('npClose').click(); showTab('listen'); return; }
+  const id = String(track.trackId);
+  const like = !likedIds.has(id);
+  if (like) likedIds.add(id); else likedIds.delete(id);
+  paintHeart();
+  try {
+    await scApi('/sc/like?id=' + id, like ? 'POST' : 'DELETE');
+    toast(like ? 'Liked on SoundCloud' : 'Removed from your likes');
+    likesList = null;
+  } catch (e) {
+    if (like) likedIds.delete(id); else likedIds.add(id);
+    paintHeart();
+    toast("Couldn't update your like");
+  }
 });
 
 // SoundCloudの「artist」はアップロードした人の名前なので、
 // 曲名が「アーティスト - 曲名」の形なら、そこから本当のアーティスト名を取り出す
 function splitArtist(t) {
-  const uploader = t.artist;
+  if (t.uploader && t.artist && t.artist !== t.uploader) return t; // 本物のアーティスト名がある
+  const uploader = t.uploader || t.artist;
   const m = String(t.title || '').match(/^(.+?)\s+[-–—]\s+(.+)$/);
   if (m) return { ...t, artist: m[1].trim(), title: m[2].trim(), uploader };
   return { ...t, uploader };
@@ -526,13 +716,13 @@ async function loadTrack(meta) {
 }
 
 // 一覧から曲を選んだとき
-async function pick(meta) {
-  unlockAudio();
+async function pick(meta, auto = false) {
+  if (!auto) unlockAudio();
   if (call.state === 'live') {
     pushRoomState({ ...meta, playing: true, position: 0 });
     return;
   }
-  if (track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
+  if (!auto && track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
   if (await loadTrack(meta)) { player.volume = volMusic(); player.play().catch(() => setPP('play')); }
 }
 
@@ -562,6 +752,7 @@ function renderTrack() {
   $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
   $('npT').textContent = track.title; $('npS').textContent = track.artist;
   for (const id of ['miniArt', 'npArt']) { if (track.artwork) $(id).src = track.artwork; else $(id).removeAttribute('src'); }
+  paintHeart();
   markNow();
 }
 function markNow() {
@@ -573,7 +764,12 @@ player.addEventListener('pause', () => { if (!isReal()) return; if (!loading) se
 player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
 player.addEventListener('ended', () => {
   if (!isReal()) return;
-  if (call.state === 'live' && roomState && roomState.by === me.uid && roomState.playing) pushRoomState({ ...roomState, playing: false, position: 0 });
+  if (call.state === 'live') {
+    // 一緒に聴いているときは、曲を流した人が次の曲を送る
+    if (roomState && roomState.by === me.uid && roomState.playing && !playNext()) pushRoomState({ ...roomState, playing: false, position: 0 });
+    return;
+  }
+  playNext();
 });
 let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
