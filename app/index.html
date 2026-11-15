@@ -407,7 +407,6 @@
   <h1>Talk and listen,<br>at the same time.</h1>
   <p id="obLead">Sign in with SoundCloud to use your account on every device.</p>
   <button class="sc-go" id="obSC"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 10.2a4.6 4.6 0 0 0-8.8-1.6 3.3 3.3 0 0 0-1 .3v8.6h9.8a3.6 3.6 0 0 0 0-7.3zM6.6 9.4v8.1H5.8V9.6l.8-.2zM4.7 10.3v7.2h-.8v-7l.8-.2zM2.8 11.6v5.9H2v-5.6l.8-.3z"/></svg>Continue with SoundCloud</button>
-  <button class="ob-skip" id="obSkip">Continue without SoundCloud</button>
   <div class="ob-who" id="obWho" hidden></div>
   <div id="obForm" hidden>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
@@ -674,6 +673,7 @@ async function routeUser(user) {
   try { u = (await db.ref('users/' + user.uid).get()).val(); }
   catch (e) { toast("Can't reach the server (" + e.message + ')'); return; }
   $('authWait').hidden = true;
+  if (!isScUser(user)) { showOnboard(); $('boot').hidden = true; return; }
   if (u && u.handle) {
     me = { uid: user.uid, handle: u.handle, name: u.name, avatar: u.avatar || '' };
     $('onboard').hidden = true;
@@ -685,10 +685,9 @@ async function routeUser(user) {
 function showOnboard() {
   const linked = isScUser(firebase.auth().currentUser) && scProfile;
   $('obSC').hidden = !!linked;
-  $('obSkip').hidden = !!linked;
   $('obWho').hidden = !linked;
   $('obForm').hidden = !linked;
-  $('obLead').textContent = linked ? 'Your SoundCloud is connected. Check your name and handle.' : 'Sign in with SoundCloud to bring your music and use your account on every device.';
+  $('obLead').textContent = linked ? 'Your SoundCloud is connected. Check your name and handle.' : 'Sign in with SoundCloud to bring your music, search anything, and use your account on every device.';
   if (linked) {
     const pic = (scProfile.avatar || '').replace('-large.', '-t500x500.');
     $('obWho').innerHTML = `<div class="avatar">${face({ name: scProfile.username, avatar: pic })}</div><div><b>${esc(scProfile.username)}</b><span>soundcloud.com/${esc(scProfile.permalink || '')}</span></div>`;
@@ -707,7 +706,6 @@ async function suggestHandle(base) {
   }
   $('obHandle').value = base;
 }
-$('obSkip').addEventListener('click', () => { $('obForm').hidden = false; $('obSkip').hidden = true; $('obLead').textContent = 'Pick a name and a handle. You can connect SoundCloud later.'; $('obName').focus(); });
 $('obSC').addEventListener('click', () => connectSC());
 
 firebase.auth().onAuthStateChanged(async (user) => {
