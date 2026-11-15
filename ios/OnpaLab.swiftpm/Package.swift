@@ -12,12 +12,13 @@ let package = Package(
     ],
     products: [
         .iOSApplication(
-            name: "Otocloud Lab",
+            name: "Otocloud",
             targets: ["AppModule"],
             bundleIdentifier: "net.onpa.lab",
             teamIdentifier: "",
             displayVersion: "0.1",
             bundleVersion: "1",
+            appIcon: .asset("AppIcon"),
             accentColor: .presetColor(.indigo),
             supportedDeviceFamilies: [
                 .phone
@@ -40,7 +41,10 @@ let package = Package(
             dependencies: [
                 .product(name: "LiveKit", package: "client-sdk-swift")
             ],
-            path: "."
+            path: ".",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

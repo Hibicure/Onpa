@@ -33,7 +33,7 @@ struct ContentView: View {
                 .zIndex(showWidget ? 1 : 0)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Otocloud Lab")
+                    Text("Otocloud")
                         .font(.system(size: 28, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.ink)
                     Text("通話しながら音楽を流して、声と音楽の音量を別々に調整できるかを試すアプリです。")
