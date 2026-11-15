@@ -157,7 +157,14 @@
   .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
-  .controls { display: flex; justify-content: center; align-items: center; gap: 26px; margin: 16px 0 6px; }
+  .controls { display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; gap: 8px; margin: 16px 0 6px; }
+  .modes { display: flex; justify-content: flex-end; gap: 2px; }
+  .mode { width: 32px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #A3A8B8; position: relative; }
+  .mode svg { width: 20px; height: 20px; }
+  .mode[aria-pressed="true"], .mode[data-mode="all"], .mode[data-mode="one"] { color: var(--ink); }
+  .mode[aria-pressed="true"]::after, .mode[data-mode="all"]::after, .mode[data-mode="one"]::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--cobalt); }
+  .mode .one { position: absolute; top: 7px; right: 0; font-family: var(--display); font-size: 9px; font-weight: 700; color: var(--cobalt); display: none; }
+  .mode[data-mode="one"] .one { display: block; }
   .skip { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
   .skip svg { width: 36px; height: 36px; }
   .skip:active { background: var(--line); }
@@ -178,7 +185,7 @@
   .row .add:active { background: var(--line); }
   .row[role=button] { cursor: pointer; }
   .controls .pp { width: 68px; height: 68px; }
-  .controls .pp svg { width: 26px; height: 26px; }
+  .controls .pp svg { width: 34px; height: 34px; }
   .mix { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--surface); display: grid; gap: 12px; }
   .mix label { display: grid; grid-template-columns: 54px 1fr; align-items: center; gap: 10px; font-size: 13px; color: var(--mute); }
   .mix input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; cursor: pointer; }
@@ -333,7 +340,7 @@
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button></div>
+    <div class="controls"><div></div><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button><div class="modes"><button class="mode" id="npShuffle" aria-label="Shuffle" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h4v4M20 4l-6.5 6.5M4 20l6-6M16 20h4v-4M20 20 4 4"/></svg></button><button class="mode" id="npRepeat" aria-label="Repeat off" data-mode="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></svg><span class="one">1</span></button></div></div>
     <div class="mix">
       <label>Music<input type="range" id="volMusic" min="0" max="100" value="80"></label>
       <label>Voice<input type="range" id="volVoice" min="0" max="100" value="100" disabled></label>
@@ -527,15 +534,54 @@ $('results').addEventListener('click', (e) => {
 });
 
 function playFrom(list, i) {
+  origQueue = list.slice();
   queue = list.slice(); qi = i;
+  if (shuffleOn) shuffleRest();
   pick(toMeta(queue[qi]));
+}
+
+// ===================== シャッフル・リピート =====================
+let shuffleOn = false, repeatMode = 'off', origQueue = [];
+function shuffled(a) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// 今の曲より後ろだけを混ぜる
+function shuffleRest() { queue = queue.slice(0, qi + 1).concat(shuffled(queue.slice(qi + 1))); }
+$('npShuffle').addEventListener('click', () => {
+  shuffleOn = !shuffleOn;
+  $('npShuffle').setAttribute('aria-pressed', String(shuffleOn));
+  if (shuffleOn) { origQueue = queue.slice(); if (qi >= 0) shuffleRest(); }
+  else if (origQueue.length) {
+    const cur = queue[qi];
+    queue = origQueue.slice();
+    qi = cur ? queue.findIndex((t) => t.id === cur.id) : -1;
+  }
+  toast(shuffleOn ? 'Shuffle on' : 'Shuffle off');
+});
+$('npRepeat').addEventListener('click', () => {
+  repeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
+  $('npRepeat').dataset.mode = repeatMode;
+  const label = { off: 'Repeat off', all: 'Repeat all', one: 'Repeat one' }[repeatMode];
+  $('npRepeat').setAttribute('aria-label', label);
+  toast(label);
+});
+function replayCurrent() {
+  if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, playing: true, position: 0 }); return; }
+  player.currentTime = 0; player.play().catch(() => {});
 }
 function hasNext() { return upNext.length > 0 || (qi >= 0 && qi + 1 < queue.length); }
 // 次の曲：「Up next」に入っている曲が先、なければ一覧の続き
 function playNext(auto = true) {
+  if (auto && repeatMode === 'one' && track) { replayCurrent(); return true; }
   const n = takeUpNext();
   if (n) { pick(n, auto); return true; }
   if (qi >= 0 && qi + 1 < queue.length) { qi++; pick(toMeta(queue[qi]), auto); return true; }
+  if (repeatMode === 'all' && queue.length) {
+    if (shuffleOn) queue = shuffled(queue);
+    qi = 0; pick(toMeta(queue[0]), auto); return true;
+  }
   return false;
 }
 function playPrev() {
