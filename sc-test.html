@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Onpa – SoundCloud Test</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #0b0b0f; color: #fff; min-height: 100vh; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 32px 16px 120px; }
+  h1 { font-size: 32px; font-weight: 800; background: linear-gradient(90deg, #ff5500, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  p.sub { color: #888; font-size: 13px; margin: 4px 0 20px; }
+  input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 2px solid #222; background: #15151b; color: #fff; font-size: 16px; outline: none; }
+  input:focus { border-color: #ff5500; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 10px; margin-top: 8px; border-radius: 12px; background: #15151b; border: 2px solid transparent; }
+  .item.playing { border-color: #ff5500; }
+  .item img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: linear-gradient(135deg, #ff5500, #ec4899); flex-shrink: 0; }
+  .info { flex: 1; min-width: 0; }
+  .t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .a { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item button { width: 42px; height: 42px; border-radius: 50%; border: none; background: #ff5500; color: #fff; font-size: 16px; flex-shrink: 0; cursor: pointer; }
+  .msg { text-align: center; color: #888; padding: 24px; font-size: 14px; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #15151bee; backdrop-filter: blur(10px); border-top: 1px solid #222; display: none; }
+  .bar.on { display: block; }
+  .bar .row { max-width: 480px; margin: 0 auto; }
+  .bar .now { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar .meta { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-top: 6px; }
+  .bar input[type=range] { width: 100%; padding: 0; border: none; background: none; accent-color: #ff5500; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SoundCloud Test</h1>
+  <p class="sub">Onpa用のテストページ（公式API・フル再生）</p>
+  <input id="q" type="search" placeholder="曲名やアーティストで検索" autocomplete="off">
+  <div id="list"></div>
+</div>
+
+<div class="bar" id="bar">
+  <div class="row">
+    <div class="now" id="now"></div>
+    <input type="range" id="seek" min="0" max="0" step="1" value="0">
+    <div class="meta"><span id="cur">0:00</span><span id="kind"></span><span id="dur">0:00</span></div>
+  </div>
+</div>
+
+<script>
+const WORKER = 'https://geocloud.icchasong.workers.dev';
+const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const player = new Audio();
+let hls = null, currentEl = null, token = 0, timer = null;
+
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => { s = Math.floor(s || 0); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+$('q').addEventListener('input', (e) => {
+  clearTimeout(timer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { $('list').innerHTML = ''; return; }
+  timer = setTimeout(() => search(q), 400);
+});
+
+async function search(q) {
+  $('list').innerHTML = '<div class="msg">検索中…</div>';
+  try {
+    const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    if (!d.length) { $('list').innerHTML = '<div class="msg">見つかりませんでした</div>'; return; }
+    $('list').innerHTML = d.map((t) => `
+      <div class="item" data-id="${t.id}" data-title="${esc(t.title)}">
+        <img src="${esc(t.artwork)}" alt="" onerror="this.removeAttribute('src')">
+        <div class="info"><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)} · ${fmt(t.duration / 1000)}</div></div>
+        <button onclick="toggle(this.closest('.item'))">▶</button>
+      </div>`).join('');
+  } catch (e) {
+    console.error(e);
+    $('list').innerHTML = `<div class="msg">検索に失敗しました（${esc(e.message)}）</div>`;
+  }
+}
+
+function stop() {
+  token++;
+  if (hls) { hls.destroy(); hls = null; }
+  player.pause();
+  document.querySelectorAll('.item').forEach((i) => { i.classList.remove('playing'); i.querySelector('button').textContent = '▶'; });
+  currentEl = null;
+  $('bar').classList.remove('on');
+}
+
+async function toggle(el) {
+  const same = currentEl === el;
+  stop();
+  if (same) return;
+
+  const my = token;
+  currentEl = el;
+  el.classList.add('playing');
+  const btn = el.querySelector('button');
+  btn.textContent = '…';
+
+  // iPhone対策：タップした瞬間にプレーヤーを起こす
+  player.src = SILENT;
+  player.play().catch(() => {});
+
+  try {
+    const r = await fetch(`${WORKER}/play?id=${el.dataset.id}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    if (my !== token) return;
+
+    if (d.hls && !player.canPlayType('application/vnd.apple.mpegurl') && window.Hls && Hls.isSupported()) {
+      hls = new Hls();
+      hls.loadSource(d.url);
+      hls.attachMedia(player);
+    } else {
+      player.src = d.url;
+    }
+    await player.play();
+    if (my !== token) return;
+    btn.textContent = '❚❚';
+    $('now').textContent = el.dataset.title;
+    $('kind').textContent = d.kind === 'full' ? 'フル再生' : '30秒プレビュー';
+    $('bar').classList.add('on');
+  } catch (e) {
+    if (my !== token) return;
+    console.error(e);
+    stop();
+    alert('再生できませんでした：' + e.message);
+  }
+}
+
+player.addEventListener('timeupdate', () => {
+  if (player.src === SILENT) return;
+  $('cur').textContent = fmt(player.currentTime);
+  if (isFinite(player.duration)) { $('seek').max = Math.floor(player.duration); $('dur').textContent = fmt(player.duration); }
+  $('seek').value = Math.floor(player.currentTime);
+});
+$('seek').addEventListener('input', (e) => { player.currentTime = Number(e.target.value); });
+player.addEventListener('ended', () => { if (player.src !== SILENT) stop(); });
+</script>
+</body>
+</html>
