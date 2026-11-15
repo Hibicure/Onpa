@@ -386,6 +386,8 @@
   /* ---------- SoundCloudで入る ---------- */
   .sc-go { height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--on-ink); background: var(--ink); margin-bottom: 18px; }
   .sc-go svg { width: 26px; height: 26px; }
+  .ob-skip { height: 44px; color: var(--mute); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  #obForm { display: flex; flex-direction: column; flex: 1; }
   .ob-or { display: flex; align-items: center; gap: 12px; color: var(--mute); font-size: 13px; margin: 2px 0 18px; }
   .ob-or::before, .ob-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
   .ob-who { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface); margin-bottom: 18px; font-size: 14px; }
@@ -405,13 +407,15 @@
   <h1>Talk and listen,<br>at the same time.</h1>
   <p id="obLead">Sign in with SoundCloud to use your account on every device.</p>
   <button class="sc-go" id="obSC"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 10.2a4.6 4.6 0 0 0-8.8-1.6 3.3 3.3 0 0 0-1 .3v8.6h9.8a3.6 3.6 0 0 0 0-7.3zM6.6 9.4v8.1H5.8V9.6l.8-.2zM4.7 10.3v7.2h-.8v-7l.8-.2zM2.8 11.6v5.9H2v-5.6l.8-.3z"/></svg>Continue with SoundCloud</button>
-  <div class="ob-or" id="obOr"><span>or pick a handle</span></div>
+  <button class="ob-skip" id="obSkip">Continue without SoundCloud</button>
   <div class="ob-who" id="obWho" hidden></div>
+  <div id="obForm" hidden>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
   <label class="f"><span>Handle</span><div class="at"><input id="obHandle" maxlength="15" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="hibiki"></div></label>
   <p class="fine">Friends search this to add you. Letters, numbers and _ only.</p>
   <div class="err" id="obErr"></div>
   <button class="go" id="obGo">Get started</button>
+  </div>
 </section>
 <div class="boot" id="authWait" hidden><div class="disc spinning"><div class="platter"></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div></div>
 
@@ -681,17 +685,29 @@ async function routeUser(user) {
 function showOnboard() {
   const linked = isScUser(firebase.auth().currentUser) && scProfile;
   $('obSC').hidden = !!linked;
-  $('obOr').hidden = !!linked;
+  $('obSkip').hidden = !!linked;
   $('obWho').hidden = !linked;
-  $('obLead').textContent = linked ? 'Almost there. Pick your name and handle.' : 'Sign in with SoundCloud to use your account on every device.';
+  $('obForm').hidden = !linked;
+  $('obLead').textContent = linked ? 'Your SoundCloud is connected. Check your name and handle.' : 'Sign in with SoundCloud to bring your music and use your account on every device.';
   if (linked) {
     const pic = (scProfile.avatar || '').replace('-large.', '-t500x500.');
-    $('obWho').innerHTML = `<div class="avatar">${face({ name: scProfile.username, avatar: pic })}</div><div><b>${esc(scProfile.username)}</b><span>SoundCloud connected</span></div>`;
-    if (!$('obName').value) $('obName').value = scProfile.username.slice(0, 20);
-    if (!$('obHandle').value) $('obHandle').value = scProfile.username.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 15);
+    $('obWho').innerHTML = `<div class="avatar">${face({ name: scProfile.username, avatar: pic })}</div><div><b>${esc(scProfile.username)}</b><span>soundcloud.com/${esc(scProfile.permalink || '')}</span></div>`;
+    if (!$('obName').value) $('obName').value = (scProfile.fullName || scProfile.username || '').slice(0, 20);
+    if (!$('obHandle').value) suggestHandle((scProfile.permalink || scProfile.username || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 15));
   }
   $('onboard').hidden = false;
 }
+// SoundCloudのIDを@IDとしておすすめする（使われていたら数字を足す）。自分で変えてもいい。
+async function suggestHandle(base) {
+  if (base.length < 3) base = (base + 'user').slice(0, 15);
+  for (let i = 0; i < 6; i++) {
+    const h = i ? (base.slice(0, 15 - String(i + 1).length) + (i + 1)) : base;
+    try { const taken = (await db.ref('handles/' + h).get()).val(); if (!taken || taken === firebase.auth().currentUser.uid) { $('obHandle').value = h; return; } }
+    catch { $('obHandle').value = base; return; }
+  }
+  $('obHandle').value = base;
+}
+$('obSkip').addEventListener('click', () => { $('obForm').hidden = false; $('obSkip').hidden = true; $('obLead').textContent = 'Pick a name and a handle. You can connect SoundCloud later.'; $('obName').focus(); });
 $('obSC').addEventListener('click', () => connectSC());
 
 firebase.auth().onAuthStateChanged(async (user) => {

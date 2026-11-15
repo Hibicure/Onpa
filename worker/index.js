@@ -441,7 +441,7 @@ export default {
         const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.AUTH_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
         const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('sc:' + id)));
         const password = btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const res = json({ email: `sc-${id}@users.on-pa.net`, password, scId: id, username: r.body.username || '', avatar: r.body.avatar_url || '' }, 200, cors);
+        const res = json({ email: `sc-${id}@users.on-pa.net`, password, scId: id, username: r.body.username || '', permalink: r.body.permalink || '', fullName: r.body.full_name || '', avatar: r.body.avatar_url || '' }, 200, cors);
         res.headers.set('Cache-Control', 'no-store');
         return res;
       }
