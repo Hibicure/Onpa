@@ -23,7 +23,7 @@ function corsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': allow,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-SC-Token',
+    'Access-Control-Allow-Headers': 'Content-Type, X-SC-Token, Authorization',
     'Vary': 'Origin',
   };
 }
@@ -119,6 +119,49 @@ async function candidates(id, env) {
     { kind: 'full', hls: false, apiUrl: s.http_mp3_128_url },
     { kind: 'preview', hls: false, apiUrl: s.preview_mp3_128_url },
   ].filter((c) => c.apiUrl);
+}
+
+// ===================== Onpaのログイン確認（Firebase） =====================
+const FIREBASE_PROJECT = 'onpa-e7cc6';
+const FIREBASE_DB = 'https://onpa-e7cc6-default-rtdb.asia-southeast1.firebasedatabase.app';
+const GOOGLE_JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+let jwksCache = { keys: null, exp: 0 };
+
+function b64urlToBytes(s) {
+  const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+  return Uint8Array.from(b, (c) => c.charCodeAt(0));
+}
+
+// アプリから届いた「Onpaのログイン証明（IDトークン）」が本物か確かめて、ユーザーIDを返す
+async function verifyFirebaseIdToken(idToken) {
+  const parts = (idToken || '').split('.');
+  if (parts.length !== 3) throw new Error('ログインが必要です');
+  const header = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[0])));
+  const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(parts[1])));
+  const now = Math.floor(Date.now() / 1000);
+  if (header.alg !== 'RS256') throw new Error('不正なトークンです');
+  if (payload.aud !== FIREBASE_PROJECT || payload.iss !== `https://securetoken.google.com/${FIREBASE_PROJECT}`) throw new Error('不正なトークンです');
+  if (!payload.sub || payload.exp < now || payload.iat > now + 300) throw new Error('ログインの期限が切れています');
+
+  if (!jwksCache.keys || jwksCache.exp < Date.now()) {
+    const r = await fetch(GOOGLE_JWKS);
+    const d = await r.json();
+    jwksCache = { keys: d.keys, exp: Date.now() + 60 * 60 * 1000 };
+  }
+  const jwk = jwksCache.keys.find((k) => k.kid === header.kid);
+  if (!jwk) throw new Error('不正なトークンです');
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlToBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+  if (!ok) throw new Error('不正なトークンです');
+  return payload.sub;
+}
+
+// その人が、その通話の当事者（かけた人 or かけられた人）か確かめる
+async function isCallMember(room, uid, idToken) {
+  const r = await fetch(`${FIREBASE_DB}/rooms/${encodeURIComponent(room)}/call.json?auth=${encodeURIComponent(idToken)}`);
+  if (!r.ok) return false;
+  const c = await r.json();
+  return !!c && (c.from === uid || c.to === uid);
 }
 
 // ===================== LiveKit（通話）の入場券 =====================
@@ -256,14 +299,26 @@ export default {
         return json({ error: 'この曲は再生できません', tried }, 404, cors);
       }
 
+      // ---- 関連する曲: /related?id=曲ID （曲が終わったら続けて流す用）
+      if (p === '/related') {
+        const id = url.searchParams.get('id') || '';
+        if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
+        const d = await scGet(`/tracks/${id}/related?limit=20&access=playable`, env);
+        return json(listOf(d).map(mapTrack), 200, cors);
+      }
+
       // ---- 通話の入場券: /livekit-token?room=&identity=&name=
       if (p === '/livekit-token') {
         if (!env.LK_API_KEY || !env.LK_API_SECRET) return json({ error: 'LiveKitの鍵が未設定です' }, 500, cors);
         const room = (url.searchParams.get('room') || '').slice(0, 64);
-        const identity = (url.searchParams.get('identity') || '').slice(0, 64);
-        const name = (url.searchParams.get('name') || identity).slice(0, 40);
-        if (!/^[\w-]+$/.test(room) || !/^[\w-]+$/.test(identity)) return json({ error: 'room / identity は英数字・_・- だけ使えます' }, 400, cors);
-        return json({ token: await livekitToken(env, room, identity, name) }, 200, cors);
+        const name = (url.searchParams.get('name') || '').slice(0, 40);
+        if (!/^[\w-]+$/.test(room)) return json({ error: 'room は英数字・_・- だけ使えます' }, 400, cors);
+        // Onpaにログインしていて、この通話の当事者である人だけに発行する
+        const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        let uid;
+        try { uid = await verifyFirebaseIdToken(idToken); } catch (e) { return json({ error: e.message }, 401, cors); }
+        if (!(await isCallMember(room, uid, idToken))) return json({ error: 'この通話に参加できません' }, 403, cors);
+        return json({ token: await livekitToken(env, room, uid, name || uid) }, 200, cors);
       }
 
       // ---- SoundCloudでログイン
@@ -317,7 +372,7 @@ export default {
         }
       }
 
-      return json({ ok: true, routes: ['/search', '/play', '/livekit-token', '/sc/login', '/sc/me', '/sc/likes', '/sc/playlists', '/sc/playlist', '/sc/like'] }, 200, cors);
+      return json({ ok: true, routes: ['/search', '/play', '/related', '/livekit-token', '/sc/login', '/sc/me', '/sc/likes', '/sc/playlists', '/sc/playlist', '/sc/like'] }, 200, cors);
     } catch (e) {
       return json({ error: e.message }, 500, cors);
     }
