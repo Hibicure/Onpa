@@ -406,6 +406,18 @@
   .ob-who .avatar { width: 40px; height: 40px; }
   .ob-who b { display: block; font-size: 15px; }
   .ob-who span { color: var(--mute); font-size: 13px; }
+  /* ---------- 着信：再生画面のまま、曲名の所に相手、ボタンが出る／出ないになる ---------- */
+  .ringrow { display: none; justify-content: center; gap: 56px; margin-top: 26px; }
+  .ringrow .rb { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--mute); }
+  .ringbtn { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
+  .ringbtn svg { width: 30px; height: 30px; }
+  .ringbtn.yes { background: radial-gradient(120% 95% at 50% 0%, var(--pp-a) 0%, var(--pp-b) 62%); color: var(--pp-ic); box-shadow: 0 12px 26px -10px rgba(0,0,0,.5); }
+  .ringbtn:active { transform: scale(.94); }
+  .np.ringing .seek, .np.ringing .times, .np.ringing .controls, .np.ringing .upnext, .np.ringing #heart { display: none; }
+  .np.ringing .ringrow { display: flex; }
+  .np.ringing .disc .peer { animation: ringpulse 1.4s ease-in-out infinite; }
+  @keyframes ringpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { .np.ringing .disc .peer { animation: none; } }
 </style>
 </head>
 <body>
@@ -563,6 +575,10 @@
         <div class="vcol" id="colVoice"><div class="vslot"><input type="range" id="volVoice" min="0" max="100" value="100" disabled></div><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div>
         <div class="note" id="mixNote" hidden></div>
       </div></div></div>
+    <div class="ringrow" id="ringRow">
+      <div class="rb"><button class="ringbtn glass" id="ringNo" aria-label="Decline"></button><span>Decline</span></div>
+      <div class="rb"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span>Accept</span></div>
+    </div>
     <div class="upnext">
       <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
       <div id="upList"></div>
@@ -1668,7 +1684,7 @@ function renderFriends() {
     <div class="row">
       <div class="avatar">${face(f)}<span class="dot ${f.online ? 'on' : ''}"></span></div>
       <div class="txt"><div class="t">${esc(f.name)}</div><div class="s">@${esc(f.handle)}${f.online ? ' <span class="on">online</span>' : ''}</div></div>
-      <button class="btn call liquid" data-call="${uid}" ${busy || !f.online ? 'disabled' : ''}>${ICON.phone}Call</button>
+      <button class="btn call liquid" data-call="${uid}" ${busy ? 'disabled' : ''}>${ICON.phone}Call</button>
     </div>`).join('');
 }
 $('friends').addEventListener('click', (e) => {
@@ -1737,24 +1753,46 @@ function watchCallStatus() {
 }
 
 // 着信を待つ
-let incomingData = null;
+let incomingData = null, ringWasOpen = false;
+function showRinging(c) {
+  const np = $('np');
+  if (!np.classList.contains('ringing')) ringWasOpen = np.classList.contains('open');
+  np.style.transform = ''; np.classList.add('open', 'ringing'); np.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
+  $('npT').textContent = c.fromName || ('@' + c.fromHandle);
+  $('npS').textContent = '@' + c.fromHandle + ' is calling';
+  $('disc').classList.add('incall'); $('discPeer').hidden = false;
+  setFace($('discPeerInitial'), { name: c.fromName, avatar: c.fromAvatar });
+  $('ringNo').innerHTML = ICON.end; $('ringYes').innerHTML = ICON.phone;
+}
+function hideRinging() {
+  const np = $('np');
+  if (!np.classList.contains('ringing')) return;
+  np.classList.remove('ringing');
+  if (track) renderTrack(); else { $('npT').textContent = ''; $('npS').textContent = ''; }
+  const live = call.state === 'live' && call.peer;
+  $('disc').classList.toggle('incall', !!live); $('discPeer').hidden = !live;
+  if (live) setFace($('discPeerInitial'), call.peer);
+  if (!ringWasOpen && call.state === 'idle') closeNp();
+}
+$('ringYes').addEventListener('click', () => $('inYes').click());
+$('ringNo').addEventListener('click', () => $('inNo').click());
 function watchIncoming() {
   db.ref('calls/' + me.uid).on('value', (s) => {
     const c = s.val();
-    if (!c) { if (incomingData) { incomingData = null; $('incoming').hidden = true; } return; }
+    if (!c) { if (incomingData) { incomingData = null; hideRinging(); } return; }
     if (serverNow() - (c.at || 0) > 40000) { s.ref.remove(); return; } // 古い呼び出しは無視
     if (call.state !== 'idle') { db.ref(`rooms/${c.room}/call/status`).set('declined'); s.ref.remove(); return; }
     incomingData = c;
     setFace($('inAvatar'), { name: c.fromName, avatar: c.fromAvatar });
     $('inName').textContent = c.fromName;
     $('inHandle').textContent = '@' + c.fromHandle + ' is calling';
-    $('incoming').hidden = false;
+    showRinging(c);
   });
 }
 $('inYes').addEventListener('click', async () => {
   const c = incomingData; if (!c) return;
   unlockAudio();
-  $('incoming').hidden = true; incomingData = null;
+  incomingData = null; ringWasOpen = true; hideRinging();
   db.ref('calls/' + me.uid).remove();
   call.state = 'ringing'; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
   showCallbar();
@@ -1764,7 +1802,7 @@ $('inYes').addEventListener('click', async () => {
 });
 $('inNo').addEventListener('click', () => {
   const c = incomingData; if (!c) return;
-  $('incoming').hidden = true; incomingData = null;
+  incomingData = null; hideRinging();
   db.ref(`rooms/${c.room}/call/status`).set('declined');
   db.ref('calls/' + me.uid).remove();
 });
