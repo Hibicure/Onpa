@@ -652,6 +652,10 @@ async function scSignIn() {
       } catch (e) {
         if (!/already-in-use/.test(e.code || '')) throw e;
       }
+      // このSoundCloudはもう別の端末でOtocloudに入っている。
+      // この端末の@IDや友達を、そのSoundCloudのアカウントへ引っ越しさせて、ひとつにまとめる。
+      await mergeInto(cur, c);
+      return true;
     }
     try {
       await auth.signInWithEmailAndPassword(c.email, c.password);
@@ -666,6 +670,36 @@ async function scSignIn() {
   } finally {
     authBusy = false;
   }
+}
+
+// 古い（この端末だけの）アカウントの中身を、SoundCloudのアカウントへ移す
+async function mergeInto(oldUser, c) {
+  const auth = firebase.auth();
+  let old = null, oldFriends = null;
+  try {
+    old = (await db.ref('users/' + oldUser.uid).get()).val();
+    oldFriends = (await db.ref('friends/' + oldUser.uid).get()).val();
+  } catch { /* 読めなくても、ログインだけは続ける */ }
+  // @IDを手放す（持ち主だけができる）→ 新しいアカウントで取り直す
+  if (old && old.handle) await db.ref('handles/' + old.handle).remove().catch(() => {});
+  await auth.signInWithEmailAndPassword(c.email, c.password);
+  if (!old || !old.handle) return;
+  const uid = auth.currentUser.uid;
+  const now = (await db.ref('users/' + uid).get().catch(() => null))?.val() || null;
+  if (now && now.handle && now.handle !== old.handle) await db.ref('handles/' + now.handle).remove().catch(() => {});
+  try {
+    await db.ref('handles/' + old.handle).set(uid);
+  } catch {
+    // 取り直せなかった時は、今の@IDのまま
+    if (now && now.handle) await db.ref('handles/' + now.handle).set(uid).catch(() => {});
+    return;
+  }
+  const patch = { handle: old.handle, name: old.name || (now && now.name) || old.handle };
+  if (!now) patch.createdAt = TS;
+  if (old.avatar && !(now && now.avatar)) patch.avatar = old.avatar;
+  await db.ref('users/' + uid).update(patch);
+  if (oldFriends) await db.ref('friends/' + uid).update(oldFriends).catch(() => {});
+  setTimeout(() => toast('Your account is now linked to SoundCloud'), 800);
 }
 
 async function routeUser(user) {
