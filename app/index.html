@@ -156,11 +156,13 @@
     background: radial-gradient(circle, rgba(236,240,246,.92) 0 52%, rgba(255,255,255,.55) 53% 70%, rgba(220,226,236,.6) 71% 100%);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 0 0 3px rgba(22,26,51,.06), 0 0 0 1px rgba(22,26,51,.10), 0 1px 3px rgba(22,26,51,.18); }
   /* 通話中は、CDの真ん中に相手が出る */
-  .disc .peer { position: absolute; inset: 35.5%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
-    font-family: var(--display); font-weight: 700; font-size: clamp(18px, 6.5vw, 30px); color: var(--ink);
+  .disc .peer { position: absolute; inset: 28.5%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
+    font-family: var(--display); font-weight: 700; font-size: clamp(28px, 11vw, 48px); color: var(--ink);
     box-shadow: 0 0 0 3px rgba(255,255,255,.85), 0 0 0 4px rgba(22,26,51,.10), 0 4px 10px rgba(22,26,51,.25); }
-  .disc .peer i { position: absolute; right: 4%; bottom: 4%; width: 22%; height: 22%; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
+  .disc .peer i { position: absolute; right: 6%; bottom: 6%; width: 17%; height: 17%; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
   .disc.incall .hole { display: none; }
+  .disc .hub { transition: inset .35s cubic-bezier(.2,.8,.2,1); }
+  .disc.incall .hub { inset: 26.5%; }
   .disc .hole { position: absolute; left: 50%; top: 50%; width: 12%; height: 12%; margin: -6% 0 0 -6%; border-radius: 50%; background: var(--paper);
     box-shadow: inset 0 3px 6px rgba(22,26,51,.45), inset 0 -1px 1px rgba(255,255,255,.7), 0 0 0 1px rgba(22,26,51,.14), 0 1px 0 rgba(255,255,255,.6); }
   @keyframes spin { to { transform: rotate(360deg); } }
