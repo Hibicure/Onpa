@@ -118,6 +118,11 @@ async function requestToken(env, body) {
     body,
   });
   if (res.status === 429) {
+    // 原因を調べるための記録（SoundCloudが返した制限の情報）
+    try {
+      const info = { at: new Date().toISOString(), headers: Object.fromEntries([...res.headers].filter(([k]) => /rate|retry|limit|reset|cf-|date/i.test(k))), body: (await res.clone().text()).slice(0, 400) };
+      await caches.default.put('https://onpa-cache.internal/sc-last-429', new Response(JSON.stringify(info), { headers: { 'Cache-Control': 'max-age=86400' } }));
+    } catch { /* 無視 */ }
     // SoundCloudが「いつ解除か」を教えてくれれば、それまで待つ。なければ10分
     const ra = Number(res.headers.get('Retry-After'));
     const reset = Number(res.headers.get('X-Ratelimit-Reset'));
@@ -348,6 +353,12 @@ export default {
         if (!q) return json({ error: 'q が必要です' }, 400, cors);
         const d = await scGet(`/tracks?q=${encodeURIComponent(q)}&limit=20&access=playable`, env, userToken);
         return json(listOf(d).map(mapTrack), 200, cors);
+      }
+
+      // ---- 調査用: 最後に断られたときの記録を見る
+      if (p === '/debug/last429') {
+        const hit = await caches.default.match('https://onpa-cache.internal/sc-last-429');
+        return json(hit ? await hit.json() : { none: true, blockedUntil: await readBlocked() }, 200, cors);
       }
 
       // ---- 再生: /play?id=曲ID → 鳴らせるURL（フル優先、だめなら30秒）
