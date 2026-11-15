@@ -1,0 +1,325 @@
+// Cloudflare Worker - Onpa 中継役（SoundCloud 公式API ＋ LiveKit 入場券）
+// 秘密の値はここに書かず、Cloudflareの「Variables and Secrets」に入れる：
+//   SC_CLIENT_ID / SC_CLIENT_SECRET … SoundCloudアプリの鍵
+//   LK_API_KEY / LK_API_SECRET     … LiveKitの鍵
+
+const TOKEN_URL = 'https://secure.soundcloud.com/oauth/token';
+const AUTH_URL = 'https://secure.soundcloud.com/authorize';
+const API = 'https://api.soundcloud.com';
+
+// 使えるサイト（これ以外から呼ばれても許可しない）
+const ALLOWED_ORIGINS = [
+  'https://on-pa.net',
+  'https://onpa-e7cc6.web.app',
+  'https://onpa-e7cc6.firebaseapp.com',
+  'http://localhost:8000',
+  'http://localhost:5000',
+];
+
+// ===================== 共通の道具 =====================
+function corsHeaders(request) {
+  const origin = request.headers.get('Origin');
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-SC-Token',
+    'Vary': 'Origin',
+  };
+}
+
+function json(body, status, cors) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
+  });
+}
+
+function b64url(input) {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function randomString(n = 48) {
+  const a = new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return b64url(a).slice(0, n);
+}
+
+function isAllowedReturn(u) {
+  try { return ALLOWED_ORIGINS.includes(new URL(u).origin); } catch { return false; }
+}
+
+// SoundCloudの曲データを、アプリで使う形にそろえる
+function mapTrack(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    artist: t.metadata_artist || t.publisher_metadata?.artist || t.user?.username || 'Unknown',
+    uploader: t.user?.username || '',
+    artwork: t.artwork_url || t.user?.avatar_url || '',
+    duration: t.duration,
+    access: t.access,
+    permalink_url: t.permalink_url,
+  };
+}
+const listOf = (d) => (Array.isArray(d) ? d : d?.collection || []);
+
+// ===================== アプリ用の入場券（検索・再生） =====================
+let cached = { token: null, exp: 0 };
+
+async function getToken(env) {
+  const now = Date.now();
+  if (cached.token && now < cached.exp) return cached.token;
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json; charset=utf-8',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${btoa(`${env.SC_CLIENT_ID}:${env.SC_CLIENT_SECRET}`)}`,
+    },
+    body: 'grant_type=client_credentials',
+  });
+  if (!res.ok) throw new Error(`token取得に失敗: ${res.status}`);
+  const data = await res.json();
+  cached = { token: data.access_token, exp: now + Math.max((data.expires_in || 3600) - 60, 60) * 1000 };
+  return cached.token;
+}
+
+async function scGet(path, env) {
+  const token = await getToken(env);
+  const res = await fetch(`${API}${path}`, {
+    headers: { 'Accept': 'application/json; charset=utf-8', 'Authorization': `OAuth ${token}` },
+  });
+  if (!res.ok) throw new Error(`SoundCloud API ${res.status}`);
+  return res.json();
+}
+
+// ユーザー本人の合鍵でSoundCloudを呼ぶ
+async function scUser(path, userToken, method = 'GET') {
+  const res = await fetch(`${API}${path}`, {
+    method,
+    headers: { 'Accept': 'application/json; charset=utf-8', 'Authorization': `OAuth ${userToken}` },
+  });
+  const text = await res.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+  return { ok: res.ok, status: res.status, body };
+}
+
+const playCache = new Map();
+
+async function candidates(id, env) {
+  const s = await scGet(`/tracks/${id}/streams`, env);
+  return [
+    { kind: 'full', hls: true, apiUrl: s.hls_aac_160_url },
+    { kind: 'full', hls: true, apiUrl: s.hls_mp3_128_url },
+    { kind: 'full', hls: false, apiUrl: s.http_mp3_128_url },
+    { kind: 'preview', hls: false, apiUrl: s.preview_mp3_128_url },
+  ].filter((c) => c.apiUrl);
+}
+
+// ===================== LiveKit（通話）の入場券 =====================
+async function livekitToken(env, room, identity, name) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const payload = {
+    iss: env.LK_API_KEY,
+    sub: identity,
+    name,
+    nbf: now - 10,
+    exp: now + 6 * 60 * 60,
+    video: { room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true },
+  };
+  const data = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.LK_API_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return `${data}.${b64url(sig)}`;
+}
+
+// ===================== SoundCloudでログイン =====================
+function redirectUri(url) { return `${url.origin}/sc/callback`; }
+
+async function scLogin(url, env) {
+  const ret = url.searchParams.get('return') || '';
+  if (!isAllowedReturn(ret)) return new Response('return が不正です', { status: 400 });
+  const verifier = randomString(64);
+  const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+  const state = randomString(24);
+  const auth = new URL(AUTH_URL);
+  auth.searchParams.set('client_id', env.SC_CLIENT_ID);
+  auth.searchParams.set('redirect_uri', redirectUri(url));
+  auth.searchParams.set('response_type', 'code');
+  auth.searchParams.set('code_challenge', challenge);
+  auth.searchParams.set('code_challenge_method', 'S256');
+  auth.searchParams.set('state', state);
+  const cookie = b64url(JSON.stringify({ v: verifier, s: state, r: ret }));
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location': auth.toString(),
+      'Set-Cookie': `sc_login=${cookie}; Path=/sc; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
+    },
+  });
+}
+
+function readCookie(request, name) {
+  const c = request.headers.get('Cookie') || '';
+  const m = c.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return m ? m[1] : null;
+}
+
+async function scCallback(request, url, env) {
+  const raw = readCookie(request, 'sc_login');
+  let saved = null;
+  try { saved = JSON.parse(atob(raw.replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* 下で弾く */ }
+  if (!saved || saved.s !== url.searchParams.get('state')) return new Response('ログインの確認に失敗しました。もう一度やり直してください。', { status: 400 });
+
+  const back = (hash) => new Response(null, {
+    status: 302,
+    headers: { 'Location': `${saved.r}#${hash}`, 'Set-Cookie': 'sc_login=; Path=/sc; Max-Age=0; HttpOnly; Secure; SameSite=Lax' },
+  });
+
+  const code = url.searchParams.get('code');
+  if (!code) return back('sc_error=' + encodeURIComponent(url.searchParams.get('error') || 'cancelled'));
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Accept': 'application/json; charset=utf-8', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: env.SC_CLIENT_ID,
+      client_secret: env.SC_CLIENT_SECRET,
+      redirect_uri: redirectUri(url),
+      code_verifier: saved.v,
+      code,
+    }),
+  });
+  if (!res.ok) return back('sc_error=' + encodeURIComponent('token ' + res.status));
+  const t = await res.json();
+  const payload = { at: t.access_token, rt: t.refresh_token, exp: Date.now() + (t.expires_in || 3600) * 1000 };
+  return back('sc=' + b64url(JSON.stringify(payload)));
+}
+
+async function scRefresh(request, env, cors) {
+  const { rt } = await request.json().catch(() => ({}));
+  if (!rt) return json({ error: 'rt が必要です' }, 400, cors);
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Accept': 'application/json; charset=utf-8', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'refresh_token', client_id: env.SC_CLIENT_ID, client_secret: env.SC_CLIENT_SECRET, refresh_token: rt }),
+  });
+  if (!res.ok) return json({ error: 'refresh ' + res.status }, 401, cors);
+  const t = await res.json();
+  return json({ at: t.access_token, rt: t.refresh_token || rt, exp: Date.now() + (t.expires_in || 3600) * 1000 }, 200, cors);
+}
+
+// ===================== 入り口 =====================
+export default {
+  async fetch(request, env) {
+    const cors = corsHeaders(request);
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    const url = new URL(request.url);
+    const p = url.pathname;
+    const userToken = request.headers.get('X-SC-Token') || '';
+
+    try {
+      // ---- 検索: /search?q=曲名
+      if (p === '/search') {
+        const q = (url.searchParams.get('q') || '').trim();
+        if (!q) return json({ error: 'q が必要です' }, 400, cors);
+        const d = await scGet(`/tracks?q=${encodeURIComponent(q)}&limit=20&access=playable`, env);
+        return json(listOf(d).map(mapTrack), 200, cors);
+      }
+
+      // ---- 再生: /play?id=曲ID → 鳴らせるURL（フル優先、だめなら30秒）
+      if (p === '/play') {
+        const id = url.searchParams.get('id') || '';
+        if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
+        const hit = playCache.get(id);
+        if (hit && hit.exp > Date.now()) return json(hit.body, 200, cors);
+        const cands = await candidates(id, env);
+        const token = await getToken(env);
+        const tried = [];
+        for (const c of cands) {
+          const r = await fetch(c.apiUrl, { headers: { 'Authorization': `OAuth ${token}` }, redirect: 'manual' });
+          const loc = r.headers.get('Location');
+          tried.push({ kind: c.kind, status: r.status });
+          if (loc) {
+            const body = { kind: c.kind, hls: c.hls, url: loc };
+            playCache.set(id, { body, exp: Date.now() + 10 * 60 * 1000 });
+            return json(body, 200, cors);
+          }
+        }
+        return json({ error: 'この曲は再生できません', tried }, 404, cors);
+      }
+
+      // ---- 通話の入場券: /livekit-token?room=&identity=&name=
+      if (p === '/livekit-token') {
+        if (!env.LK_API_KEY || !env.LK_API_SECRET) return json({ error: 'LiveKitの鍵が未設定です' }, 500, cors);
+        const room = (url.searchParams.get('room') || '').slice(0, 64);
+        const identity = (url.searchParams.get('identity') || '').slice(0, 64);
+        const name = (url.searchParams.get('name') || identity).slice(0, 40);
+        if (!/^[\w-]+$/.test(room) || !/^[\w-]+$/.test(identity)) return json({ error: 'room / identity は英数字・_・- だけ使えます' }, 400, cors);
+        return json({ token: await livekitToken(env, room, identity, name) }, 200, cors);
+      }
+
+      // ---- SoundCloudでログイン
+      if (p === '/sc/login') return scLogin(url, env);
+      if (p === '/sc/callback') return scCallback(request, url, env);
+      if (p === '/sc/refresh' && request.method === 'POST') return scRefresh(request, env, cors);
+
+      // ---- ここから先は、ログインした本人の合鍵が必要
+      if (p.startsWith('/sc/')) {
+        if (!userToken) return json({ error: 'SoundCloudにログインしていません' }, 401, cors);
+
+        // 自分の情報
+        if (p === '/sc/me') {
+          const r = await scUser('/me', userToken);
+          if (!r.ok) return json({ error: 'me ' + r.status }, r.status, cors);
+          const u = r.body;
+          return json({ id: u.id, username: u.username, avatar: u.avatar_url, permalink: u.permalink_url }, 200, cors);
+        }
+
+        // 自分のいいね一覧
+        if (p === '/sc/likes') {
+          const r = await scUser('/me/likes/tracks?limit=200&linked_partitioning=true&access=playable', userToken);
+          if (!r.ok) return json({ error: 'likes ' + r.status }, r.status, cors);
+          return json(listOf(r.body).map(mapTrack), 200, cors);
+        }
+
+        // 自分のプレイリスト一覧
+        if (p === '/sc/playlists') {
+          const r = await scUser('/me/playlists?limit=50&show_tracks=false&linked_partitioning=true', userToken);
+          if (!r.ok) return json({ error: 'playlists ' + r.status }, r.status, cors);
+          return json(listOf(r.body).map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: pl.artwork_url || '' })), 200, cors);
+        }
+
+        // プレイリストの中の曲: /sc/playlist?id=
+        if (p === '/sc/playlist') {
+          const id = url.searchParams.get('id') || '';
+          if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
+          const r = await scUser(`/playlists/${id}/tracks?limit=200&linked_partitioning=true&access=playable`, userToken);
+          if (!r.ok) return json({ error: 'playlist ' + r.status }, r.status, cors);
+          return json(listOf(r.body).map(mapTrack), 200, cors);
+        }
+
+        // いいねする（POST）／外す（DELETE）: /sc/like?id=
+        if (p === '/sc/like') {
+          const id = url.searchParams.get('id') || '';
+          if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
+          if (request.method !== 'POST' && request.method !== 'DELETE') return json({ error: 'POST か DELETE で呼んでください' }, 405, cors);
+          const r = await scUser(`/likes/tracks/${id}`, userToken, request.method);
+          if (!r.ok) return json({ error: 'like ' + r.status, detail: r.body }, r.status, cors);
+          return json({ ok: true, liked: request.method === 'POST' }, 200, cors);
+        }
+      }
+
+      return json({ ok: true, routes: ['/search', '/play', '/livekit-token', '/sc/login', '/sc/me', '/sc/likes', '/sc/playlists', '/sc/playlist', '/sc/like'] }, 200, cors);
+    } catch (e) {
+      return json({ error: e.message }, 500, cors);
+    }
+  },
+};
