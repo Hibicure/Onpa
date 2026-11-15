@@ -393,6 +393,9 @@
   /* ---------- SoundCloudで入る ---------- */
   .sc-go { height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--on-ink); background: var(--ink); margin-bottom: 18px; }
   .sc-go svg { width: 26px; height: 26px; }
+  .setpw { display: flex; gap: 8px; margin: 8px 16px 0; }
+  .setpw input { flex: 1; min-width: 0; height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 15px; outline: none; }
+  #obLogin { display: flex; flex-direction: column; flex: 1; }
   .ob-why { color: var(--mute); font-size: 13px; text-align: center; margin: -8px 0 14px; }
   .ob-skip { height: 44px; color: var(--mute); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
   #obForm { display: flex; flex-direction: column; flex: 1; }
@@ -418,11 +421,20 @@
   <button class="sc-go" id="obSC"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 10.2a4.6 4.6 0 0 0-8.8-1.6 3.3 3.3 0 0 0-1 .3v8.6h9.8a3.6 3.6 0 0 0 0-7.3zM6.6 9.4v8.1H5.8V9.6l.8-.2zM4.7 10.3v7.2h-.8v-7l.8-.2zM2.8 11.6v5.9H2v-5.6l.8-.3z"/></svg>Continue with SoundCloud</button>
   <p class="ob-why" id="obWhy">Your likes, playlists and full search come with it.</p>
   <button class="ob-skip" id="obSkip">No SoundCloud? Pick a handle</button>
+  <button class="ob-skip" id="obHave">Already have a handle? Sign in</button>
+  <div id="obLogin" hidden>
+    <label class="f"><span>Handle</span><div class="at"><input id="liHandle" maxlength="15" autocapitalize="off" autocomplete="username" spellcheck="false" placeholder="hibiki"></div></label>
+    <label class="f"><span>Password</span><input id="liPass" type="password" autocomplete="current-password" placeholder="6+ characters"></label>
+    <div class="err" id="liErr"></div>
+    <button class="go" id="liGo">Sign in</button>
+  </div>
   <div class="ob-who" id="obWho" hidden></div>
   <div id="obForm" hidden>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
   <label class="f"><span>Handle</span><div class="at"><input id="obHandle" maxlength="15" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="hibiki"></div></label>
   <p class="fine">Friends search this to add you. Letters, numbers and _ only.</p>
+  <label class="f" id="obPassWrap"><span>Password</span><input id="obPass" type="password" autocomplete="new-password" placeholder="6+ characters"></label>
+  <p class="fine" id="obPassHint">So you can sign in to @handle on another device.</p>
   <div class="err" id="obErr"></div>
   <button class="go" id="obGo">Get started</button>
   </div>
@@ -498,6 +510,10 @@
       <div class="avatar" id="myAvatar"></div>
       <div style="flex:1;min-width:0"><div class="handle" id="myHandle"></div><div class="hint">Share your handle so friends can find you</div></div>
       <button class="btn ghost" id="signOut">Sign out</button>
+    </div>
+    <div class="setpw" id="setPw" hidden>
+      <input id="setPwIn" type="password" autocomplete="new-password" placeholder="Password (6+ characters)">
+      <button class="btn primary" id="setPwGo">Save</button>
     </div>
     <div class="field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -656,6 +672,7 @@ async function scSignIn() {
     scProfile = c;
     const auth = firebase.auth();
     const cur = auth.currentUser;
+    if (cur && !cur.isAnonymous && !isScUser(cur)) { await mergeInto(cur, c); return true; }
     if (cur && cur.isAnonymous) {
       try {
         await cur.linkWithCredential(firebase.auth.EmailAuthProvider.credential(c.email, c.password));
@@ -693,7 +710,11 @@ async function mergeInto(oldUser, c) {
   } catch { /* 読めなくても、ログインだけは続ける */ }
   // @IDを手放す（持ち主だけができる）→ 新しいアカウントで取り直す
   if (old && old.handle) await db.ref('handles/' + old.handle).remove().catch(() => {});
-  await auth.signInWithEmailAndPassword(c.email, c.password);
+  try { await auth.signInWithEmailAndPassword(c.email, c.password); }
+  catch (e) {
+    if (!/user-not-found|invalid-credential|invalid-login/.test(e.code || '')) throw e;
+    await auth.createUserWithEmailAndPassword(c.email, c.password);
+  }
   if (!old || !old.handle) return;
   const uid = auth.currentUser.uid;
   const now = (await db.ref('users/' + uid).get().catch(() => null))?.val() || null;
@@ -731,6 +752,9 @@ function showOnboard() {
   $('obSC').hidden = !!linked;
   $('obWho').hidden = !linked;
   $('obSkip').hidden = !!linked;
+  $('obHave').hidden = !!linked;
+  $('obLogin').hidden = true;
+  $('obPassWrap').hidden = !!linked; $('obPassHint').hidden = !!linked;
   $('obWhy').hidden = !!linked;
   $('obForm').hidden = !linked;
   $('obLead').textContent = linked ? 'Your SoundCloud is connected. Check your name and handle.' : 'Sign in with SoundCloud to bring your music, search anything, and use your account on every device.';
@@ -745,10 +769,33 @@ function showOnboard() {
 // SoundCloudなしでも始められる（友達がSoundCloudで流す曲を一緒に聴ける）
 $('obSkip').addEventListener('click', () => {
   $('obSC').classList.add('ghosty');
-  $('obSkip').hidden = true; $('obWhy').hidden = true;
+  $('obSkip').hidden = true; $('obWhy').hidden = true; $('obHave').hidden = true; $('obLogin').hidden = true;
   $('obForm').hidden = false;
   $('obLead').textContent = 'Pick a name and a handle. You can listen along when a friend plays music, and connect SoundCloud anytime.';
   $('obName').focus();
+});
+// @IDとパスワードで、前に作ったアカウントに入る
+$('obHave').addEventListener('click', () => {
+  $('obSC').classList.add('ghosty');
+  $('obSkip').hidden = true; $('obWhy').hidden = true; $('obHave').hidden = true; $('obForm').hidden = true;
+  $('obLogin').hidden = false;
+  $('obLead').textContent = 'Sign in with your handle and password.';
+  $('liHandle').focus();
+});
+$('liHandle').addEventListener('input', (e) => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); });
+const handleEmail = (uid) => `h-${uid.toLowerCase()}@users.on-pa.net`;
+$('liGo').addEventListener('click', async () => {
+  const h = $('liHandle').value.trim(), pw = $('liPass').value;
+  $('liErr').textContent = '';
+  if (!h || pw.length < 6) { $('liErr').textContent = 'Enter your handle and password'; return; }
+  $('liGo').disabled = true;
+  try {
+    const uid = (await db.ref('handles/' + h).get()).val();
+    if (!uid) { $('liErr').textContent = 'No one with @' + h; return; }
+    await firebase.auth().signInWithEmailAndPassword(handleEmail(uid), pw);
+  } catch (e) {
+    $('liErr').textContent = /invalid|wrong|not-found/.test(e.code || '') ? 'Handle or password is wrong' : "Couldn't sign in (" + e.message + ')';
+  } finally { $('liGo').disabled = false; }
 });
 // SoundCloudのIDを@IDとしておすすめする（使われていたら数字を足す）。自分で変えてもいい。
 async function suggestHandle(base) {
@@ -787,12 +834,17 @@ $('obGo').addEventListener('click', async () => {
   $('obErr').textContent = '';
   if (!name) { $('obErr').textContent = 'Enter a name'; return; }
   if (!/^[a-z0-9_]{3,15}$/.test(handle)) { $('obErr').textContent = 'Use 3–15 letters, numbers, or _'; return; }
+  const needPass = !isScUser(firebase.auth().currentUser);
+  const pass = $('obPass').value;
+  if (needPass && pass.length < 6) { $('obErr').textContent = 'Use a password with 6 or more characters'; return; }
   const uid = firebase.auth().currentUser.uid;
   $('obGo').disabled = true;
   try {
     const res = await db.ref('handles/' + handle).transaction((cur) => (cur === null || cur === uid ? uid : undefined));
     if (!res.committed) { $('obErr').textContent = '@' + handle + ' is taken. Try another one.'; return; }
     await db.ref('users/' + uid).set({ handle, name, createdAt: TS });
+    const cu = firebase.auth().currentUser;
+    if (needPass && cu.isAnonymous) await cu.linkWithCredential(firebase.auth.EmailAuthProvider.credential(handleEmail(uid), pass));
     me = { uid, handle, name };
     $('onboard').hidden = true;
     startApp();
@@ -837,12 +889,27 @@ function showTab(which) {
 $('tabHome').addEventListener('click', () => showTab('home'));
 // ログアウト（SoundCloudの人はいつでも入り直せる。@IDだけの人は、この端末から入れなくなるので2回押しで確認）
 let signOutArmed = 0;
+$('setPwGo').addEventListener('click', async () => {
+  const user = firebase.auth().currentUser, pw = $('setPwIn').value;
+  if (pw.length < 6) { toast('Use 6 or more characters'); return; }
+  try {
+    await user.linkWithCredential(firebase.auth.EmailAuthProvider.credential(handleEmail(user.uid), pw));
+    $('setPw').hidden = true; $('setPwIn').value = '';
+    toast('Password saved. Sign in with @' + me.handle + ' anywhere.');
+  } catch (e) { toast("Couldn't save the password (" + e.message + ')'); }
+});
 $('signOut').addEventListener('click', async () => {
   const user = firebase.auth().currentUser;
+  if (user.isAnonymous) {
+    // まだパスワードがない：先に決めてもらう（でないと二度と入れない）
+    $('setPw').hidden = false; $('setPwIn').focus();
+    toast('Set a password first so you can sign back in to @' + me.handle);
+    return;
+  }
   if (Date.now() - signOutArmed > 4000) {
     signOutArmed = Date.now();
     $('signOut').textContent = 'Tap again';
-    toast(isScUser(user) ? 'Sign in again anytime with SoundCloud' : "Without SoundCloud, you can't sign back in to @" + me.handle);
+    toast(isScUser(user) ? 'Sign in again anytime with SoundCloud' : 'Sign in again with @' + me.handle + ' and your password');
     setTimeout(() => { $('signOut').textContent = 'Sign out'; }, 4000);
     return;
   }
