@@ -435,6 +435,10 @@
   .np.ringing .disc .peer { animation: ringpulse 1.4s ease-in-out infinite; }
   @keyframes ringpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
   @media (prefers-reduced-motion: reduce) { .np.ringing .disc .peer { animation: none; } }
+  .topsearch { display: flex; align-items: center; gap: 10px; margin: 4px 16px 0; }
+  .topsearch .field { flex: 1; margin: 0; }
+  .topsearch input { font-size: 16px; }
+  .topsearch .cancel { font-weight: 600; font-size: 15px; color: var(--ink); padding: 0 4px; height: 44px; }
 </style>
 </head>
 <body>
@@ -485,6 +489,15 @@
     <div class="who"><b id="cbName"></b><span id="cbSub"></span></div>
     <button class="round" id="cbMute" aria-label="Mute"></button>
     <button class="round end" id="cbEnd" aria-label="End call"></button>
+  </div>
+
+  <!-- 検索欄（上）：Homeと検索画面で出す -->
+  <div class="topsearch" id="topSearch">
+    <div class="field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search songs or artists" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+    </div>
+    <button class="cancel" id="qCancel" hidden>Cancel</button>
   </div>
 
   <!-- ホーム：開いてすぐ再生できるもの -->
@@ -556,7 +569,7 @@
   <nav class="nav">
     <div class="in">
       <button id="tabHome" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Home</button>
-      <label id="tabListen" class="find glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" size="1" placeholder="Search" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search songs or artists"></label>
+      
       <button id="tabFriends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.5-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.7 2.5 3 5.2"/></svg>Friends</button>
     </div>
   </nav>
@@ -920,7 +933,9 @@ function showTab(which) {
   $('viewHome').hidden = which !== 'home';
   $('viewListen').hidden = which !== 'listen';
   $('viewFriends').hidden = which !== 'friends';
-  for (const [id, name] of [['tabHome', 'home'], ['tabListen', 'listen'], ['tabFriends', 'friends']]) {
+  $('topSearch').hidden = which === 'friends';
+  $('qCancel').hidden = which !== 'listen';
+  for (const [id, name] of [['tabHome', 'home'], ['tabFriends', 'friends']]) {
     if (which === name) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
   }
   if (which === 'home') renderHome();
@@ -960,9 +975,9 @@ $('signOut').addEventListener('click', async () => {
   await firebase.auth().signOut();
   location.reload();
 });
-$('tabListen').addEventListener('click', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
 $('q').addEventListener('focus', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
 $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); const v = e.target.value.trim(); if (v.length >= 1) search(v); e.target.blur(); } });
+$('qCancel').addEventListener('click', () => { $('q').value = ''; $('q').blur(); showTab('home'); });
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
@@ -1655,7 +1670,7 @@ function renderHome() {
 }
 $('viewHome').addEventListener('click', (e) => {
   if (e.target.closest('#hConnect')) { connectSC(); return; }
-  if (e.target.closest('#hSearch')) { $('tabListen').click(); return; }
+  if (e.target.closest('#hSearch')) { $('q').focus(); return; }
   if (e.target.closest('#hShuffle')) {
     if (!likesList || !likesList.length) return;
     const list = shuffled(likesList); playFrom(list, 0); return;
