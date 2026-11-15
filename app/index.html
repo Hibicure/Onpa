@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#EEF0F4">
+<title>Onpa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://geocloud.icchasong.workers.dev">
+<link rel="preconnect" href="https://playback.media-streaming.soundcloud.cloud">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
+<style>
+  :root {
+    --paper: #EEF0F4;
+    --surface: #FFFFFF;
+    --ink: #161A33;
+    --mute: #6A6F88;
+    --line: #D7DBE4;
+    --cobalt: #2446F5;
+    --live: #12A867;
+    --danger: #E5484D;
+    --holo: conic-gradient(from 210deg, #c9f0ff, #e7d4ff, #ffd6ec, #fff1c7, #d2ffe9, #c9f0ff, #e7d4ff, #ffd6ec, #c9f0ff);
+    --display: 'Unbounded', system-ui, sans-serif;
+    --body: 'Zen Kaku Gothic New', -apple-system, 'Hiragino Sans', sans-serif;
+    --safe-b: env(safe-area-inset-bottom);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+  body { min-height: 100dvh; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  input { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .shell { max-width: 440px; margin: 0 auto; min-height: 100dvh; position: relative; padding-bottom: calc(150px + var(--safe-b)); }
+
+  /* ---------- ヘッダー ---------- */
+  .head { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 8px; }
+  .mark { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -0.03em; }
+  .me { font-size: 13px; color: var(--mute); }
+
+  /* ---------- 通話バー ---------- */
+  .callbar { margin: 6px 16px 4px; padding: 10px 10px 10px 14px; border-radius: 16px; background: var(--ink); color: #fff; display: flex; align-items: center; gap: 10px; }
+  .callbar .who { flex: 1; min-width: 0; }
+  .callbar .who b { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .callbar .who span { font-size: 12px; opacity: .7; font-variant-numeric: tabular-nums; }
+  .callbar .pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 0 rgba(18,168,103,.6); animation: pulse 1.6s infinite; flex-shrink: 0; }
+  .callbar.ringing .pulse { background: #F5B524; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(18,168,103,0); } 100% { box-shadow: 0 0 0 0 rgba(18,168,103,0); } }
+  .round { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; }
+  .round svg { width: 18px; height: 18px; }
+  .callbar .round { background: rgba(255,255,255,.12); }
+  .callbar .round.off { background: #fff; color: var(--ink); }
+  .callbar .round.end { background: var(--danger); }
+
+  /* ---------- 検索 ---------- */
+  .field { margin: 12px 16px 6px; position: relative; }
+  .field input { width: 100%; height: 48px; padding: 0 16px 0 42px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font-size: 16px; outline: none; }
+  .field input:focus { border-color: var(--ink); }
+  .field svg { position: absolute; left: 14px; top: 15px; width: 18px; height: 18px; color: var(--mute); }
+
+  /* ---------- 一覧 ---------- */
+  .list { margin: 4px 16px 0; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
+  .row:last-child { border-bottom: none; }
+  .row .art { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--holo); flex-shrink: 0; }
+  .row.now .art { animation: spin 6s linear infinite; }
+  .row .txt { flex: 1; min-width: 0; }
+  .row .t { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row.now .t { color: var(--cobalt); }
+  .row .s { font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .tag { font-size: 11px; color: var(--mute); border: 1px solid var(--line); padding: 1px 7px; border-radius: 99px; flex-shrink: 0; }
+  .empty { padding: 48px 24px; text-align: center; color: var(--mute); font-size: 14px; }
+  .empty b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+
+  /* ---------- 友達 ---------- */
+  .card-me { margin: 12px 16px 4px; padding: 16px; border-radius: 18px; background: var(--surface); display: flex; align-items: center; gap: 14px; }
+  .card-me .handle { font-family: var(--display); font-weight: 500; font-size: 17px; letter-spacing: -0.02em; }
+  .card-me .hint { font-size: 12px; color: var(--mute); }
+  .avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--holo); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--ink); flex-shrink: 0; position: relative; }
+  .avatar .dot { position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; border-radius: 50%; background: #B9BDCB; border: 2px solid var(--paper); }
+  .avatar .dot.on { background: var(--live); }
+  .section { margin: 22px 20px 4px; font-size: 13px; color: var(--mute); }
+  .btn { height: 38px; padding: 0 16px; border-radius: 99px; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .btn.primary { background: var(--ink); color: #fff; }
+  .btn.call { background: var(--cobalt); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+  .btn.call svg { width: 15px; height: 15px; }
+  .btn.ghost { border: 1px solid var(--line); color: var(--mute); }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  /* ---------- ミニプレーヤー ---------- */
+  .mini { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(72px + var(--safe-b)); width: calc(100% - 20px); max-width: 420px; padding: 8px 8px 8px 10px; border-radius: 20px; background: var(--surface); box-shadow: 0 8px 30px rgba(22,26,51,.14); display: flex; align-items: center; gap: 12px; z-index: 20; }
+  .mini .disc-s { width: 44px; height: 44px; border-radius: 50%; background: var(--holo); position: relative; flex-shrink: 0; overflow: hidden; }
+  .mini .disc-s img { position: absolute; inset: 9px; width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+  .mini .open { flex: 1; min-width: 0; text-align: left; }
+  .mini .t { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini .s { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini .bar { position: absolute; left: 18px; right: 18px; bottom: 0; height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .mini .bar i { display: block; height: 100%; width: 0; background: var(--ink); }
+  .pp { width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .pp svg { width: 18px; height: 18px; }
+  .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; animation: spin .7s linear infinite; }
+
+  /* ---------- 下のタブ ---------- */
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; padding: 6px 0 calc(6px + var(--safe-b)); background: rgba(238,240,244,.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--line); z-index: 19; }
+  .nav .in { max-width: 440px; margin: 0 auto; display: flex; }
+  .nav button { flex: 1; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--mute); }
+  .nav button svg { width: 22px; height: 22px; }
+  .nav button[aria-current="page"] { color: var(--ink); font-weight: 700; }
+
+  /* ---------- 再生画面 ---------- */
+  .np { position: fixed; inset: 0; background: var(--paper); z-index: 40; display: flex; flex-direction: column; transform: translateY(100%); transition: transform .42s cubic-bezier(.2,.8,.2,1); }
+  .np.open { transform: translateY(0); }
+  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: 14px 24px calc(24px + var(--safe-b)); overflow-y: auto; }
+  .np .top { display: flex; align-items: center; justify-content: space-between; }
+  .np .top .round { background: var(--surface); }
+  .np .together { font-size: 13px; color: var(--cobalt); font-weight: 700; }
+  .stage { flex: 1; display: grid; place-items: center; padding: 22px 0 16px; min-height: 300px; }
+  .disc { width: min(76vw, 320px); aspect-ratio: 1; border-radius: 50%; position: relative; background: var(--holo); box-shadow: 0 30px 60px -20px rgba(22,26,51,.35), inset 0 0 0 1px rgba(255,255,255,.6); animation: spin 7s linear infinite; animation-play-state: paused; }
+  .disc.spinning { animation-play-state: running; }
+  .disc::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 0 2px, rgba(255,255,255,.35) 2px 3px); mix-blend-mode: soft-light; }
+  .disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(115deg, rgba(255,255,255,.65) 0%, rgba(255,255,255,0) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,.4) 100%); }
+  .disc .label { position: absolute; inset: 27%; border-radius: 50%; overflow: hidden; background: var(--ink); box-shadow: 0 0 0 6px rgba(255,255,255,.5); z-index: 1; }
+  .disc .label img { width: 100%; height: 100%; object-fit: cover; }
+  .disc .hole { position: absolute; left: 50%; top: 50%; width: 9%; height: 9%; margin: -4.5% 0 0 -4.5%; border-radius: 50%; background: var(--paper); box-shadow: inset 0 1px 3px rgba(0,0,0,.25); z-index: 2; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .np .artist { color: var(--mute); margin-top: 4px; }
+  .seek { position: relative; height: 26px; margin-top: 18px; cursor: pointer; touch-action: none; }
+  .seek .track { position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .seek .fill { height: 100%; width: 0; background: var(--ink); }
+  .seek .knob { position: absolute; top: 6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
+  .seek.drag .knob { transform: scale(1.35); }
+  .times { display: flex; justify-content: space-between; font-family: var(--display); font-size: 11px; color: var(--mute); font-variant-numeric: tabular-nums; }
+  .controls { display: flex; justify-content: center; margin: 14px 0 6px; }
+  .controls .pp { width: 68px; height: 68px; }
+  .controls .pp svg { width: 26px; height: 26px; }
+  .mix { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--surface); display: grid; gap: 12px; }
+  .mix label { display: grid; grid-template-columns: 54px 1fr; align-items: center; gap: 10px; font-size: 13px; color: var(--mute); }
+  .mix input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; cursor: pointer; }
+  .mix input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(var(--ink), var(--ink)) 0 / var(--v, 100%) 100% no-repeat, var(--line); }
+  .mix input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); }
+  .mix input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
+  .mix input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--ink); }
+  .mix input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); }
+  .mix input:disabled { opacity: .35; }
+  .mix .note { font-size: 12px; color: var(--mute); }
+
+  /* ---------- 着信 ---------- */
+  .incoming { position: fixed; inset: 0; z-index: 60; background: rgba(22,26,51,.96); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
+  .incoming .avatar { width: 112px; height: 112px; font-size: 40px; margin-bottom: 10px; animation: ring 1.4s ease-in-out infinite; }
+  @keyframes ring { 50% { transform: scale(1.06); } }
+  .incoming h3 { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; }
+  .incoming p { opacity: .7; }
+  .incoming .acts { display: flex; gap: 56px; margin-top: 44px; }
+  .incoming .acts button { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; }
+  .incoming .acts .round { width: 68px; height: 68px; }
+  .incoming .acts .round svg { width: 26px; height: 26px; }
+  .incoming .no .round { background: var(--danger); }
+  .incoming .yes .round { background: var(--live); }
+
+  /* ---------- 初回 ---------- */
+  .onboard { min-height: 100dvh; max-width: 440px; margin: 0 auto; padding: 56px 24px 32px; display: flex; flex-direction: column; }
+  .onboard .disc { width: 150px; animation-play-state: running; margin-bottom: 36px; }
+  .onboard .disc .label { background: var(--ink); }
+  .onboard h1 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: -0.03em; line-height: 1.2; }
+  .onboard p { color: var(--mute); margin: 8px 0 28px; }
+  .onboard .f { margin-bottom: 16px; }
+  .onboard .f span { display: block; font-size: 13px; color: var(--mute); margin-bottom: 6px; }
+  .onboard .f input { width: 100%; height: 52px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font-size: 17px; outline: none; }
+  .onboard .f input:focus { border-color: var(--ink); }
+  .onboard .at { position: relative; }
+  .onboard .at input { padding-left: 34px; }
+  .onboard .at::before { content: '@'; position: absolute; left: 16px; top: 13px; font-size: 17px; color: var(--mute); }
+  .onboard .err { color: var(--danger); font-size: 13px; min-height: 20px; }
+  .onboard .go { margin-top: auto; height: 54px; border-radius: 16px; background: var(--ink); color: #fff; font-weight: 700; font-size: 16px; }
+
+  /* ---------- お知らせ ---------- */
+  .toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: #fff; font-size: 14px; z-index: 80; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .toast.show { transform: translate(-50%, 0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .disc, .row.now .art, .incoming .avatar, .callbar .pulse { animation: none !important; }
+    .np, .toast { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 初回：名前と@IDを決める -->
+<section class="onboard" id="onboard" hidden>
+  <div class="disc"><div class="label"></div><div class="hole"></div></div>
+  <h1>話しながら、<br>同じ曲を聴こう。</h1>
+  <p>名前と@IDを決めたら始められます。メールもパスワードも要りません。</p>
+  <label class="f"><span>名前</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="ひびき"></label>
+  <label class="f"><span>@ID（友達があなたを探すときに使います）</span><div class="at"><input id="obHandle" maxlength="15" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="hibiki"></div></label>
+  <div class="err" id="obErr"></div>
+  <button class="go" id="obGo">はじめる</button>
+</section>
+
+<!-- メイン -->
+<div class="shell" id="app" hidden>
+  <header class="head">
+    <div class="mark">Onpa</div>
+    <div class="me" id="meLabel"></div>
+  </header>
+
+  <div class="callbar" id="callbar" hidden>
+    <div class="pulse"></div>
+    <div class="who"><b id="cbName"></b><span id="cbSub"></span></div>
+    <button class="round" id="cbMute" aria-label="ミュート"></button>
+    <button class="round end" id="cbEnd" aria-label="通話を終える"></button>
+  </div>
+
+  <!-- 聴く -->
+  <main id="viewListen">
+    <div class="field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="曲名やアーティストを検索" autocomplete="off" enterkeyhint="search">
+    </div>
+    <div class="list" id="results">
+      <div class="empty"><b>聴きたい曲を探しましょう</b>SoundCloudの曲をフルで再生できます</div>
+    </div>
+  </main>
+
+  <!-- 友達 -->
+  <main id="viewFriends" hidden>
+    <div class="card-me">
+      <div class="avatar" id="myAvatar"></div>
+      <div style="flex:1;min-width:0"><div class="handle" id="myHandle"></div><div class="hint">この@IDを伝えると、友達があなたを見つけられます</div></div>
+    </div>
+    <div class="field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="fq" type="search" placeholder="@IDで友達を探す" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="search">
+    </div>
+    <div class="list" id="found"></div>
+    <div class="section" id="friendsTitle">友達</div>
+    <div class="list" id="friends"></div>
+  </main>
+
+  <nav class="nav">
+    <div class="in">
+      <button id="tabListen" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>聴く</button>
+      <button id="tabFriends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.5-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.7 2.5 3 5.2"/></svg>友達</button>
+    </div>
+  </nav>
+</div>
+
+<!-- ミニプレーヤー -->
+<div class="mini" id="mini" hidden>
+  <div class="disc-s"><img id="miniArt" alt=""></div>
+  <button class="open" id="miniOpen"><div class="t" id="miniT"></div><div class="s" id="miniS"></div></button>
+  <button class="pp" id="miniPP" aria-label="再生/一時停止"></button>
+  <div class="bar"><i id="miniBar"></i></div>
+</div>
+
+<!-- 再生画面 -->
+<section class="np" id="np" aria-hidden="true">
+  <div class="in">
+    <div class="top">
+      <button class="round" id="npClose" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="together" id="npTogether" hidden></div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="stage">
+      <div class="disc" id="disc"><div class="label"><img id="npArt" alt=""></div><div class="hole"></div></div>
+    </div>
+    <h2 id="npT"></h2>
+    <div class="artist" id="npS"></div>
+    <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
+    <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+    <div class="controls"><button class="pp" id="npPP" aria-label="再生/一時停止"></button></div>
+    <div class="mix">
+      <label>音楽<input type="range" id="volMusic" min="0" max="100" value="80"></label>
+      <label>声<input type="range" id="volVoice" min="0" max="100" value="100" disabled></label>
+      <div class="note" id="mixNote">声の音量は、通話中に調整できます</div>
+    </div>
+  </div>
+</section>
+
+<!-- 着信 -->
+<section class="incoming" id="incoming" hidden>
+  <div class="avatar" id="inAvatar"></div>
+  <h3 id="inName"></h3>
+  <p id="inHandle"></p>
+  <div class="acts">
+    <button class="no" id="inNo"><span class="round"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-2.4 0-4.6.5-6.6 1.4-.9.4-1.4 1.3-1.4 2.2v2.1c0 .7.7 1.2 1.4 1l3-.9c.6-.2 1-.7 1-1.3v-1.5c1.7-.5 3.5-.5 5.2 0v1.5c0 .6.4 1.1 1 1.3l3 .9c.7.2 1.4-.3 1.4-1v-2.1c0-.9-.5-1.8-1.4-2.2C16.6 9.5 14.4 9 12 9z"/></svg></span>拒否</button>
+    <button class="yes" id="inYes"><span class="round"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg></span>出る</button>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// ===================== 設定 =====================
+const WORKER = 'https://geocloud.icchasong.workers.dev';
+const LIVEKIT_URL = 'wss://otocloud-wygn7mrs.livekit.cloud';
+firebase.initializeApp({
+  apiKey: 'AIzaSyB_bITavjyZJ86Ky9BHjYJb9IcXbieHA0g',
+  authDomain: 'onpa-e7cc6.firebaseapp.com',
+  databaseURL: 'https://onpa-e7cc6-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'onpa-e7cc6',
+});
+const db = firebase.database();
+const TS = firebase.database.ServerValue.TIMESTAMP;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// ===================== 道具 =====================
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const initial = (n) => (n || '?').trim().slice(0, 1).toUpperCase();
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>',
+  load: '<div class="spinner"></div>',
+  mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  micOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.9 2.3M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.7 3M12 18v3M3 3l18 18"/></svg>',
+  end: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-2.4 0-4.6.5-6.6 1.4-.9.4-1.4 1.3-1.4 2.2v2.1c0 .7.7 1.2 1.4 1l3-.9c.6-.2 1-.7 1-1.3v-1.5c1.7-.5 3.5-.5 5.2 0v1.5c0 .6.4 1.1 1 1.3l3 .9c.7.2 1.4-.3 1.4-1v-2.1c0-.9-.5-1.8-1.4-2.2C16.6 9.5 14.4 9 12 9z"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>',
+};
+let toastTimer = null;
+function toast(msg) {
+  $('toast').textContent = msg;
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').classList.remove('show'), 3200);
+}
+
+// ===================== 状態 =====================
+let me = null;              // { uid, handle, name }
+const friends = new Map();  // uid -> { handle, name, online }
+const friendRefs = new Map();
+let serverOffset = 0;
+db.ref('.info/serverTimeOffset').on('value', (s) => { serverOffset = s.val() || 0; });
+const serverNow = () => Date.now() + serverOffset;
+
+// ===================== 起動とログイン =====================
+firebase.auth().onAuthStateChanged(async (user) => {
+  if (!user) { await firebase.auth().signInAnonymously(); return; }
+  const snap = await db.ref('users/' + user.uid).get();
+  const u = snap.val();
+  if (u && u.handle) { me = { uid: user.uid, handle: u.handle, name: u.name }; startApp(); }
+  else { $('onboard').hidden = false; }
+});
+
+$('obHandle').addEventListener('input', (e) => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); });
+$('obGo').addEventListener('click', async () => {
+  const name = $('obName').value.trim();
+  const handle = $('obHandle').value.trim();
+  $('obErr').textContent = '';
+  if (!name) { $('obErr').textContent = '名前を入れてください'; return; }
+  if (!/^[a-z0-9_]{3,15}$/.test(handle)) { $('obErr').textContent = '@IDは半角英数字と _ で3〜15文字にしてください'; return; }
+  const uid = firebase.auth().currentUser.uid;
+  $('obGo').disabled = true;
+  try {
+    const res = await db.ref('handles/' + handle).transaction((cur) => (cur === null || cur === uid ? uid : undefined));
+    if (!res.committed) { $('obErr').textContent = '@' + handle + ' はもう使われています。別の@IDにしてください'; return; }
+    await db.ref('users/' + uid).set({ handle, name, createdAt: TS });
+    me = { uid, handle, name };
+    $('onboard').hidden = true;
+    startApp();
+  } catch (e) {
+    $('obErr').textContent = '保存できませんでした（' + e.message + '）';
+  } finally {
+    $('obGo').disabled = false;
+  }
+});
+
+function startApp() {
+  $('app').hidden = false;
+  $('meLabel').textContent = '@' + me.handle;
+  $('myHandle').textContent = '@' + me.handle;
+  $('myAvatar').textContent = initial(me.name);
+  // オンライン表示
+  db.ref('.info/connected').on('value', (s) => {
+    if (!s.val()) return;
+    const ref = db.ref('users/' + me.uid);
+    ref.child('online').onDisconnect().set(false);
+    ref.child('lastSeen').onDisconnect().set(TS);
+    ref.update({ online: true });
+  });
+  watchFriends();
+  watchIncoming();
+  if (isIOS) $('mixNote').textContent = 'iPhoneでは音楽の音量は本体のボタンで調整します。声の音量は通話中にここで調整できます';
+}
+
+// ===================== タブ =====================
+function showTab(which) {
+  $('viewListen').hidden = which !== 'listen';
+  $('viewFriends').hidden = which !== 'friends';
+  for (const [id, name] of [['tabListen', 'listen'], ['tabFriends', 'friends']]) {
+    if (which === name) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
+  }
+}
+$('tabListen').addEventListener('click', () => showTab('listen'));
+$('tabFriends').addEventListener('click', () => showTab('friends'));
+
+// ===================== 音楽：検索 =====================
+let searchTimer = null, lastResults = [];
+$('q').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) return;
+  searchTimer = setTimeout(() => search(q), 350);
+});
+
+async function search(q) {
+  $('results').innerHTML = '<div class="empty">探しています…</div>';
+  try {
+    const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    lastResults = d;
+    if (!d.length) { $('results').innerHTML = '<div class="empty"><b>見つかりませんでした</b>別の言葉で探してみてください</div>'; return; }
+    $('results').innerHTML = d.map((t, i) => `
+      <button class="row" data-i="${i}" data-id="${t.id}">
+        <img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
+        <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}</div></div>
+        <span class="tag">${fmt(t.duration / 1000)}</span>
+      </button>`).join('');
+    markNow();
+    d.slice(0, 3).forEach((t) => getPlay(t.id).catch(() => {}));
+  } catch (e) {
+    $('results').innerHTML = `<div class="empty"><b>検索できませんでした</b>${esc(e.message)}</div>`;
+  }
+}
+$('results').addEventListener('click', (e) => {
+  const row = e.target.closest('.row');
+  if (!row) return;
+  const t = lastResults[Number(row.dataset.i)];
+  pick({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork });
+});
+
+// ===================== 音楽：再生のしくみ =====================
+const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const player = new Audio();
+player.preload = 'auto';
+let hls = null, track = null, loadedId = null, loadToken = 0, loading = false;
+const playCache = new Map();
+
+function getPlay(id) {
+  const key = String(id);
+  const hit = playCache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.p;
+  const p = fetch(`${WORKER}/play?id=${id}`).then(async (r) => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    return d;
+  });
+  playCache.set(key, { p, exp: Date.now() + 8 * 60 * 1000 });
+  p.catch(() => playCache.delete(key));
+  return p;
+}
+
+function unlockAudio() {
+  // iPhoneは「タップした瞬間」に鳴らし始めないと、あとで再生できない
+  // （一度鳴らしたプレーヤーは、その後は自由に再生できる）
+  if (!loadedId && !player.src) { player.src = SILENT; player.play().catch(() => {}); }
+}
+
+async function loadTrack(meta) {
+  const my = ++loadToken;
+  if (hls) { hls.destroy(); hls = null; }
+  loading = true; loadedId = null;
+  track = meta;
+  renderTrack();
+  setPP('load');
+  try {
+    const d = await getPlay(meta.trackId);
+    if (my !== loadToken) return false;
+    if (d.hls && window.Hls && Hls.isSupported()) {
+      hls = new Hls({ maxBufferLength: 20, startFragPrefetch: true });
+      hls.loadSource(d.url);
+      hls.attachMedia(player);
+      await new Promise((ok, ng) => {
+        hls.once(Hls.Events.MANIFEST_PARSED, ok);
+        hls.on(Hls.Events.ERROR, (ev, x) => { if (x.fatal) ng(new Error(x.details)); });
+      });
+    } else {
+      player.src = d.url;
+      await new Promise((ok, ng) => {
+        player.addEventListener('loadedmetadata', ok, { once: true });
+        player.addEventListener('error', () => ng(new Error('読み込みに失敗')), { once: true });
+      });
+    }
+    if (my !== loadToken) return false;
+    loadedId = meta.trackId;
+    return true;
+  } catch (e) {
+    if (my === loadToken) { playCache.delete(String(meta.trackId)); toast('この曲は再生できませんでした'); setPP('play'); }
+    return false;
+  } finally {
+    if (my === loadToken) loading = false;
+  }
+}
+
+// 一覧から曲を選んだとき
+async function pick(meta) {
+  unlockAudio();
+  if (call.state === 'live') {
+    pushRoomState({ ...meta, playing: true, position: 0 });
+    return;
+  }
+  if (track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
+  if (await loadTrack(meta)) { player.volume = volMusic(); player.play().catch(() => setPP('play')); }
+}
+
+function togglePlay() {
+  if (!track || loading) return;
+  if (call.state === 'live' && roomState) {
+    unlockAudio();
+    pushRoomState({ ...roomState, playing: !roomState.playing, position: player.currentTime || expectedPos(roomState) });
+    return;
+  }
+  if (player.paused) player.play().catch(() => {}); else player.pause();
+}
+
+function seekTo(t) {
+  if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, position: t }); return; }
+  player.currentTime = t;
+}
+
+// ===================== 音楽：表示 =====================
+function setPP(s) {
+  const html = s === 'load' ? ICON.load : s === 'pause' ? ICON.pause : ICON.play;
+  $('miniPP').innerHTML = html; $('npPP').innerHTML = html;
+}
+function renderTrack() {
+  if (!track) return;
+  $('mini').hidden = false;
+  $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
+  $('npT').textContent = track.title; $('npS').textContent = track.artist;
+  for (const id of ['miniArt', 'npArt']) { if (track.artwork) $(id).src = track.artwork; else $(id).removeAttribute('src'); }
+  markNow();
+}
+function markNow() {
+  document.querySelectorAll('#results .row').forEach((r) => r.classList.toggle('now', !!track && String(track.trackId) === r.dataset.id && !player.paused));
+}
+const isReal = () => !!loadedId;
+player.addEventListener('playing', () => { if (!isReal()) return; setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
+player.addEventListener('pause', () => { if (!isReal()) return; if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
+player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
+player.addEventListener('ended', () => {
+  if (!isReal()) return;
+  if (call.state === 'live' && roomState && roomState.by === me.uid && roomState.playing) pushRoomState({ ...roomState, playing: false, position: 0 });
+});
+let dragging = false;
+player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
+function drawProgress(t) {
+  const d = player.duration;
+  if (!isFinite(d) || !d) return;
+  const pct = Math.min(100, t / d * 100) + '%';
+  $('fill').style.width = pct; $('knob').style.left = pct; $('miniBar').style.width = pct;
+  $('cur').textContent = fmt(t); $('dur').textContent = fmt(d);
+}
+$('miniPP').addEventListener('click', () => { unlockAudio(); togglePlay(); });
+$('npPP').addEventListener('click', () => { unlockAudio(); togglePlay(); });
+$('miniOpen').addEventListener('click', () => { $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); });
+$('npClose').addEventListener('click', () => { $('np').classList.remove('open'); $('np').setAttribute('aria-hidden', 'true'); });
+
+// シークバー
+const seekEl = $('seek');
+const posToTime = (x) => { const r = seekEl.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * (player.duration || 0); };
+seekEl.addEventListener('pointerdown', (e) => { if (!isFinite(player.duration)) return; dragging = true; seekEl.classList.add('drag'); seekEl.setPointerCapture(e.pointerId); drawProgress(posToTime(e.clientX)); });
+seekEl.addEventListener('pointermove', (e) => { if (dragging) drawProgress(posToTime(e.clientX)); });
+seekEl.addEventListener('pointerup', (e) => { if (!dragging) return; dragging = false; seekEl.classList.remove('drag'); seekTo(posToTime(e.clientX)); });
+seekEl.addEventListener('pointercancel', () => { dragging = false; seekEl.classList.remove('drag'); });
+
+// 音量
+const volMusic = () => Number($('volMusic').value) / 100;
+function paintRange(el) { el.style.setProperty('--v', el.value + '%'); }
+$('volMusic').addEventListener('input', (e) => { paintRange(e.target); player.volume = volMusic(); });
+$('volVoice').addEventListener('input', (e) => { paintRange(e.target); applyVoiceVolume(); });
+paintRange($('volMusic')); paintRange($('volVoice'));
+
+// ===================== 友達 =====================
+function watchFriends() {
+  db.ref('friends/' + me.uid).on('value', (s) => {
+    const ids = Object.keys(s.val() || {});
+    for (const [uid, ref] of friendRefs) { if (!ids.includes(uid)) { ref.off(); friendRefs.delete(uid); friends.delete(uid); } }
+    for (const uid of ids) {
+      if (friendRefs.has(uid)) continue;
+      const ref = db.ref('users/' + uid);
+      ref.on('value', (u) => { const v = u.val(); if (v) friends.set(uid, v); renderFriends(); });
+      friendRefs.set(uid, ref);
+    }
+    renderFriends();
+  });
+}
+
+function renderFriends() {
+  const list = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0));
+  $('friendsTitle').textContent = list.length ? `友達 ${list.length}人` : '友達';
+  if (!list.length) { $('friends').innerHTML = '<div class="empty"><b>まだ友達がいません</b>上の欄に友達の@IDを入れて追加しましょう</div>'; return; }
+  const busy = call.state !== 'idle';
+  $('friends').innerHTML = list.map(([uid, f]) => `
+    <div class="row">
+      <div class="avatar">${esc(initial(f.name))}<span class="dot ${f.online ? 'on' : ''}"></span></div>
+      <div class="txt"><div class="t">${esc(f.name)}</div><div class="s">@${esc(f.handle)}・${f.online ? 'オンライン' : 'オフライン'}</div></div>
+      <button class="btn call" data-call="${uid}" ${busy || !f.online ? 'disabled' : ''}>${ICON.phone}電話</button>
+    </div>`).join('');
+}
+$('friends').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-call]');
+  if (b && !b.disabled) startCall(b.dataset.call);
+});
+
+let findTimer = null;
+$('fq').addEventListener('input', (e) => {
+  e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  clearTimeout(findTimer);
+  const h = e.target.value;
+  if (h.length < 3) { $('found').innerHTML = ''; return; }
+  findTimer = setTimeout(() => findFriend(h), 300);
+});
+async function findFriend(h) {
+  const uid = (await db.ref('handles/' + h).get()).val();
+  if ($('fq').value !== h) return;
+  if (!uid) { $('found').innerHTML = `<div class="empty">@${esc(h)} は見つかりませんでした</div>`; return; }
+  const u = (await db.ref('users/' + uid).get()).val() || {};
+  const self = uid === me.uid, added = friends.has(uid);
+  $('found').innerHTML = `
+    <div class="row">
+      <div class="avatar">${esc(initial(u.name))}<span class="dot ${u.online ? 'on' : ''}"></span></div>
+      <div class="txt"><div class="t">${esc(u.name)}</div><div class="s">@${esc(u.handle)}</div></div>
+      ${self ? '<span class="tag">あなた</span>' : added ? '<button class="btn ghost" disabled>追加済み</button>' : `<button class="btn primary" data-add="${uid}">追加</button>`}
+    </div>`;
+}
+$('found').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-add]');
+  if (!b) return;
+  b.disabled = true;
+  await db.ref(`friends/${me.uid}/${b.dataset.add}`).set(true);
+  b.textContent = '追加済み'; b.className = 'btn ghost';
+  toast('友達に追加しました');
+});
+
+// ===================== 通話 =====================
+const call = { state: 'idle', room: null, peer: null, lk: null, startedAt: 0, timer: null, ringTimer: null, statusRef: null, muted: false };
+let roomState = null, stateRef = null;
+
+function newRoomId() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+
+async function startCall(peerUid) {
+  if (call.state !== 'idle') return;
+  unlockAudio();
+  const f = friends.get(peerUid);
+  call.state = 'ringing'; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle };
+  showCallbar();
+  await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
+  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, room: call.room, at: TS });
+  watchCallStatus();
+  call.ringTimer = setTimeout(() => {
+    if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(`@${f.handle} は出られませんでした`); }
+  }, 35000);
+}
+
+function watchCallStatus() {
+  call.statusRef = db.ref(`rooms/${call.room}/call/status`);
+  call.statusRef.on('value', (s) => {
+    const st = s.val();
+    if (st === 'accepted' && call.state === 'ringing') joinCall();
+    if (st === 'declined' && call.state !== 'idle') endCall(`@${call.peer.handle} は今は出られないようです`);
+    if (st === 'ended' && call.state !== 'idle') endCall('通話が終わりました');
+  });
+}
+
+// 着信を待つ
+let incomingData = null;
+function watchIncoming() {
+  db.ref('calls/' + me.uid).on('value', (s) => {
+    const c = s.val();
+    if (!c) { if (incomingData) { incomingData = null; $('incoming').hidden = true; } return; }
+    if (serverNow() - (c.at || 0) > 40000) { s.ref.remove(); return; } // 古い呼び出しは無視
+    if (call.state !== 'idle') { db.ref(`rooms/${c.room}/call/status`).set('declined'); s.ref.remove(); return; }
+    incomingData = c;
+    $('inAvatar').textContent = initial(c.fromName);
+    $('inName').textContent = c.fromName;
+    $('inHandle').textContent = '@' + c.fromHandle + ' から電話です';
+    $('incoming').hidden = false;
+  });
+}
+$('inYes').addEventListener('click', async () => {
+  const c = incomingData; if (!c) return;
+  unlockAudio();
+  $('incoming').hidden = true; incomingData = null;
+  db.ref('calls/' + me.uid).remove();
+  call.state = 'ringing'; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle };
+  showCallbar();
+  await db.ref(`rooms/${c.room}/call/status`).set('accepted');
+  watchCallStatus();
+  joinCall();
+});
+$('inNo').addEventListener('click', () => {
+  const c = incomingData; if (!c) return;
+  $('incoming').hidden = true; incomingData = null;
+  db.ref(`rooms/${c.room}/call/status`).set('declined');
+  db.ref('calls/' + me.uid).remove();
+});
+
+async function joinCall() {
+  if (call.state === 'joining' || call.state === 'live') return;
+  call.state = 'joining';
+  clearTimeout(call.ringTimer);
+  showCallbar();
+  try {
+    const r = await fetch(`${WORKER}/livekit-token?room=${call.room}&identity=${me.uid}&name=${encodeURIComponent(me.name)}`);
+    const { token, error } = await r.json();
+    if (!token) throw new Error(error || 'token');
+    const LK = LivekitClient;
+    const room = new LK.Room({ webAudioMix: true, audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    call.lk = room;
+    room.on(LK.RoomEvent.TrackSubscribed, (t) => {
+      if (t.kind === 'audio') { const el = t.attach(); el.hidden = true; document.body.appendChild(el); applyVoiceVolume(); }
+    });
+    room.on(LK.RoomEvent.TrackUnsubscribed, (t) => t.detach().forEach((el) => el.remove()));
+    room.on(LK.RoomEvent.ParticipantDisconnected, () => { if (call.state === 'live') { db.ref(`rooms/${call.room}/call/status`).set('ended'); endCall('相手が通話を終えました'); } });
+    room.on(LK.RoomEvent.Disconnected, () => { if (call.state !== 'idle') endCall('通話が切れました'); });
+    await room.connect(LIVEKIT_URL, token);
+    await room.localParticipant.setMicrophoneEnabled(true);
+    await room.startAudio().catch(() => {});
+    call.state = 'live';
+    call.startedAt = Date.now();
+    call.timer = setInterval(showCallbar, 1000);
+    showCallbar();
+    $('volVoice').disabled = false;
+    if (!isIOS) $('mixNote').textContent = '声と音楽のバランスを調整できます';
+    // 一緒に聴く：ルームの再生状態を見る
+    stateRef = db.ref(`rooms/${call.room}/state`);
+    stateRef.on('value', (s) => applyRoomState(s.val()));
+    // 自分が曲を流していたら、それをルームに持ち込む
+    const st = (await stateRef.get()).val();
+    if (!st && track && loadedId) pushRoomState({ ...track, playing: !player.paused, position: player.currentTime });
+    renderFriends();
+  } catch (e) {
+    console.error(e);
+    db.ref(`rooms/${call.room}/call/status`).set('ended');
+    endCall(e.name === 'NotAllowedError' ? 'マイクの使用を許可してください' : '通話につなげませんでした');
+  }
+}
+
+function endCall(msg) {
+  if (call.state === 'idle') return;
+  const wasLive = call.state === 'live';
+  call.state = 'idle';
+  clearTimeout(call.ringTimer); clearInterval(call.timer);
+  if (call.statusRef) call.statusRef.off();
+  if (stateRef) stateRef.off();
+  stateRef = null; roomState = null;
+  if (call.lk) { call.lk.disconnect(); call.lk = null; }
+  document.querySelectorAll('body > audio').forEach((el) => el.remove());
+  if (wasLive && call.room) db.ref(`rooms/${call.room}/call/status`).get().then((s) => { if (s.val() === 'accepted') s.ref.set('ended'); });
+  call.room = null; call.peer = null; call.muted = false;
+  $('callbar').hidden = true; $('npTogether').hidden = true;
+  $('volVoice').disabled = true;
+  $('mixNote').textContent = isIOS ? 'iPhoneでは音楽の音量は本体のボタンで調整します。声の音量は通話中にここで調整できます' : '声の音量は、通話中に調整できます';
+  renderFriends();
+  if (msg) toast(msg);
+}
+
+function showCallbar() {
+  if (call.state === 'idle') return;
+  $('callbar').hidden = false;
+  $('callbar').classList.toggle('ringing', call.state !== 'live');
+  $('cbName').textContent = call.peer ? `${call.peer.name}（@${call.peer.handle}）` : '';
+  $('cbSub').textContent = call.state === 'live' ? `通話中 ${fmt((Date.now() - call.startedAt) / 1000)}` : call.state === 'joining' ? 'つないでいます…' : '呼び出し中…';
+  $('cbMute').hidden = call.state !== 'live';
+  $('cbMute').innerHTML = call.muted ? ICON.micOff : ICON.mic;
+  $('cbMute').classList.toggle('off', call.muted);
+  $('cbEnd').innerHTML = ICON.end;
+  if (call.state === 'live') { $('npTogether').hidden = false; $('npTogether').textContent = `${call.peer.name}と一緒に聴いています`; }
+}
+$('cbMute').addEventListener('click', async () => {
+  if (!call.lk) return;
+  call.muted = !call.muted;
+  await call.lk.localParticipant.setMicrophoneEnabled(!call.muted);
+  showCallbar();
+});
+$('cbEnd').addEventListener('click', () => {
+  if (call.state === 'ringing' && call.peer) db.ref('calls/' + call.peer.uid).remove();
+  if (call.room) db.ref(`rooms/${call.room}/call/status`).set('ended');
+  endCall('通話を終えました');
+});
+
+function applyVoiceVolume() {
+  if (!call.lk) return;
+  const v = Number($('volVoice').value) / 100;
+  call.lk.remoteParticipants.forEach((p) => p.setVolume(v));
+}
+
+// ===================== 一緒に聴く（同期） =====================
+const expectedPos = (s) => !s ? 0 : s.playing ? s.position + (serverNow() - s.updatedAt) / 1000 : s.position;
+
+function pushRoomState(s) {
+  if (!stateRef) return;
+  const { trackId, title, artist, artwork, playing, position } = s;
+  stateRef.set({ trackId, title, artist, artwork: artwork || '', playing, position, by: me.uid, updatedAt: TS });
+}
+
+let applying = false;
+async function applyRoomState(s) {
+  roomState = s;
+  if (!s || !s.updatedAt) return;
+  applying = true;
+  try {
+    if (loadedId !== s.trackId) {
+      const ok = await loadTrack({ trackId: s.trackId, title: s.title, artist: s.artist, artwork: s.artwork });
+      if (!ok || !roomState || roomState.trackId !== s.trackId) return;
+    }
+    const target = expectedPos(roomState);
+    if (Math.abs(player.currentTime - target) > 0.7) player.currentTime = target;
+    player.volume = volMusic();
+    if (roomState.playing) await player.play(); else player.pause();
+  } catch (e) {
+    if (e.name === 'NotAllowedError') toast('画面をタップすると再生が始まります');
+  } finally {
+    applying = false;
+  }
+}
+const shouldPlay = () => !!(roomState && roomState.playing);
+setInterval(() => {
+  if (call.state !== 'live' || !roomState || applying || loadedId !== roomState.trackId || !roomState.playing || player.paused) return;
+  const diff = player.currentTime - expectedPos(roomState);
+  if (Math.abs(diff) > 0.5) player.currentTime = expectedPos(roomState);
+}, 4000);
+// iPhoneで自動再生が止められたとき、どこかタップで追いつく
+document.addEventListener('pointerdown', () => {
+  if (call.state === 'live' && roomState && roomState.playing && player.paused && loadedId === roomState.trackId) {
+    player.currentTime = expectedPos(roomState);
+    player.play().catch(() => {});
+  }
+  if (call.lk) call.lk.startAudio().catch(() => {});
+}, true);
+
+setPP('play');
+</script>
+</body>
+</html>
