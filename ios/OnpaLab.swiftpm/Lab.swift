@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import Foundation
 import LiveKit
 
@@ -39,7 +40,30 @@ final class Lab: ObservableObject {
     @Published var searching = false
     @Published var nowPlaying: Track?
     @Published var isPlaying = false
-    @Published var musicVolume: Double = 0.8 { didSet { player.volume = Float(musicVolume) } }
+    @Published var musicVolume: Double = 0.8 {
+        didSet {
+            player.volume = Float(musicVolume)
+            widget.setVolume(musicVolume)
+        }
+    }
+
+    /// 音楽の鳴らし方。比べるために切り替えられる
+    enum Engine: String, CaseIterable, Identifiable {
+        case stream = "今の方式"
+        case widget = "埋め込み"
+        var id: String { rawValue }
+    }
+    @Published var engine: Engine = .stream {
+        didSet {
+            guard engine != oldValue else { return }
+            // 切り替えたら、もう片方は止める
+            player.pause()
+            widget.pause()
+            isPlaying = false
+        }
+    }
+    let widget = WidgetPlayer()
+    private var bag = Set<AnyCancellable>()
 
     // 通話
     @Published var voiceVolume: Double = 1.0 { didSet { applyVoiceVolume() } }
@@ -64,6 +88,18 @@ final class Lab: ObservableObject {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         try? AVAudioSession.sharedInstance().setActive(true)
         player.volume = Float(musicVolume)
+        // 埋め込みプレーヤーの変化を画面に伝える
+        widget.objectWillChange
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.objectWillChange.send() } }
+            .store(in: &bag)
+        widget.$isPlaying
+            .sink { [weak self] playing in
+                MainActor.assumeIsolated {
+                    guard let self, self.engine == .widget else { return }
+                    self.isPlaying = playing
+                }
+            }
+            .store(in: &bag)
     }
 
     // MARK: 検索と再生
@@ -84,6 +120,13 @@ final class Lab: ObservableObject {
     }
 
     func play(_ track: Track) async {
+        if engine == .widget {
+            // 埋め込み：こちらのサーバーを通さず、SoundCloudのプレーヤーが直接鳴らす
+            player.pause()
+            widget.load(trackId: track.id, volume: musicVolume)
+            nowPlaying = track
+            return
+        }
         do {
             var url = Config.worker.appending(path: "play")
             url.append(queryItems: [URLQueryItem(name: "id", value: String(track.id))])
@@ -102,6 +145,7 @@ final class Lab: ObservableObject {
 
     func togglePlay() {
         guard nowPlaying != nil else { return }
+        if engine == .widget { widget.toggle(); return }
         if isPlaying { player.pause() } else { player.play() }
         isPlaying.toggle()
     }

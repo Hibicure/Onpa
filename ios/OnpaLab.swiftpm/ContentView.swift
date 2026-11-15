@@ -19,10 +19,18 @@ struct ContentView: View {
     @State private var query = ""
     @State private var joinCode = ""
     @FocusState private var focused: Bool
+    @State private var showWidget = false
 
     var body: some View {
         ZStack(alignment: .top) {
             Color.paper.ignoresSafeArea()
+            // 埋め込みプレーヤー本体。普段はほぼ見えない状態で置いておく
+            WidgetHost(webView: lab.widget.webView)
+                .frame(width: 320, height: 160)
+                .opacity(showWidget ? 1 : 0.01)
+                .allowsHitTesting(showWidget)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .zIndex(showWidget ? 1 : 0)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Onpa Lab")
@@ -32,6 +40,7 @@ struct ContentView: View {
                         .font(.footnote).foregroundStyle(Color.mute)
 
                     callCard
+                    engineCard
                     if lab.nowPlaying != nil { playerCard }
                     searchSection
                 }
@@ -108,6 +117,28 @@ struct ContentView: View {
         .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 20))
     }
 
+    // MARK: 鳴らし方の切り替え
+
+    private var engineCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("音楽の鳴らし方").font(.headline).foregroundStyle(Color.ink)
+            Picker("音楽の鳴らし方", selection: $lab.engine) {
+                ForEach(Lab.Engine.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Text(lab.engine == .stream
+                 ? "Onpaのサーバー経由で鳴らします（1日の再生回数に上限あり）"
+                 : "SoundCloud公式のプレーヤーで鳴らします（回数の上限を使わない）")
+                .font(.footnote).foregroundStyle(Color.mute)
+            if lab.engine == .widget {
+                Toggle("プレーヤーを表示する（うまく鳴らない時の確認用）", isOn: $showWidget)
+                    .font(.footnote).tint(.cobalt)
+            }
+        }
+        .padding(16)
+        .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 20))
+    }
+
     // MARK: 再生
 
     private var playerCard: some View {
@@ -119,6 +150,11 @@ struct ContentView: View {
                 VStack(spacing: 2) {
                     Text(t.title).font(.system(.title3, design: .rounded).weight(.heavy)).foregroundStyle(Color.ink).lineLimit(1)
                     Text(t.artist).font(.subheadline).foregroundStyle(Color.mute).lineLimit(1)
+                    if lab.engine == .widget {
+                        Text("埋め込み：\(lab.widget.status)　\(clock(lab.widget.position)) / \(clock(lab.widget.duration))")
+                            .font(.caption).monospacedDigit().foregroundStyle(Color.cobalt)
+                            .padding(.top, 4)
+                    }
                 }
                 Button { lab.togglePlay() } label: {
                     Image(systemName: lab.isPlaying ? "pause.fill" : "play.fill")
@@ -139,6 +175,11 @@ struct ContentView: View {
             .background(.white, in: RoundedRectangle(cornerRadius: 16))
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func clock(_ s: Double) -> String {
+        let t = max(0, Int(s))
+        return String(format: "%d:%02d", t / 60, t % 60)
     }
 
     private func volumeRow(label: String, value: Binding<Double>, enabled: Bool) -> some View {
