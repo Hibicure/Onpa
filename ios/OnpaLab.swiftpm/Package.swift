@@ -18,7 +18,6 @@ let package = Package(
             teamIdentifier: "",
             displayVersion: "0.1",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .music),
             accentColor: .presetColor(.indigo),
             supportedDeviceFamilies: [
                 .phone
