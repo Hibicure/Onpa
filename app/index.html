@@ -327,7 +327,7 @@
   .onboard .go { margin-top: auto; height: 54px; border-radius: 16px; background: var(--ink); color: var(--on-ink); font-weight: 700; font-size: 16px; }
 
   .boot { position: fixed; inset: 0; display: grid; place-items: center; }
-  .boot .disc { width: 72px; }
+  .boot .disc { width: min(46vw, 180px); }
 
   /* ---------- お知らせ ---------- */
   .toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
@@ -819,7 +819,8 @@ $('tabListen').addEventListener('click', () => {
   const again = !$('viewListen').hidden;
   showTab('home');
   if (mode !== 'search') setMode('search');
-  if (again || !searchList) setTimeout(() => $('q').focus(), 50);
+  // iPhoneはタップの中でそのまま focus しないとキーボードが出ない
+  if (again || !searchList) $('q').focus();
 });
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
@@ -863,7 +864,7 @@ async function search(q) {
     if (mode !== 'search') return;
     // アプリ全体の検索枠が混んでいる時は、SoundCloud連携で自分の枠を使えるように案内する
     $('results').innerHTML = sc
-      ? msg('Search is busy', 'Try again in a moment')
+      ? msg('Search is busy', 'Try again in a moment<br><small style="opacity:.6">' + esc(e.message) + '</small>')
       : msg('Search is busy right now', 'Connect SoundCloud to search with your own account') + '<div style="display:grid;place-items:center;margin-top:-8px"><button class="btn primary sc-connect">Connect SoundCloud</button></div>';
   }
 }
@@ -936,6 +937,20 @@ function replayCurrent() {
 }
 function hasNext() { return upNext.length > 0 || (qi >= 0 && qi + 1 < queue.length); }
 // 次の曲：「Up next」に入っている曲が先、なければ一覧の続き
+// おすすめが取れない時は、いいね・最近聴いた曲から続けて流す
+function playFromOwn(auto) {
+  const played = new Set([String(track && track.trackId), ...playHistory.map((h) => String(h.trackId))]);
+  const seen = new Set();
+  const pool = [...(likesList || []), ...recent].filter((t) => {
+    const k = String(t.id);
+    if (played.has(k) || seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+  if (!pool.length) { if (!auto) toast('Nothing up next'); return false; }
+  queue = shuffled(pool); qi = 0;
+  pick(toMeta(queue[0]), auto);
+  return true;
+}
 function playNext(auto = true) {
   if (auto && repeatMode === 'one' && track) { replayCurrent(); return true; }
   const n = takeUpNext();
@@ -968,14 +983,13 @@ async function playRelated(auto = true) {
     if (!r.ok) throw new Error(d.error || r.status);
     const played = new Set([String(track.trackId), ...playHistory.map((h) => String(h.trackId))]);
     const list = d.map(splitArtist).filter((t) => !played.has(String(t.id)));
-    if (!list.length) { if (!auto) toast('Nothing up next'); return false; }
+    if (!list.length) return playFromOwn(auto);
     queue = list; qi = 0;
     if (!auto) toast('Playing similar tracks');
     pick(toMeta(queue[0]), auto);
     return true;
   } catch (e) {
-    if (!auto) toast('Nothing up next');
-    return false;
+    return playFromOwn(auto);
   } finally {
     relatedBusy = false;
   }
@@ -1162,9 +1176,12 @@ function connectSC() {
 async function scToken() {
   if (!sc) return null;
   if (Date.now() > sc.exp - 60000 && sc.rt) {
-    const r = await fetch(`${WORKER}/sc/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rt: sc.rt }) });
-    if (!r.ok) { saveSc(null); return null; }
-    saveSc(await r.json());
+    try {
+      const r = await fetch(`${WORKER}/sc/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rt: sc.rt }) });
+      if (r.ok) saveSc(await r.json());
+      else if (r.status === 401) { saveSc(null); return null; } // 本当に期限切れ：つなぎ直しが必要
+      // 混んでいるだけの時は、今の鍵のまま続ける（次の機会にまた更新する）
+    } catch { /* 通信できない時も今の鍵で続ける */ }
   }
   return sc.at;
 }

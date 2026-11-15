@@ -165,7 +165,7 @@ async function scGet(path, env, userToken = '') {
       headers: { 'Accept': 'application/json; charset=utf-8', 'Authorization': `OAuth ${userToken}` },
     });
     if (r.ok) return r.json();
-    if (r.status !== 401 && r.status !== 403) throw new Error(`SoundCloud API ${r.status}`);
+    if (r.status !== 401 && r.status !== 403) { const e = new Error(`SoundCloud ${r.status}`); e.status = r.status === 429 ? 503 : 502; throw e; }
   }
   const token = await getToken(env);
   const res = await fetch(`${API}${path}`, {
@@ -332,7 +332,7 @@ async function scRefresh(request, env, cors) {
     headers: { 'Accept': 'application/json; charset=utf-8', 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'refresh_token', client_id: env.SC_CLIENT_ID, client_secret: env.SC_CLIENT_SECRET, refresh_token: rt }),
   });
-  if (!res.ok) return json({ error: 'refresh ' + res.status }, 401, cors);
+  if (!res.ok) return json({ error: 'refresh ' + res.status }, res.status === 400 || res.status === 401 ? 401 : 503, cors);
   const t = await res.json();
   return json({ at: t.access_token, rt: t.refresh_token || rt, exp: Date.now() + (t.expires_in || 3600) * 1000 }, 200, cors);
 }
