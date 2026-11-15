@@ -182,8 +182,8 @@
   .onboard .go { margin-top: auto; height: 54px; border-radius: 16px; background: var(--ink); color: #fff; font-weight: 700; font-size: 16px; }
 
   /* ---------- お知らせ ---------- */
-  .toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: #fff; font-size: 14px; z-index: 80; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
-  .toast.show { transform: translate(-50%, 0); }
+  .toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: #fff; font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
+  .toast.show { transform: translate(-50%, 0); visibility: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
 
   @media (prefers-reduced-motion: reduce) {
     .disc, .row.now .art, .incoming .avatar, .callbar .pulse { animation: none !important; }
@@ -343,9 +343,13 @@ const serverNow = () => Date.now() + serverOffset;
 
 // ===================== 起動とログイン =====================
 firebase.auth().onAuthStateChanged(async (user) => {
-  if (!user) { await firebase.auth().signInAnonymously(); return; }
-  const snap = await db.ref('users/' + user.uid).get();
-  const u = snap.val();
+  if (!user) {
+    try { await firebase.auth().signInAnonymously(); } catch (e) { toast('サーバーにつながりませんでした。通信を確認してください'); }
+    return;
+  }
+  let u = null;
+  try { u = (await db.ref('users/' + user.uid).get()).val(); }
+  catch (e) { toast('サーバーにつながりませんでした（' + e.message + '）'); return; }
   if (u && u.handle) { me = { uid: user.uid, handle: u.handle, name: u.name }; startApp(); }
   else { $('onboard').hidden = false; }
 });
