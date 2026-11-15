@@ -95,6 +95,7 @@
   .card-me .handle { font-family: var(--display); font-weight: 500; font-size: 17px; letter-spacing: -0.02em; }
   .card-me .hint { font-size: 12px; color: var(--mute); }
   .avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--holo); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--ink); flex-shrink: 0; position: relative; }
+  .avatar .pic, .disc .peer .pic { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .avatar .dot { position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; border-radius: 50%; background: #B9BDCB; border: 2px solid var(--paper); }
   .avatar .dot.on { background: var(--live); }
   .section { margin: 22px 20px 4px; font-size: 13px; color: var(--mute); }
@@ -430,6 +431,10 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const initial = (n) => (n || '?').trim().slice(0, 1).toUpperCase();
+// SoundCloudと連携した人はそのアイコン、なければ名前の頭文字
+const safeImg = (u) => (typeof u === 'string' && /^https:\/\/[a-z0-9.-]*sndcdn\.com\//.test(u)) ? u : '';
+const face = (u) => safeImg(u && u.avatar) ? `<img class="pic" src="${esc(safeImg(u.avatar))}" alt="">` : esc(initial(u && u.name));
+function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>',
@@ -464,7 +469,7 @@ firebase.auth().onAuthStateChanged(async (user) => {
   let u = null;
   try { u = (await db.ref('users/' + user.uid).get()).val(); }
   catch (e) { toast("Can't reach the server (" + e.message + ')'); return; }
-  if (u && u.handle) { me = { uid: user.uid, handle: u.handle, name: u.name }; startApp(); }
+  if (u && u.handle) { me = { uid: user.uid, handle: u.handle, name: u.name, avatar: u.avatar || '' }; startApp(); }
   else { $('onboard').hidden = false; }
   $('boot').hidden = true;
 });
@@ -497,7 +502,8 @@ function startApp() {
   $('app').hidden = false;
   $('meLabel').textContent = '@' + me.handle;
   $('myHandle').textContent = '@' + me.handle;
-  $('myAvatar').textContent = initial(me.name);
+  setFace($('myAvatar'), me);
+  syncScAvatar();
   // オンライン表示
   db.ref('.info/connected').on('value', (s) => {
     if (!s.val()) return;
@@ -554,7 +560,7 @@ const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</di
 async function search(q) {
   $('results').innerHTML = msg('Searching…');
   try {
-    const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`);
+    const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
     searchList = d.map(splitArtist);
@@ -659,7 +665,7 @@ async function playRelated(auto = true) {
   if (!track || relatedBusy) return false;
   relatedBusy = true;
   try {
-    const r = await fetch(`${WORKER}/related?id=${track.trackId}`);
+    const r = await fetch(`${WORKER}/related?id=${track.trackId}`, { headers: await scHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
     const played = new Set([String(track.trackId), ...playHistory.map((h) => String(h.trackId))]);
@@ -822,6 +828,10 @@ async function scToken() {
   }
   return sc.at;
 }
+// 連携していれば合鍵を添える（検索や再生がアプリ全体の回数制限に左右されにくくなる）
+async function scHeaders() {
+  try { const at = await scToken(); return at ? { 'X-SC-Token': at } : {}; } catch { return {}; }
+}
 async function scApi(path, method = 'GET') {
   const at = await scToken();
   if (!at) throw new Error('Connect SoundCloud first');
@@ -830,6 +840,18 @@ async function scApi(path, method = 'GET') {
   if (r.status === 401) { saveSc(null); throw new Error('Please connect SoundCloud again'); }
   if (!r.ok) throw new Error(d.error || r.status);
   return d;
+}
+// SoundCloudのアイコンを、Onpaのプロフィール画像にもする
+async function syncScAvatar() {
+  if (!me || !sc) return;
+  try {
+    const u = await scApi('/sc/me');
+    const pic = safeImg((u.avatar || '').replace('-large.', '-t500x500.'));
+    if (!pic || pic === me.avatar) return;
+    me.avatar = pic;
+    await db.ref('users/' + me.uid + '/avatar').set(pic);
+    setFace($('myAvatar'), me);
+  } catch { /* 取れなくても困らない */ }
 }
 async function loadLikes() {
   likesList = (await scApi('/sc/likes')).map(splitArtist);
@@ -879,7 +901,7 @@ function getPlay(id) {
   const key = String(id);
   const hit = playCache.get(key);
   if (hit && hit.exp > Date.now()) return hit.p;
-  const p = fetch(`${WORKER}/play?id=${id}`).then(async (r) => {
+  const p = scHeaders().then((h) => fetch(`${WORKER}/play?id=${id}`, { headers: h })).then(async (r) => {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
     return d;
@@ -1065,7 +1087,7 @@ function renderFriends() {
   const busy = call.state !== 'idle';
   $('friends').innerHTML = list.map(([uid, f]) => `
     <div class="row">
-      <div class="avatar">${esc(initial(f.name))}<span class="dot ${f.online ? 'on' : ''}"></span></div>
+      <div class="avatar">${face(f)}<span class="dot ${f.online ? 'on' : ''}"></span></div>
       <div class="txt"><div class="t">${esc(f.name)}</div><div class="s">@${esc(f.handle)}${f.online ? ' <span class="on">online</span>' : ''}</div></div>
       <button class="btn call" data-call="${uid}" ${busy || !f.online ? 'disabled' : ''}>${ICON.phone}Call</button>
     </div>`).join('');
@@ -1091,7 +1113,7 @@ async function findFriend(h) {
   const self = uid === me.uid, added = friends.has(uid);
   $('found').innerHTML = `
     <div class="row">
-      <div class="avatar">${esc(initial(u.name))}<span class="dot ${u.online ? 'on' : ''}"></span></div>
+      <div class="avatar">${face(u)}<span class="dot ${u.online ? 'on' : ''}"></span></div>
       <div class="txt"><div class="t">${esc(u.name)}</div><div class="s">@${esc(u.handle)}</div></div>
       ${self ? '<span class="tag">You</span>' : added ? '<button class="btn ghost" disabled>Added</button>' : `<button class="btn primary" data-add="${uid}">Add</button>`}
     </div>`;
@@ -1115,10 +1137,10 @@ async function startCall(peerUid) {
   if (call.state !== 'idle') return;
   unlockAudio();
   const f = friends.get(peerUid);
-  call.state = 'ringing'; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle };
+  call.state = 'ringing'; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) };
   showCallbar();
   await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
-  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, room: call.room, at: TS });
+  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, fromAvatar: safeImg(me.avatar) || null, room: call.room, at: TS });
   watchCallStatus();
   call.ringTimer = setTimeout(() => {
     if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(`@${f.handle} didn't answer`); }
@@ -1144,7 +1166,7 @@ function watchIncoming() {
     if (serverNow() - (c.at || 0) > 40000) { s.ref.remove(); return; } // 古い呼び出しは無視
     if (call.state !== 'idle') { db.ref(`rooms/${c.room}/call/status`).set('declined'); s.ref.remove(); return; }
     incomingData = c;
-    $('inAvatar').textContent = initial(c.fromName);
+    setFace($('inAvatar'), { name: c.fromName, avatar: c.fromAvatar });
     $('inName').textContent = c.fromName;
     $('inHandle').textContent = '@' + c.fromHandle + ' is calling';
     $('incoming').hidden = false;
@@ -1155,7 +1177,7 @@ $('inYes').addEventListener('click', async () => {
   unlockAudio();
   $('incoming').hidden = true; incomingData = null;
   db.ref('calls/' + me.uid).remove();
-  call.state = 'ringing'; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle };
+  call.state = 'ringing'; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
   showCallbar();
   await db.ref(`rooms/${c.room}/call/status`).set('accepted');
   watchCallStatus();
@@ -1254,7 +1276,7 @@ function showCallbar() {
   const live = call.state === 'live' && call.peer;
   $('disc').classList.toggle('incall', !!live);
   $('discPeer').hidden = !live;
-  if (live) { $('discPeerInitial').textContent = initial(call.peer.name); $('discPeer').title = call.peer.name; }
+  if (live) { setFace($('discPeerInitial'), call.peer); $('discPeer').title = call.peer.name; }
 }
 $('cbMute').addEventListener('click', async () => {
   if (!call.lk) return;

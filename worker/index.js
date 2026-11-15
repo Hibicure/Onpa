@@ -91,6 +91,22 @@ async function writeCachedToken(d) {
   } catch { /* キャッシュできなくても続ける */ }
 }
 
+// 発行を断られたら、しばらく問い合わせない（何度も叩くと制限が長引くため）
+const BLOCK_KEY = 'https://onpa-cache.internal/sc-token-blocked-v1';
+let blockedUntil = 0;
+async function readBlocked() {
+  if (blockedUntil > Date.now()) return blockedUntil;
+  try { const hit = await caches.default.match(BLOCK_KEY); if (hit) { blockedUntil = Number(await hit.text()) || 0; } } catch { /* 無視 */ }
+  return blockedUntil > Date.now() ? blockedUntil : 0;
+}
+async function writeBlocked(until) {
+  blockedUntil = until;
+  try {
+    const ttl = Math.max(Math.ceil((until - Date.now()) / 1000), 30);
+    await caches.default.put(BLOCK_KEY, new Response(String(until), { headers: { 'Cache-Control': `max-age=${ttl}` } }));
+  } catch { /* 無視 */ }
+}
+
 async function requestToken(env, body) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -101,6 +117,16 @@ async function requestToken(env, body) {
     },
     body,
   });
+  if (res.status === 429) {
+    // SoundCloudが「いつ解除か」を教えてくれれば、それまで待つ。なければ10分
+    const ra = Number(res.headers.get('Retry-After'));
+    const reset = Number(res.headers.get('X-Ratelimit-Reset'));
+    const until = reset > 1e9 ? reset * 1000 : ra > 0 ? Date.now() + ra * 1000 : Date.now() + 10 * 60 * 1000;
+    await writeBlocked(Math.min(until, Date.now() + 12 * 3600 * 1000));
+    const e = new Error('SoundCloudが混み合っています（回数制限）');
+    e.status = 503;
+    throw e;
+  }
   if (!res.ok) throw new Error(`token取得に失敗: ${res.status}`);
   const data = await res.json();
   return { token: data.access_token, rt: data.refresh_token || null, exp: Date.now() + Math.max((data.expires_in || 3600) - 120, 60) * 1000 };
@@ -110,6 +136,12 @@ async function getToken(env) {
   if (cached.token && Date.now() < cached.exp) return cached.token;
   const fromCache = await readCachedToken();
   if (fromCache) { cached = fromCache; return cached.token; }
+  const until = await readBlocked();
+  if (until) {
+    const e = new Error(`SoundCloudが混み合っています（回数制限・${new Date(until).toISOString()}ごろ解除）`);
+    e.status = 503;
+    throw e;
+  }
   let d = null;
   // 期限切れなら、新しく発行してもらう代わりに「更新」を試す（回数制限にかかりにくい）
   if (cached.rt) {
@@ -121,7 +153,15 @@ async function getToken(env) {
   return d.token;
 }
 
-async function scGet(path, env) {
+// SoundCloudに連携している人は、その人の合鍵で呼ぶ（アプリの入場券の回数制限に左右されない）
+async function scGet(path, env, userToken = '') {
+  if (userToken) {
+    const r = await fetch(`${API}${path}`, {
+      headers: { 'Accept': 'application/json; charset=utf-8', 'Authorization': `OAuth ${userToken}` },
+    });
+    if (r.ok) return r.json();
+    if (r.status !== 401 && r.status !== 403) throw new Error(`SoundCloud API ${r.status}`);
+  }
   const token = await getToken(env);
   const res = await fetch(`${API}${path}`, {
     headers: { 'Accept': 'application/json; charset=utf-8', 'Authorization': `OAuth ${token}` },
@@ -144,8 +184,8 @@ async function scUser(path, userToken, method = 'GET') {
 
 const playCache = new Map();
 
-async function candidates(id, env) {
-  const s = await scGet(`/tracks/${id}/streams`, env);
+async function candidates(id, env, userToken = '') {
+  const s = await scGet(`/tracks/${id}/streams`, env, userToken);
   return [
     { kind: 'full', hls: true, apiUrl: s.hls_aac_160_url },
     { kind: 'full', hls: true, apiUrl: s.hls_mp3_128_url },
@@ -306,7 +346,7 @@ export default {
       if (p === '/search') {
         const q = (url.searchParams.get('q') || '').trim();
         if (!q) return json({ error: 'q が必要です' }, 400, cors);
-        const d = await scGet(`/tracks?q=${encodeURIComponent(q)}&limit=20&access=playable`, env);
+        const d = await scGet(`/tracks?q=${encodeURIComponent(q)}&limit=20&access=playable`, env, userToken);
         return json(listOf(d).map(mapTrack), 200, cors);
       }
 
@@ -316,8 +356,8 @@ export default {
         if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
         const hit = playCache.get(id);
         if (hit && hit.exp > Date.now()) return json(hit.body, 200, cors);
-        const cands = await candidates(id, env);
-        const token = await getToken(env);
+        const cands = await candidates(id, env, userToken);
+        const token = userToken || await getToken(env);
         const tried = [];
         for (const c of cands) {
           const r = await fetch(c.apiUrl, { headers: { 'Authorization': `OAuth ${token}` }, redirect: 'manual' });
@@ -336,7 +376,7 @@ export default {
       if (p === '/related') {
         const id = url.searchParams.get('id') || '';
         if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
-        const d = await scGet(`/tracks/${id}/related?limit=20&access=playable`, env);
+        const d = await scGet(`/tracks/${id}/related?limit=20&access=playable`, env, userToken);
         return json(listOf(d).map(mapTrack), 200, cors);
       }
 
@@ -407,7 +447,7 @@ export default {
 
       return json({ ok: true, routes: ['/search', '/play', '/related', '/livekit-token', '/sc/login', '/sc/me', '/sc/likes', '/sc/playlists', '/sc/playlist', '/sc/like'] }, 200, cors);
     } catch (e) {
-      return json({ error: e.message }, 500, cors);
+      return json({ error: e.message }, e.status || 500, cors);
     }
   },
 };
