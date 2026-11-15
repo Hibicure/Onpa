@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Onpa – Embed Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Instrument+Sans:wght@400;500;600;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://w.soundcloud.com/player/api.js"></script>
+<style>
+  :root { --paper:#EEF0F4; --surface:#FFF; --ink:#161A33; --mute:#6A6F88; --line:#D7DBE4; --cobalt:#2446F5; --live:#12A867; --danger:#E5484D; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--paper); color:var(--ink); font-family:'Instrument Sans','Zen Kaku Gothic New',-apple-system,sans-serif; min-height:100vh; }
+  .wrap { max-width:480px; margin:0 auto; padding:28px 16px 60px; }
+  h1 { font-family:'Unbounded',sans-serif; font-weight:700; font-size:26px; letter-spacing:-.5px; }
+  .sub { color:var(--mute); font-size:13px; margin:6px 0 18px; line-height:1.5; }
+  .field { display:flex; gap:8px; }
+  input[type=text] { flex:1; min-width:0; height:46px; padding:0 14px; border-radius:14px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:inherit; font-size:16px; outline:none; }
+  input[type=text]:focus { border-color:var(--cobalt); }
+  button { font:inherit; cursor:pointer; border:0; }
+  .go { height:46px; padding:0 16px; border-radius:14px; background:var(--ink); color:#fff; font-weight:600; }
+  .or { color:var(--mute); font-size:12px; margin:10px 0 8px; }
+
+  .player { margin:18px 0; padding:18px; border-radius:24px; background:var(--surface); box-shadow:0 1px 0 rgba(22,26,51,.04), 0 12px 30px -18px rgba(22,26,51,.35); }
+  .now { display:flex; gap:12px; align-items:center; }
+  .now img { width:56px; height:56px; border-radius:50%; object-fit:cover; background:conic-gradient(from 0deg,#C9F0FF,#E8D4FF,#FFD6EC,#FFF2C7,#D1FFE8,#C9F0FF); flex-shrink:0; }
+  .now .t { font-weight:700; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .now .a { color:var(--mute); font-size:13px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .now > div { min-width:0; flex:1; }
+  .seek { margin:16px 0 4px; height:6px; border-radius:3px; background:var(--line); overflow:hidden; cursor:pointer; }
+  .seek i { display:block; height:100%; width:0; background:var(--ink); }
+  .time { display:flex; justify-content:space-between; color:var(--mute); font-size:12px; font-variant-numeric:tabular-nums; }
+  .row { display:flex; align-items:center; gap:14px; margin-top:12px; }
+  .pp { width:60px; height:60px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#2B3160,var(--ink)); color:#fff; display:grid; place-items:center; flex-shrink:0; }
+  .pp svg { width:26px; height:26px; }
+  .vol { flex:1; display:flex; align-items:center; gap:10px; color:var(--mute); }
+  .vol svg { width:18px; height:18px; flex-shrink:0; }
+  input[type=range] { -webkit-appearance:none; appearance:none; flex:1; height:28px; background:transparent; }
+  input[type=range]::-webkit-slider-runnable-track { height:6px; border-radius:3px; background:linear-gradient(var(--ink),var(--ink)) 0/var(--v,80%) 100% no-repeat, var(--line); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; margin-top:-6px; border-radius:50%; background:#fff; box-shadow:0 0 0 1px var(--line), 0 2px 6px rgba(22,26,51,.25); }
+
+  .status { display:flex; align-items:center; gap:8px; margin-top:14px; font-size:13px; color:var(--mute); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--line); }
+  .dot.on { background:var(--live); } .dot.err { background:var(--danger); }
+  .check { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px; color:var(--mute); }
+
+  .list .item { display:flex; align-items:center; gap:12px; padding:8px; border-radius:14px; cursor:pointer; }
+  .list .item:active { background:var(--surface); }
+  .list img { width:44px; height:44px; border-radius:50%; object-fit:cover; background:var(--line); flex-shrink:0; }
+  .list .t { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list .a { color:var(--mute); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list .item > div { min-width:0; }
+  .msg { color:var(--mute); font-size:13px; padding:14px 4px; }
+
+  /* 埋め込みプレーヤー本体：普段はほぼ見えない */
+  .host { position:fixed; left:0; bottom:0; width:320px; height:166px; opacity:.01; pointer-events:none; }
+  .host.show { position:static; opacity:1; pointer-events:auto; width:100%; margin-top:14px; }
+  .host iframe { width:100%; height:166px; border:0; border-radius:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Embed test</h1>
+  <p class="sub">SoundCloud公式の埋め込みプレーヤーを隠して、Onpaのボタンで操作できるかを試すページです。Onpaのサーバーを通さないので、1日の再生回数の上限を使いません。</p>
+
+  <div class="field">
+    <input type="text" id="q" placeholder="曲名やアーティストで検索" enterkeyhint="search" autocomplete="off">
+    <button class="go" id="goSearch">Search</button>
+  </div>
+  <div class="or">検索が動かないときは、SoundCloudの曲のURLを貼ってください</div>
+  <div class="field">
+    <input type="text" id="url" placeholder="https://soundcloud.com/…" autocomplete="off" inputmode="url">
+    <button class="go" id="goUrl">Load</button>
+  </div>
+
+  <div class="player">
+    <div class="now">
+      <img id="art" alt="">
+      <div><div class="t" id="title">No track yet</div><div class="a" id="artist">曲を選ぶとここに出ます</div></div>
+    </div>
+    <div class="seek" id="seek"><i id="fill"></i></div>
+    <div class="time"><span id="pos">0:00</span><span id="dur">0:00</span></div>
+    <div class="row">
+      <button class="pp" id="pp" aria-label="Play"></button>
+      <div class="vol">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
+        <input type="range" id="vol" min="0" max="100" value="80" aria-label="Music volume">
+      </div>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">待機中</span></div>
+    <label class="check"><input type="checkbox" id="show"> プレーヤーを表示する（うまく鳴らない時の確認用）</label>
+    <div class="host" id="host"><iframe id="sc" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F293&visual=false&auto_play=false"></iframe></div>
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+const WORKER = 'https://geocloud.icchasong.workers.dev';
+const $ = (id) => document.getElementById(id);
+const PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+const PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>';
+const clock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+const widget = SC.Widget($('sc'));
+let playing = false, duration = 0, loaded = false;
+
+function setStatus(text, kind) {
+  $('status').textContent = text;
+  $('dot').className = 'dot' + (kind ? ' ' + kind : '');
+}
+function paintPP() { $('pp').innerHTML = playing ? PAUSE : PLAY; $('pp').setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+paintPP();
+
+widget.bind(SC.Widget.Events.READY, () => { if (!loaded) setStatus('準備OK（曲を選んでください）'); });
+widget.bind(SC.Widget.Events.PLAY, () => { playing = true; paintPP(); setStatus('再生中', 'on'); });
+widget.bind(SC.Widget.Events.PAUSE, () => { playing = false; paintPP(); setStatus('一時停止'); });
+widget.bind(SC.Widget.Events.FINISH, () => { playing = false; paintPP(); setStatus('再生終了'); });
+widget.bind(SC.Widget.Events.ERROR, () => { playing = false; paintPP(); setStatus('エラー：この曲は埋め込みで流せないかも', 'err'); });
+widget.bind(SC.Widget.Events.PLAY_PROGRESS, (p) => {
+  $('pos').textContent = clock(p.currentPosition);
+  if (duration) $('fill').style.width = (p.currentPosition / duration * 100) + '%';
+});
+
+function loadTrack(url, meta) {
+  loaded = true;
+  setStatus('読み込み中…');
+  $('title').textContent = meta?.title || 'Loading…';
+  $('artist').textContent = meta?.artist || '';
+  if (meta?.artwork) $('art').src = meta.artwork; else $('art').removeAttribute('src');
+  $('fill').style.width = '0'; $('pos').textContent = '0:00';
+  widget.load(url, {
+    auto_play: true, visual: false, show_artwork: false, buying: false, sharing: false, download: false, show_comments: false,
+    callback: () => {
+      widget.setVolume(+$('vol').value);
+      widget.getDuration((d) => { duration = d; $('dur').textContent = clock(d); });
+      if (!meta) widget.getCurrentSound((s) => {
+        if (!s) return;
+        $('title').textContent = s.title;
+        $('artist').textContent = s.publisher_metadata?.artist || s.user?.username || '';
+        if (s.artwork_url) $('art').src = s.artwork_url;
+      });
+      widget.play();
+      // iPhoneで止められた場合に気づけるように
+      setTimeout(() => { if (!playing) setStatus('自動で鳴りませんでした。▶︎を押してみてください'); }, 2500);
+    }
+  });
+}
+
+$('pp').onclick = () => { if (!loaded) return; playing ? widget.pause() : widget.play(); };
+$('seek').onclick = (e) => {
+  if (!duration) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  widget.seekTo(((e.clientX - r.left) / r.width) * duration);
+};
+$('vol').oninput = (e) => { e.target.style.setProperty('--v', e.target.value + '%'); widget.setVolume(+e.target.value); };
+$('show').onchange = (e) => $('host').classList.toggle('show', e.target.checked);
+
+$('goUrl').onclick = () => {
+  const u = $('url').value.trim();
+  if (!/^https:\/\/(on\.|m\.)?soundcloud\.com\//.test(u)) { setStatus('SoundCloudの曲のURLを貼ってください', 'err'); return; }
+  loadTrack(u.replace('://m.', '://'));
+};
+
+async function search() {
+  const q = $('q').value.trim();
+  if (q.length < 2) return;
+  $('q').blur();
+  $('list').innerHTML = '<div class="msg">検索中…</div>';
+  try {
+    const r = await fetch(WORKER + '/search?q=' + encodeURIComponent(q));
+    if (!r.ok) throw new Error(r.status);
+    const items = await r.json();
+    if (!items.length) { $('list').innerHTML = '<div class="msg">見つかりませんでした</div>'; return; }
+    $('list').innerHTML = '';
+    items.forEach((t) => {
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = '<img alt=""><div><div class="t"></div><div class="a"></div></div>';
+      if (t.artwork) el.querySelector('img').src = t.artwork;
+      el.querySelector('.t').textContent = t.title;
+      el.querySelector('.a').textContent = t.artist;
+      el.onclick = () => loadTrack('https://api.soundcloud.com/tracks/' + t.id, { title: t.title, artist: t.artist, artwork: t.artwork });
+      $('list').appendChild(el);
+    });
+  } catch (e) {
+    $('list').innerHTML = '<div class="msg">検索できませんでした（SoundCloudの回数制限中かも）。上の欄に曲のURLを貼れば試せます。</div>';
+  }
+}
+$('goSearch').onclick = search;
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+</script>
+</body>
+</html>
