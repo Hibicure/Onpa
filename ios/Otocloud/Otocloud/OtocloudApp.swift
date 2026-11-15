@@ -44,14 +44,38 @@ struct WebShell: UIViewRepresentable {
         web.scrollView.contentInsetAdjustmentBehavior = .never // 画面の端までサイトの見た目にする
         web.scrollView.bounces = false
         web.allowsBackForwardNavigationGestures = false
+        // 拡大・縮小させない（アプリとして画面を固定する）
+        web.scrollView.minimumZoomScale = 1
+        web.scrollView.maximumZoomScale = 1
+        web.scrollView.pinchGestureRecognizer?.isEnabled = false
+        web.scrollView.delegate = context.coordinator
         if #available(iOS 16.4, *) { web.isInspectable = true }
-        web.load(URLRequest(url: url))
+        // 毎回いちばん新しいサイトを読む（古い画面が残らないように）
+        web.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
+        context.coordinator.webView = web
+        // アプリに戻ってきた時、しばらく経っていたら新しいサイトを読み直す
+        NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.didBecomeActive),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
         return web
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
-    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate, UIScrollViewDelegate {
+        weak var webView: WKWebView?
+        private var leftAt = Date()
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { nil }
+
+        @objc func didBecomeActive() {
+            defer { leftAt = Date() }
+            // 10分以上たっていて、通話中でなければ読み直す（通話中に切れないように）
+            guard Date().timeIntervalSince(leftAt) > 600, let web = webView else { return }
+            web.evaluateJavaScript("typeof call !== 'undefined' && call.state !== 'idle'") { result, _ in
+                if (result as? Bool) != true { web.reload() }
+            }
+        }
+
         // 通話のマイクは、Otocloud のページからのお願いなら許可する
         @available(iOS 15.0, *)
         func webView(_ webView: WKWebView,
