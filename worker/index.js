@@ -355,6 +355,20 @@ export default {
         return json(listOf(d).map(mapTrack), 200, cors);
       }
 
+      // ---- ジャケット画像の中継: /img?u=（SoundCloudの画像だけ）
+      // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする
+      if (p === '/img') {
+        let u;
+        try { u = new URL(url.searchParams.get('u') || ''); } catch { return json({ error: 'u が不正です' }, 400, cors); }
+        if (u.protocol !== 'https:' || !/(^|\.)sndcdn\.com$/.test(u.hostname)) return json({ error: 'この画像は使えません' }, 400, cors);
+        const r = await fetch(u.toString(), { cf: { cacheTtl: 86400, cacheEverything: true } });
+        if (!r.ok) return json({ error: 'img ' + r.status }, r.status, cors);
+        const h = new Headers(cors);
+        h.set('Content-Type', r.headers.get('Content-Type') || 'image/jpeg');
+        h.set('Cache-Control', 'public, max-age=86400');
+        return new Response(r.body, { status: 200, headers: h });
+      }
+
       // ---- 調査用: 最後に断られたときの記録を見る
       if (p === '/debug/last429') {
         const hit = await caches.default.match('https://onpa-cache.internal/sc-last-429');

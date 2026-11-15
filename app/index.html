@@ -225,7 +225,7 @@
   /* 真ん中：透明なプラスチックのリングと穴 */
   .disc .hub { position: absolute; inset: 34%; border-radius: 50%; pointer-events: none;
     background:
-      radial-gradient(circle closest-side, rgba(238,239,242,.97) 0 56%, rgba(255,255,255,.35) 58% 84%, rgba(214,216,220,.75) 86% 100%);
+      radial-gradient(circle closest-side, rgba(28,29,33,.92) 0 36%, rgba(58,60,66,.78) 37% 55%, rgba(205,208,213,.85) 57% 60%, rgba(255,255,255,.35) 61% 84%, rgba(214,216,220,.75) 86% 100%);
 
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.85), 0 0 0 .5px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.22); transition: inset .35s cubic-bezier(.2,.8,.2,1); }
   /* 透明な樹脂の部分：穴のまわりに、中心へ集まる細い筋と、段差の細い線 */
@@ -243,8 +243,13 @@
     box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); }
   .disc .peer i { position: absolute; right: 9%; bottom: 9%; width: 16%; height: 16%; z-index: 1; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
   .disc.incall .hole { display: none; }
-  .disc .hole { position: absolute; left: 44%; top: 44%; width: 12%; height: 12%; border-radius: 50%; background: var(--paper);
-    box-shadow: inset 0 2px 4px rgba(0,0,0,.38), 0 0 0 .5px rgba(0,0,0,.22), 0 1px 0 rgba(255,255,255,.5); }
+  /* プレーヤーにはめた状態：穴には金属のスピンドル、透明な部分の下に黒いターンテーブルが透ける */
+  .disc .hole { position: absolute; left: 44%; top: 44%; width: 12%; height: 12%; border-radius: 50%; z-index: 2;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(0,0,0,.35) 0 9%, transparent 11%),
+      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 0 6%, rgba(255,255,255,.18) 6% 7%),
+      conic-gradient(from 210deg, #f4f5f7, #9ea2a9 20%, #e9ebee 38%, #6f737a 55%, #d8dade 72%, #8a8e95 88%, #f4f5f7);
+    box-shadow: inset 0 0 0 .5px rgba(0,0,0,.45), inset 0 1px 1px rgba(255,255,255,.8), 0 0 0 1.5px rgba(20,20,24,.55), 0 2px 5px rgba(0,0,0,.45); }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* ジャケットを左右にスワイプして曲送り */
   .np .disc { touch-action: none; cursor: grab; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
@@ -332,6 +337,8 @@
   /* ---------- 初回 ---------- */
   .onboard { min-height: 100dvh; max-width: 440px; margin: 0 auto; padding: calc(56px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
   .onboard .disc { width: 150px; margin-bottom: 36px; }
+  .boot .disc .hole, .onboard .disc .hole { background: var(--paper); box-shadow: inset 0 2px 4px rgba(0,0,0,.38), 0 0 0 .5px rgba(0,0,0,.22), 0 1px 0 rgba(255,255,255,.5); }
+  .boot .disc .hub, .onboard .disc .hub { background: radial-gradient(circle closest-side, rgba(238,239,242,.97) 0 56%, rgba(255,255,255,.35) 58% 84%, rgba(214,216,220,.75) 86% 100%); }
   .onboard h1 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: -0.03em; line-height: 1.2; }
   .onboard p { color: var(--mute); margin: 8px 0 28px; }
   .onboard .f { margin-bottom: 16px; }
@@ -595,6 +602,7 @@
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
+      <button class="heart" id="shareBtn" aria-label="Share to Instagram Stories"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
       <button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
@@ -1622,6 +1630,79 @@ function paintRange(el) { el.style.setProperty('--v', el.value + '%'); }
 $('volMusic').addEventListener('input', (e) => { paintRange(e.target); setMusicVol(); });
 $('volVoice').addEventListener('input', (e) => { paintRange(e.target); applyVoiceVolume(); });
 paintRange($('volMusic')); paintRange($('volVoice'));
+
+// ===================== インスタのストーリーにシェア =====================
+const loadImg = (src) => new Promise((ok, ng) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ng; i.src = src; });
+async function storyImage(t) {
+  const W = 1080, H = 1920, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  try { await document.fonts.ready; } catch {}
+  let art = null;
+  if (t.artwork) {
+    const big = t.artwork.replace('-large.', '-t500x500.');
+    try { art = await loadImg(`${WORKER}/img?u=${encodeURIComponent(big)}`); } catch { art = null; }
+  }
+  // 背景：ジャケットを小さく縮めてから引き伸ばす（＝やわらかくぼける）
+  if (art) {
+    const tiny = document.createElement('canvas'); tiny.width = 14; tiny.height = 24;
+    const tg = tiny.getContext('2d'); tg.drawImage(art, 0, 0, 14, 24);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(tiny, -40, -40, W + 80, H + 80);
+  } else { g.fillStyle = '#1B1C1F'; g.fillRect(0, 0, W, H); }
+  const shade = g.createLinearGradient(0, 0, 0, H);
+  shade.addColorStop(0, 'rgba(0,0,0,.25)'); shade.addColorStop(.55, 'rgba(0,0,0,.35)'); shade.addColorStop(1, 'rgba(0,0,0,.72)');
+  g.fillStyle = shade; g.fillRect(0, 0, W, H);
+  // CD
+  const cx = W / 2, cy = 820, R = 400;
+  g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 80; g.shadowOffsetY = 40;
+  g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fillStyle = '#C9CDD3'; g.fill(); g.restore();
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.clip();
+  if (art) g.drawImage(art, cx - R, cy - R, R * 2, R * 2);
+  else {
+    const cg = g.createConicGradient ? g.createConicGradient(0.4, cx, cy) : null;
+    if (cg) { ['#DDE0E4', '#F3E3EA', '#E9F3E6', '#DCE7F3', '#C9CDD3', '#EEF0F2', '#DDE0E4'].forEach((col, i, a) => cg.addColorStop(i / (a.length - 1), col)); g.fillStyle = cg; }
+    else g.fillStyle = '#D5D8DD';
+    g.fillRect(cx - R, cy - R, R * 2, R * 2);
+  }
+  g.restore();
+  g.lineWidth = 6; g.strokeStyle = 'rgba(235,237,240,.9)'; g.beginPath(); g.arc(cx, cy, R - 3, 0, Math.PI * 2); g.stroke();
+  // 透明なリングと穴
+  const hr = R * 0.32;
+  g.beginPath(); g.arc(cx, cy, hr, 0, Math.PI * 2); g.fillStyle = 'rgba(236,238,241,.92)'; g.fill();
+  g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke();
+  g.beginPath(); g.arc(cx, cy, hr * 0.62, 0, Math.PI * 2); g.fillStyle = 'rgba(40,42,48,.85)'; g.fill();
+  g.beginPath(); g.arc(cx, cy, R * 0.12, 0, Math.PI * 2);
+  const sp = g.createRadialGradient(cx - 12, cy - 14, 4, cx, cy, R * 0.12); sp.addColorStop(0, '#F4F5F7'); sp.addColorStop(.6, '#9EA2A9'); sp.addColorStop(1, '#6F737A');
+  g.fillStyle = sp; g.fill();
+  // 文字
+  g.fillStyle = '#FFFFFF'; g.textAlign = 'center';
+  const fit = (text, font, max) => { let size = font; g.font = `700 ${size}px Unbounded, sans-serif`; while (g.measureText(text).width > max && size > 40) { size -= 4; g.font = `700 ${size}px Unbounded, sans-serif`; } return size; };
+  const title = t.title || '';
+  fit(title.length > 40 ? title.slice(0, 39) + '…' : title, 72, W - 160);
+  g.fillText(title.length > 40 ? title.slice(0, 39) + '…' : title, cx, 1390);
+  g.font = '600 44px "Instrument Sans", "Zen Kaku Gothic New", sans-serif'; g.fillStyle = 'rgba(255,255,255,.82)';
+  const artist = t.artist || ''; g.fillText(artist.length > 46 ? artist.slice(0, 45) + '…' : artist, cx, 1460);
+  g.font = '700 40px Unbounded, sans-serif'; g.fillStyle = '#FFFFFF'; g.fillText('Otocloud', cx, H - 170);
+  g.font = '500 30px "Instrument Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('listen together · on-pa.net', cx, H - 120);
+  return new Promise((ok) => c.toBlob(ok, 'image/png'));
+}
+$('shareBtn').addEventListener('click', async () => {
+  if (!track) return;
+  const btn = $('shareBtn'); btn.disabled = true;
+  try {
+    const blob = await storyImage(track);
+    const file = new File([blob], 'otocloud.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'otocloud.png'; a.click();
+      toast('Saved the image. Share it from your photos.');
+    }
+  } catch (e) {
+    if (e && e.name !== 'AbortError') toast("Couldn't make the image (" + (e.message || e) + ')');
+  } finally { btn.disabled = false; }
+});
 
 // ===================== ホーム =====================
 const RECENT_KEY = 'oto_recent';
