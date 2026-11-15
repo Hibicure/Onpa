@@ -157,9 +157,9 @@
   .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
-  .controls { display: flex; justify-content: center; align-items: center; gap: 22px; margin: 16px 0 6px; }
-  .skip { width: 64px; height: 56px; border-radius: 28px; display: grid; place-items: center; color: var(--ink); }
-  .skip svg { width: 38px; height: 28px; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: 26px; margin: 16px 0 6px; }
+  .skip { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
+  .skip svg { width: 36px; height: 36px; }
   .skip:active { background: var(--line); }
   .upnext { margin-top: 18px; }
   .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; margin-bottom: 4px; }
@@ -333,7 +333,7 @@
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M15 4.6v14.8a1 1 0 0 1-1.55.83L2.9 13a1.2 1.2 0 0 1 0-2l10.55-7.23A1 1 0 0 1 15 4.6zM29 4.6v14.8a1 1 0 0 1-1.55.83L16.9 13a1.2 1.2 0 0 1 0-2l10.55-7.23A1 1 0 0 1 29 4.6z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M3 4.6v14.8a1 1 0 0 0 1.55.83L15.1 13a1.2 1.2 0 0 0 0-2L4.55 3.77A1 1 0 0 0 3 4.6zM17 4.6v14.8a1 1 0 0 0 1.55.83L29.1 13a1.2 1.2 0 0 0 0-2L18.55 3.77A1 1 0 0 0 17 4.6z"/></svg></button></div>
+    <div class="controls"><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button></div>
     <div class="mix">
       <label>Music<input type="range" id="volMusic" min="0" max="100" value="80"></label>
       <label>Voice<input type="range" id="volVoice" min="0" max="100" value="100" disabled></label>
