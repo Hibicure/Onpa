@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Onpa – Listen Together Test</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: #0b0b0f; color: #fff; min-height: 100vh; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 32px 16px 150px; }
+  h1 { font-size: 30px; font-weight: 800; background: linear-gradient(90deg, #ff5500, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  p.sub { color: #888; font-size: 13px; margin: 4px 0 20px; }
+  input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 2px solid #222; background: #15151b; color: #fff; font-size: 16px; outline: none; }
+  input:focus { border-color: #ff5500; }
+  .btn { width: 100%; padding: 14px; margin-top: 10px; border: none; border-radius: 12px; background: linear-gradient(135deg, #ff5500, #ec4899); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .room { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 12px; background: #15151b; margin-bottom: 14px; font-size: 14px; }
+  .room b { font-size: 20px; letter-spacing: 3px; color: #ff5500; }
+  .members { font-size: 12px; color: #aaa; }
+  .status { font-size: 12px; color: #888; margin: -6px 0 14px; min-height: 16px; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 10px; margin-top: 8px; border-radius: 12px; background: #15151b; border: 2px solid transparent; }
+  .item.playing { border-color: #ff5500; }
+  .item img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; background: linear-gradient(135deg, #ff5500, #ec4899); flex-shrink: 0; }
+  .info { flex: 1; min-width: 0; }
+  .t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .a { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item button { width: 42px; height: 42px; border-radius: 50%; border: none; background: #ff5500; color: #fff; font-size: 16px; flex-shrink: 0; cursor: pointer; }
+  .msg { text-align: center; color: #888; padding: 24px; font-size: 14px; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #15151bee; backdrop-filter: blur(10px); border-top: 1px solid #222; display: none; }
+  .bar.on { display: block; }
+  .bar .row { max-width: 480px; margin: 0 auto; }
+  .bar .top { display: flex; align-items: center; gap: 10px; }
+  .bar .now { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar .pp { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ff5500; color: #fff; font-size: 15px; cursor: pointer; }
+  .bar .meta { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-top: 6px; }
+  .bar input[type=range] { width: 100%; padding: 0; border: none; background: none; accent-color: #ff5500; margin-top: 6px; }
+  #main { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Listen Together</h1>
+  <p class="sub">同じルームに入った人と、同じ曲を同時に聴くテスト</p>
+
+  <!-- 入室画面 -->
+  <div id="join">
+    <input id="code" placeholder="ルーム名（例：1234）" maxlength="12" autocomplete="off">
+    <button class="btn" id="joinBtn">入る</button>
+    <p class="sub" style="margin-top:12px">2台で同じルーム名を入れてください。片方が曲を再生すると、もう片方でも同じ位置から鳴ります。</p>
+  </div>
+
+  <!-- ルーム画面 -->
+  <div id="main">
+    <div class="room"><span>ルーム <b id="roomName"></b></span><span class="members" id="members"></span></div>
+    <div class="status" id="status"></div>
+    <input id="q" type="search" placeholder="曲を検索してルームで再生" autocomplete="off">
+    <div id="list"></div>
+  </div>
+</div>
+
+<div class="bar" id="bar">
+  <div class="row">
+    <div class="top"><div class="now" id="now"></div><button class="pp" id="pp">❚❚</button></div>
+    <input type="range" id="seek" min="0" max="0" step="1" value="0">
+    <div class="meta"><span id="cur">0:00</span><span id="by"></span><span id="dur">0:00</span></div>
+  </div>
+</div>
+
+<script>
+// ===== 設定 =====
+const WORKER = 'https://geocloud.icchasong.workers.dev';
+firebase.initializeApp({
+  apiKey: 'AIzaSyB_bITavjyZJ86Ky9BHjYJb9IcXbieHA0g',
+  authDomain: 'onpa-e7cc6.firebaseapp.com',
+  databaseURL: 'https://onpa-e7cc6-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'onpa-e7cc6',
+});
+const db = firebase.database();
+
+// ===== 道具 =====
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => { s = Math.floor(s || 0); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const me = Math.random().toString(36).slice(2, 8);
+const myName = /iPhone/.test(navigator.userAgent) ? 'iPhone' : /Mac/.test(navigator.userAgent) ? 'Mac' : 'Device';
+
+const player = new Audio();
+let hls = null, loadedTrack = null, roomRef = null, state = null, serverOffset = 0, applying = false, timer = null;
+
+db.ref('.info/serverTimeOffset').on('value', (s) => { serverOffset = s.val() || 0; });
+const serverNow = () => Date.now() + serverOffset;
+
+// 今この瞬間、曲は何秒の位置にあるべきか
+function expectedPos(s) {
+  if (!s) return 0;
+  return s.playing ? s.position + (serverNow() - s.updatedAt) / 1000 : s.position;
+}
+
+// ===== 入室 =====
+$('joinBtn').addEventListener('click', async () => {
+  const code = $('code').value.trim().replace(/[.#$\[\]\/]/g, '');
+  if (!code) return;
+
+  // iPhone対策：入るボタンを押した瞬間にプレーヤーを起こしておく
+  player.src = SILENT;
+  player.play().catch(() => {});
+
+  $('joinBtn').textContent = '接続中…';
+  try {
+    await firebase.auth().signInAnonymously();
+  } catch (e) {
+    alert('匿名ログインに失敗しました：' + e.message);
+    $('joinBtn').textContent = '入る';
+    return;
+  }
+
+  roomRef = db.ref('rooms/' + code);
+  const meRef = roomRef.child('members/' + me);
+  try {
+    await meRef.set({ name: myName, at: firebase.database.ServerValue.TIMESTAMP });
+  } catch (e) {
+    alert('ルームに入れませんでした：' + e.message);
+    $('joinBtn').textContent = '入る';
+    return;
+  }
+  meRef.onDisconnect().remove();
+
+  $('roomName').textContent = code;
+  $('join').style.display = 'none';
+  $('main').style.display = 'block';
+
+  roomRef.child('members').on('value', (s) => {
+    const m = Object.values(s.val() || {}).map((x) => x.name);
+    $('members').textContent = m.length + '人：' + m.join('・');
+  });
+  roomRef.child('state').on('value', (s) => applyState(s.val()));
+
+  // 5秒ごとにずれを直す
+  setInterval(() => { if (state && loadedTrack === state.trackId && !applying) correctDrift(); }, 5000);
+});
+
+// ===== 検索 =====
+$('q').addEventListener('input', (e) => {
+  clearTimeout(timer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { $('list').innerHTML = ''; return; }
+  timer = setTimeout(() => search(q), 400);
+});
+
+async function search(q) {
+  $('list').innerHTML = '<div class="msg">検索中…</div>';
+  try {
+    const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    if (!d.length) { $('list').innerHTML = '<div class="msg">見つかりませんでした</div>'; return; }
+    $('list').innerHTML = d.map((t) => `
+      <div class="item" data-id="${t.id}" data-title="${esc(t.title)}" data-artist="${esc(t.artist)}">
+        <img src="${esc(t.artwork)}" alt="" onerror="this.removeAttribute('src')">
+        <div class="info"><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)} · ${fmt(t.duration / 1000)}</div></div>
+        <button onclick="share(this.closest('.item'))">▶</button>
+      </div>`).join('');
+    markPlaying();
+  } catch (e) {
+    $('list').innerHTML = `<div class="msg">検索に失敗しました（${esc(e.message)}）</div>`;
+  }
+}
+
+// ===== ルームに「この曲を再生」を送る =====
+function share(el) {
+  player.play().catch(() => {}); // タップ中にプレーヤーを起こす
+  pushState({
+    trackId: Number(el.dataset.id),
+    title: el.dataset.title,
+    artist: el.dataset.artist,
+    playing: true,
+    position: 0,
+  });
+}
+
+function pushState(s) {
+  roomRef.child('state').set({ ...s, by: me, byName: myName, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+
+$('pp').addEventListener('click', () => {
+  if (!state) return;
+  const pos = player.currentTime || expectedPos(state);
+  if (!state.playing) player.play().catch(() => {});
+  pushState({ ...state, playing: !state.playing, position: pos });
+});
+
+$('seek').addEventListener('change', (e) => {
+  if (!state) return;
+  pushState({ ...state, position: Number(e.target.value) });
+});
+
+// ===== ルームの状態を自分のプレーヤーに反映 =====
+async function applyState(s) {
+  state = s;
+  if (!s) return;
+  if (!s.updatedAt) return; // サーバー時刻がまだ入っていない一瞬は無視
+
+  $('bar').classList.add('on');
+  $('now').textContent = `${s.title} — ${s.artist}`;
+  $('by').textContent = `${s.by === me ? 'あなた' : s.byName} が操作`;
+  $('pp').textContent = s.playing ? '❚❚' : '▶';
+  markPlaying();
+
+  applying = true;
+  try {
+    if (loadedTrack !== s.trackId) {
+      $('status').textContent = '曲を読み込み中…';
+      await loadTrack(s.trackId);
+      if (!state || state.trackId !== s.trackId) return;
+    }
+    const target = expectedPos(state);
+    if (Math.abs(player.currentTime - target) > 0.7) player.currentTime = target;
+    if (state.playing) {
+      await player.play();
+      $('status').textContent = '同期中';
+    } else {
+      player.pause();
+      $('status').textContent = '一時停止中';
+    }
+  } catch (e) {
+    console.error(e);
+    $('status').textContent = e.name === 'NotAllowedError'
+      ? '画面をタップすると再生が始まります（iPhoneの制限）'
+      : '再生できませんでした：' + e.message;
+  } finally {
+    applying = false;
+  }
+}
+
+async function loadTrack(id) {
+  if (hls) { hls.destroy(); hls = null; }
+  const r = await fetch(`${WORKER}/play?id=${id}`);
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.status);
+  if (d.hls && window.Hls && Hls.isSupported()) {
+    hls = new Hls();
+    hls.loadSource(d.url);
+    hls.attachMedia(player);
+    await new Promise((ok, ng) => {
+      hls.once(Hls.Events.MANIFEST_PARSED, ok);
+      hls.on(Hls.Events.ERROR, (ev, x) => { if (x.fatal) ng(new Error(x.details)); });
+    });
+  } else {
+    player.src = d.url;
+    await new Promise((ok) => player.addEventListener('loadedmetadata', ok, { once: true }));
+  }
+  loadedTrack = id;
+}
+
+function correctDrift() {
+  if (!state.playing || player.paused) return;
+  const diff = player.currentTime - expectedPos(state);
+  if (Math.abs(diff) > 0.5) player.currentTime = expectedPos(state);
+}
+
+function markPlaying() {
+  document.querySelectorAll('.item').forEach((i) => i.classList.toggle('playing', state && Number(i.dataset.id) === state.trackId));
+}
+
+// iPhoneで自動再生が止められたとき、どこかタップで再開
+document.addEventListener('click', () => {
+  if (state && state.playing && player.paused && loadedTrack === state.trackId) {
+    player.currentTime = expectedPos(state);
+    player.play().then(() => { $('status').textContent = '同期中'; }).catch(() => {});
+  }
+});
+
+// 表示の更新
+player.addEventListener('timeupdate', () => {
+  if (player.src === SILENT) return;
+  $('cur').textContent = fmt(player.currentTime);
+  if (isFinite(player.duration)) { $('seek').max = Math.floor(player.duration); $('dur').textContent = fmt(player.duration); }
+  $('seek').value = Math.floor(player.currentTime);
+});
+player.addEventListener('ended', () => {
+  if (state && state.playing && state.by === me) pushState({ ...state, playing: false, position: 0 });
+});
+</script>
+</body>
+</html>
