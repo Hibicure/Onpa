@@ -112,11 +112,17 @@ async function toggle(el) {
     if (!r.ok) throw new Error(d.error || r.status);
     if (my !== token) return;
 
-    if (d.hls && !player.canPlayType('application/vnd.apple.mpegurl') && window.Hls && Hls.isSupported()) {
+    if (d.hls && window.Hls && Hls.isSupported()) {
+      // hls.jsが使えるなら優先（ChromeはHLSに「対応かも」と答えるのに実際は鳴らないため）
       hls = new Hls();
       hls.loadSource(d.url);
       hls.attachMedia(player);
+      await new Promise((ok, ng) => {
+        hls.once(Hls.Events.MANIFEST_PARSED, ok);
+        hls.on(Hls.Events.ERROR, (ev, x) => { if (x.fatal) ng(new Error(x.details)); });
+      });
     } else {
+      // iPhoneの古いSafariなど：そのまま再生
       player.src = d.url;
     }
     await player.play();
