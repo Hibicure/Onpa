@@ -375,7 +375,12 @@
   /* ---------- 下のナビ：真ん中に検索 ---------- */
   .nav .in { align-items: center; padding: 0 12px; gap: 8px; }
   .nav .find { flex: 1.6; height: 44px; flex-direction: row; gap: 8px; border-radius: 99px; font-size: 14px; font-weight: 600; color: var(--mute); }
-  .nav .find svg { width: 18px; height: 18px; }
+  .nav .find svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .nav .find { display: flex; align-items: center; padding: 0 16px; cursor: text; flex: 1.6 1 0; min-width: 0; }
+  .nav .in > button { flex: 1 1 0; min-width: 0; }
+  .nav .find input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; font: inherit; font-size: 16px; font-weight: 600; color: var(--ink); -webkit-appearance: none; appearance: none; }
+  .nav .find input::placeholder { color: var(--mute); }
+  .nav .find input::-webkit-search-cancel-button { -webkit-appearance: none; }
   .nav .find[aria-current="page"] { color: var(--ink); }
 
   /* ---------- ホーム ---------- */
@@ -514,9 +519,9 @@
       <button role="tab" data-mode="likes" aria-selected="false">Likes</button>
       <button role="tab" data-mode="playlists" aria-selected="false">Playlists</button>
     </div>
-    <div class="field" id="searchField">
+    <div class="field" id="searchField" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Search songs or artists" autocomplete="off" enterkeyhint="search">
+      
     </div>
     <div class="libbar" id="libbar" hidden>
       <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
@@ -551,7 +556,7 @@
   <nav class="nav">
     <div class="in">
       <button id="tabHome" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Home</button>
-      <button id="tabListen" class="find glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search</button>
+      <label id="tabListen" class="find glass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" type="search" size="1" placeholder="Search" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search songs or artists"></label>
       <button id="tabFriends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.5-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.7 2.5 3 5.2"/></svg>Friends</button>
     </div>
   </nav>
@@ -955,13 +960,9 @@ $('signOut').addEventListener('click', async () => {
   await firebase.auth().signOut();
   location.reload();
 });
-$('tabListen').addEventListener('click', () => {
-  const again = !$('viewListen').hidden;
-  showTab('home');
-  if (mode !== 'search') setMode('search');
-  // iPhoneはタップの中でそのまま focus しないとキーボードが出ない
-  if (again || !searchList) $('q').focus();
-});
+$('tabListen').addEventListener('click', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
+$('q').addEventListener('focus', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); const v = e.target.value.trim(); if (v.length >= 1) search(v); e.target.blur(); } });
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
@@ -1233,7 +1234,7 @@ $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-mo
 function setMode(m) {
   mode = m;
   document.querySelectorAll('#seg [data-mode]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
-  $('searchField').hidden = m !== 'search';
+  $('searchField').hidden = true;
   $('libbar').hidden = m === 'search';
   $('libBack').hidden = true;
   if (m === 'search') {
