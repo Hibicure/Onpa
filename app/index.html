@@ -185,7 +185,7 @@
   .np .together { font-size: 13px; color: var(--cobalt); font-weight: 700; }
   .stage { flex: 1 0 auto; display: grid; place-items: center; padding: 18px 0 22px; }
   /* CD：ジャケットがある時は盤面いっぱいに画像。ない時はマットな銀盤の印刷デザイン */
-  .disc { width: min(76vw, 320px, 40dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative;
+  .disc { width: min(84vw, 360px, 46dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative;
     box-shadow: 0 28px 48px -22px rgba(0,0,0,.45), 0 10px 16px -10px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.35), 0 0 0 .5px rgba(0,0,0,.22); }
   .disc .platter { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; animation: spin 9s linear infinite; animation-play-state: paused;
     background: radial-gradient(circle closest-side, #D5D6D9 0 34%, #CCCED1 66%, #C4C6CA 92%, #BBBDC2 100%); }
@@ -216,15 +216,17 @@
     background: radial-gradient(circle closest-side, rgba(238,239,242,.97) 0 56%, rgba(255,255,255,.35) 58% 84%, rgba(214,216,220,.75) 86% 100%);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.85), 0 0 0 .5px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.22); transition: inset .35s cubic-bezier(.2,.8,.2,1); }
   /* 通話中は、CDの真ん中に相手が出る */
-  .disc .peer { position: absolute; inset: 28.5%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
-    font-family: var(--display); font-weight: 700; font-size: clamp(28px, 11vw, 48px); color: #151517;
-    box-shadow: 0 0 0 3px rgba(240,241,243,.9), 0 0 0 3.5px rgba(0,0,0,.2), 0 4px 10px rgba(0,0,0,.25); }
-  .disc .peer i { position: absolute; right: 6%; bottom: 6%; width: 17%; height: 17%; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
+  .disc .peer { position: absolute; inset: 35.2%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
+    font-family: var(--display); font-weight: 700; font-size: clamp(22px, 8vw, 36px); color: #151517; overflow: hidden;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); }
+  .disc .peer i { position: absolute; right: 9%; bottom: 9%; width: 16%; height: 16%; z-index: 1; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
   .disc.incall .hole { display: none; }
-  .disc.incall .hub { inset: 26.5%; }
   .disc .hole { position: absolute; left: 44%; top: 44%; width: 12%; height: 12%; border-radius: 50%; background: var(--paper);
     box-shadow: inset 0 2px 4px rgba(0,0,0,.38), 0 0 0 .5px rgba(0,0,0,.22), 0 1px 0 rgba(255,255,255,.5); }
   @keyframes spin { to { transform: rotate(360deg); } }
+  /* ジャケットを左右にスワイプして曲送り */
+  .np .disc { touch-action: pan-y; cursor: grab; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
+  .np .disc.dragging { transition: none; cursor: grabbing; }
   .titlebar { display: flex; align-items: flex-start; gap: 12px; }
   .titlebar .tt { flex: 1; min-width: 0; }
   .heart { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); flex-shrink: 0; transition: transform .12s; }
@@ -762,6 +764,48 @@ async function playRelated(auto = true) {
   }
 }
 $('npPrev').addEventListener('click', () => { unlockAudio(); playPrev(); });
+
+// ジャケット（CD）を左右にスワイプ：左で次の曲、右で前の曲
+(() => {
+  const el = $('disc');
+  let sx = 0, sy = 0, dx = 0, id = null, horizontal = null;
+  el.addEventListener('pointerdown', (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; horizontal = null; });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const mx = e.clientX - sx, my = e.clientY - sy;
+    if (horizontal === null && Math.hypot(mx, my) > 8) {
+      horizontal = Math.abs(mx) > Math.abs(my);
+      if (horizontal) { el.setPointerCapture(id); el.classList.add('dragging'); }
+    }
+    if (!horizontal) return;
+    dx = mx;
+    el.style.transform = `translateX(${dx}px) rotate(${dx / 8}deg)`;
+    el.style.opacity = String(1 - Math.min(Math.abs(dx) / 400, 0.5));
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    el.classList.remove('dragging');
+    if (!horizontal) return;
+    const go = Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
+    if (!go || !track) { el.style.transform = ''; el.style.opacity = ''; return; }
+    const dir = dx < 0 ? -1 : 1;
+    // 飛んでいって、反対側から次のCDが入ってくる
+    el.style.transform = `translateX(${dir * window.innerWidth}px) rotate(${dir * 40}deg)`;
+    el.style.opacity = '0';
+    setTimeout(() => {
+      if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      el.classList.add('dragging');
+      el.style.transform = `translateX(${-dir * window.innerWidth * 0.6}px) rotate(${-dir * 30}deg)`;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.classList.remove('dragging');
+        el.style.transform = ''; el.style.opacity = '';
+      }));
+    }, 220);
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; el.classList.remove('dragging'); el.style.transform = ''; el.style.opacity = ''; });
+})();
 
 // ===================== Up next（次に流す曲。通話中は2人で共有） =====================
 let upNext = [], queueRef = null;
