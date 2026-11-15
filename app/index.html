@@ -862,7 +862,6 @@ function splitArtist(t) {
 const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 const player = new Audio();
 player.preload = 'auto';
-player.crossOrigin = 'anonymous';
 let hls = null, track = null, loadedId = null, loadToken = 0, loading = false;
 const playCache = new Map();
 
@@ -882,7 +881,10 @@ function getPlay(id) {
 
 // 音楽の音量は、iPhoneでも効くようにWeb Audio経由で変える
 let actx = null, gain = null;
+// Safariでは、音楽をWeb Audioに通すと鳴らなくなることがあるため使わない
+// （iPhoneの音楽の音量は本体ボタンで。アプリ版では別々に調整できる）
 function ensureGraph() {
+  return;
   if (actx) { if (actx.state === 'suspended') actx.resume().catch(() => {}); return; }
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -1183,7 +1185,7 @@ async function joinCall() {
     call.timer = setInterval(showCallbar, 1000);
     showCallbar();
     $('volVoice').disabled = false;
-    $('mixNote').textContent = 'Balance voice and music';
+    $('mixNote').textContent = isIOS ? 'Voice volume here, music with the side buttons' : 'Balance voice and music';
     // 一緒に聴く：ルームの再生状態を見る
     stateRef = db.ref(`rooms/${call.room}/state`);
     stateRef.on('value', (s) => applyRoomState(s.val()));
@@ -1223,7 +1225,7 @@ function endCall(msg) {
   $('callbar').hidden = true; $('npTogether').hidden = true;
   $('disc').classList.remove('incall'); $('discPeer').hidden = true;
   $('volVoice').disabled = true;
-  $('mixNote').textContent = 'Voice volume is available during a call';
+  $('mixNote').textContent = isIOS ? 'On iPhone, use the side buttons for music volume.' : 'Voice volume is available during a call';
   renderFriends();
   if (msg) toast(msg);
 }
@@ -1317,6 +1319,10 @@ $('npVol').addEventListener('click', (e) => {
 $('volPop').addEventListener('click', (e) => e.stopPropagation());
 document.addEventListener('click', () => { if (!$('volPop').hidden) { $('volPop').hidden = true; $('npVol').setAttribute('aria-expanded', 'false'); } });
 
+if (isIOS) {
+  $('volMusic').closest('label').hidden = true;
+  $('mixNote').textContent = 'On iPhone, use the side buttons for music volume.';
+}
 setPP('play');
 renderUpNext();
 setPlayMode('off');
