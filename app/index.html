@@ -195,13 +195,16 @@
   .modes { display: flex; justify-content: flex-start; }
   .volwrap { display: flex; justify-content: flex-end; position: relative; }
   .mode[aria-expanded="true"] { background: var(--ink); color: #fff; }
-  .volpop { position: absolute; right: -4px; bottom: 56px; width: 250px; padding: 14px 16px 12px; border-radius: 22px; z-index: 30; display: grid; gap: 6px;
-    background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.78)); transform-origin: bottom right; animation: pop .22s cubic-bezier(.2,.9,.3,1.2); }
+  .volpop { position: absolute; right: -2px; bottom: 54px; padding: 14px 12px 10px; border-radius: 24px; z-index: 30; display: flex; gap: 6px;
+    background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.8)); transform-origin: bottom center; animation: pop .22s cubic-bezier(.2,.9,.3,1.2); }
   @keyframes pop { from { opacity: 0; transform: scale(.85) translateY(6px); } }
-  .volpop label { display: grid; grid-template-columns: 20px 46px 1fr; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
+  .volpop .vcol { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 40px; }
+  .volpop .vcol[hidden] { display: none; }
+  .volpop .vslot { width: 40px; height: 132px; position: relative; }
+  .volpop .vslot input[type=range] { position: absolute; height: 28px; left: 50%; top: 50%; width: 132px; margin: 0; transform: translate(-50%, -50%) rotate(-90deg); }
+  .volpop .vi { color: var(--ink); }
   .volpop .vi svg { width: 18px; height: 18px; display: block; }
-  .volpop label:has(input:disabled) { opacity: .4; }
-  .volpop .note { font-size: 11px; color: var(--mute); margin-top: 2px; }
+  .volpop .vcol:has(input:disabled) { opacity: .35; }
   .mode { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #9EA3B5; position: relative; transition: transform .12s, background .2s, color .2s; }
   .mode .ic { display: grid; place-items: center; }
   .mode svg { width: 20px; height: 20px; }
@@ -232,12 +235,12 @@
   .mix { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--surface); display: grid; gap: 12px; }
   .mix label { display: grid; grid-template-columns: 54px 1fr; align-items: center; gap: 10px; font-size: 13px; color: var(--mute); }
   .volpop input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; background: transparent; cursor: pointer; }
-  .volpop input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(var(--ink), var(--ink)) 0 / var(--v, 100%) 100% no-repeat, var(--line); }
-  .volpop input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -7px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); }
+  .volpop input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(var(--ink), var(--ink)) 0 / var(--v, 100%) 100% no-repeat, var(--line); }
+  .volpop input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); }
   .volpop input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line); }
   .volpop input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--ink); }
   .volpop input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink); }
-  .volpop input:disabled { opacity: .35; }
+  .volpop .vslot input[type=range] { width: 132px; }
   .mix .note { font-size: 12px; color: var(--mute); }
 
   /* ---------- 着信 ---------- */
@@ -384,9 +387,9 @@
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
     <div class="controls"><div class="modes"><button class="mode glass" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip glass" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip glass" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button><div class="volwrap"><button class="mode glass" id="npVol" aria-label="Volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
       <div class="volpop glass" id="volPop" hidden>
-        <label><span class="vi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5V6.2l10-2v10.3a2.6 2.6 0 1 1-1.8-2.5V8.1L10.8 9.4v8.1A2.6 2.6 0 1 1 9 15z"/></svg></span><span class="vl">Music</span><input type="range" id="volMusic" min="0" max="100" value="80"></label>
-        <label><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span><span class="vl">Voice</span><input type="range" id="volVoice" min="0" max="100" value="100" disabled></label>
-        <div class="note" id="mixNote">Voice volume is available during a call</div>
+        <div class="vcol" id="colMusic"><div class="vslot"><input type="range" id="volMusic" min="0" max="100" value="80"></div><span class="vi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5V6.2l10-2v10.3a2.6 2.6 0 1 1-1.8-2.5V8.1L10.8 9.4v8.1A2.6 2.6 0 1 1 9 15z"/></svg></span></div>
+        <div class="vcol" id="colVoice"><div class="vslot"><input type="range" id="volVoice" min="0" max="100" value="100" disabled></div><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div>
+        <div class="note" id="mixNote" hidden></div>
       </div></div></div>
     <div class="upnext">
       <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
@@ -584,8 +587,8 @@ function playFrom(list, i) {
 
 // ===================== シャッフル・リピート =====================
 let shuffleOn = false, repeatMode = 'off', origQueue = [];
-const SHUF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5l10 10H21"/><path d="M3 17h3.5l3-3M14.5 9l2-2H21"/><path d="M18 4l3 3-3 3M18 14l3 3-3 3"/></svg>';
-const REP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12V8h15"/><path d="M16 5l3 3-3 3"/><path d="M20 12v4H5"/><path d="M8 19l-3-3 3-3"/></svg>';
+const SHUF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h2.5c3.2 0 4.6 1.6 6.4 5s3.2 5 6.4 5H21"/><path d="M3 17h2.5c1.5 0 2.6-.35 3.5-1.1M14.9 8.1c.9-.75 2-1.1 3.5-1.1H21"/><path d="M18.5 4.5 21 7l-2.5 2.5M18.5 14.5 21 17l-2.5 2.5"/></svg>';
+const REP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5V10a4 4 0 0 1 4-4h12"/><path d="M17.5 3.5 20 6l-2.5 2.5"/><path d="M20 11.5V14a4 4 0 0 1-4 4H4"/><path d="M6.5 20.5 4 18l2.5-2.5"/></svg>';
 function shuffled(a) {
   a = a.slice();
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
@@ -1327,8 +1330,7 @@ $('volPop').addEventListener('click', (e) => e.stopPropagation());
 document.addEventListener('click', () => { if (!$('volPop').hidden) { $('volPop').hidden = true; $('npVol').setAttribute('aria-expanded', 'false'); } });
 
 if (isIOS) {
-  $('volMusic').closest('label').hidden = true;
-  $('mixNote').textContent = 'On iPhone, use the side buttons for music volume.';
+  $('colMusic').hidden = true;
 }
 setPP('play');
 renderUpNext();
