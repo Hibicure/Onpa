@@ -170,7 +170,10 @@ async function search() {
   $('q').blur();
   $('list').innerHTML = '<div class="msg">検索中…</div>';
   try {
-    const r = await fetch(WORKER + '/search?q=' + encodeURIComponent(q));
+    // Onpa本体でSoundCloudに連携していれば、その合鍵で検索する（回数制限に左右されにくい）
+    let h = {};
+    try { const sc = JSON.parse(localStorage.getItem('onpa_sc') || 'null'); if (sc && sc.at && sc.exp > Date.now()) h = { 'X-SC-Token': sc.at }; } catch {}
+    const r = await fetch(WORKER + '/search?q=' + encodeURIComponent(q), { headers: h });
     if (!r.ok) throw new Error(r.status);
     const items = await r.json();
     if (!items.length) { $('list').innerHTML = '<div class="msg">見つかりませんでした</div>'; return; }
