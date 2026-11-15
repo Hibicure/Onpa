@@ -884,6 +884,12 @@ $('obGo').addEventListener('click', async () => {
 });
 
 function startApp() {
+  // SoundCloudで入っているのに、SoundCloudの合鍵が消えていたら、自動でつなぎ直す（検索などが動かなくなるため）
+  if (isScUser(firebase.auth().currentUser) && !sc) {
+    let tried = false;
+    try { tried = sessionStorage.getItem('oto_relink') === '1'; sessionStorage.setItem('oto_relink', '1'); } catch {}
+    if (!tried) { connectSC(); return; }
+  }
   $('boot').hidden = true;
   $('app').hidden = false;
   $('meLabel').textContent = '@' + me.handle;
@@ -999,7 +1005,7 @@ async function search(q) {
     // アプリ全体の検索枠が混んでいる時は、SoundCloud連携で自分の枠を使えるように案内する
     $('results').innerHTML = sc
       ? msg('Search is busy', 'Try again in a moment<br><small style="opacity:.6">' + esc(e.message) + '</small>')
-      : msg('Search is busy right now', 'Connect SoundCloud to search with your own account') + '<div style="display:grid;place-items:center;margin-top:-8px"><button class="btn primary sc-connect">Connect SoundCloud</button></div>';
+      : msg(isScUser(firebase.auth().currentUser) ? 'Reconnect SoundCloud' : 'Search is busy right now', isScUser(firebase.auth().currentUser) ? 'Your SoundCloud sign-in expired. Reconnect to search.' : 'Connect SoundCloud to search with your own account') + '<div style="display:grid;place-items:center;margin-top:-8px"><button class="btn primary sc-connect">' + (isScUser(firebase.auth().currentUser) ? 'Reconnect' : 'Connect SoundCloud') + '</button></div>';
   }
 }
 
