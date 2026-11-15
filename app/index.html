@@ -129,6 +129,7 @@
   .np { position: fixed; inset: 0; background: var(--paper); z-index: 40; display: flex; flex-direction: column; transform: translateY(100%); transition: transform .42s cubic-bezier(.2,.8,.2,1); }
   .np.open { transform: translateY(0); }
   .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: 14px 24px calc(24px + var(--safe-b)); overflow-y: auto; }
+  .np .in > * { flex-shrink: 0; }
   .np .top { display: flex; align-items: center; justify-content: space-between; }
   .np .top .round { background: var(--surface); }
   .np .together { font-size: 13px; color: var(--cobalt); font-weight: 700; }
@@ -150,15 +151,15 @@
   .heart:active svg { transform: scale(.85); }
   .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
   .np .artist { color: var(--mute); margin-top: 4px; }
-  .seek { position: relative; height: 26px; margin-top: 18px; cursor: pointer; touch-action: none; }
-  .seek .track { position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .seek { position: relative; height: 28px; margin-top: 18px; cursor: pointer; touch-action: none; }
+  .seek .track { position: absolute; left: 0; right: 0; top: 11px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .seek .fill { height: 100%; width: 0; background: var(--ink); }
-  .seek .knob { position: absolute; top: 6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
+  .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
-  .controls { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 14px 0 6px; }
-  .skip { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
-  .skip svg { width: 26px; height: 26px; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: 22px; margin: 16px 0 6px; }
+  .skip { width: 64px; height: 56px; border-radius: 28px; display: grid; place-items: center; color: var(--ink); }
+  .skip svg { width: 38px; height: 28px; }
   .skip:active { background: var(--line); }
   .upnext { margin-top: 18px; }
   .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; margin-bottom: 4px; }
@@ -332,7 +333,7 @@
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM19 6.2v11.6a1 1 0 0 1-1.5.86L9.6 13.3a1.5 1.5 0 0 1 0-2.6l7.9-5.36A1 1 0 0 1 19 6.2z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM5 6.2v11.6a1 1 0 0 0 1.5.86l7.9-5.36a1.5 1.5 0 0 0 0-2.6L6.5 5.34A1 1 0 0 0 5 6.2z"/></svg></button></div>
+    <div class="controls"><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M15 4.6v14.8a1 1 0 0 1-1.55.83L2.9 13a1.2 1.2 0 0 1 0-2l10.55-7.23A1 1 0 0 1 15 4.6zM29 4.6v14.8a1 1 0 0 1-1.55.83L16.9 13a1.2 1.2 0 0 1 0-2l10.55-7.23A1 1 0 0 1 29 4.6z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M3 4.6v14.8a1 1 0 0 0 1.55.83L15.1 13a1.2 1.2 0 0 0 0-2L4.55 3.77A1 1 0 0 0 3 4.6zM17 4.6v14.8a1 1 0 0 0 1.55.83L29.1 13a1.2 1.2 0 0 0 0-2L18.55 3.77A1 1 0 0 0 17 4.6z"/></svg></button></div>
     <div class="mix">
       <label>Music<input type="range" id="volMusic" min="0" max="100" value="80"></label>
       <label>Voice<input type="range" id="volVoice" min="0" max="100" value="100" disabled></label>
