@@ -79,7 +79,7 @@
   .shell { max-width: 440px; margin: 0 auto; min-height: 100dvh; position: relative; padding-bottom: calc(150px + var(--safe-b)); }
 
   /* ---------- ヘッダー ---------- */
-  .head { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 8px; }
+  .head { display: flex; align-items: center; justify-content: space-between; padding: calc(20px + env(safe-area-inset-top)) 20px 8px; }
   .mark { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -0.03em; }
   .me { font-size: 13px; color: var(--mute); }
   .head .right { display: flex; align-items: center; gap: 12px; }
@@ -174,7 +174,7 @@
   /* ---------- 再生画面 ---------- */
   .np { position: fixed; inset: 0; background: var(--paper); z-index: 40; display: flex; flex-direction: column; transform: translateY(100%); transition: transform .42s cubic-bezier(.2,.8,.2,1); }
   .np.open { transform: translateY(0); }
-  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: 14px 24px calc(24px + var(--safe-b)); overflow-y: auto; }
+  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: calc(14px + env(safe-area-inset-top)) 24px calc(24px + var(--safe-b)); overflow-y: auto; }
   .np .in > * { flex-shrink: 0; }
   .np .top { display: flex; align-items: center; justify-content: space-between; }
   /* iOSのガラス風ボタン */
@@ -311,7 +311,7 @@
   .incoming .yes .round { background: var(--live); }
 
   /* ---------- 初回 ---------- */
-  .onboard { min-height: 100dvh; max-width: 440px; margin: 0 auto; padding: 56px 24px 32px; display: flex; flex-direction: column; }
+  .onboard { min-height: 100dvh; max-width: 440px; margin: 0 auto; padding: calc(56px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
   .onboard .disc { width: 150px; margin-bottom: 36px; }
   .onboard h1 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: -0.03em; line-height: 1.2; }
   .onboard p { color: var(--mute); margin: 8px 0 28px; }
