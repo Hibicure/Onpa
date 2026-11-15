@@ -56,6 +56,8 @@ struct WebShell: UIViewRepresentable {
         // アプリに戻ってきた時、しばらく経っていたら新しいサイトを読み直す
         NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.didBecomeActive),
                                                name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.willResign),
+                                               name: UIApplication.willResignActiveNotification, object: nil)
         return web
     }
 
@@ -67,8 +69,9 @@ struct WebShell: UIViewRepresentable {
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { nil }
 
+        @objc func willResign() { leftAt = Date() }
+
         @objc func didBecomeActive() {
-            defer { leftAt = Date() }
             // 10分以上たっていて、通話中でなければ読み直す（通話中に切れないように）
             guard Date().timeIntervalSince(leftAt) > 600, let web = webView else { return }
             web.evaluateJavaScript("typeof call !== 'undefined' && call.state !== 'idle'") { result, _ in
