@@ -68,11 +68,30 @@ function mapTrack(t) {
 const listOf = (d) => (Array.isArray(d) ? d : d?.collection || []);
 
 // ===================== アプリ用の入場券（検索・再生） =====================
-let cached = { token: null, exp: 0 };
+// SoundCloudは入場券の発行回数に上限があるので、いったん取った券を
+// Cloudflareのキャッシュに置いて、全部の処理で使い回す（有効期限が切れるまで）
+let cached = { token: null, rt: null, exp: 0 };
+const TOKEN_CACHE_KEY = 'https://onpa-cache.internal/sc-app-token-v1';
 
-async function getToken(env) {
-  const now = Date.now();
-  if (cached.token && now < cached.exp) return cached.token;
+async function readCachedToken() {
+  try {
+    const hit = await caches.default.match(TOKEN_CACHE_KEY);
+    if (!hit) return null;
+    const d = await hit.json();
+    return d && d.token && d.exp > Date.now() ? d : null;
+  } catch { return null; }
+}
+
+async function writeCachedToken(d) {
+  try {
+    const ttl = Math.max(Math.floor((d.exp - Date.now()) / 1000), 60);
+    await caches.default.put(TOKEN_CACHE_KEY, new Response(JSON.stringify(d), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${ttl}` },
+    }));
+  } catch { /* キャッシュできなくても続ける */ }
+}
+
+async function requestToken(env, body) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: {
@@ -80,12 +99,26 @@ async function getToken(env) {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Authorization': `Basic ${btoa(`${env.SC_CLIENT_ID}:${env.SC_CLIENT_SECRET}`)}`,
     },
-    body: 'grant_type=client_credentials',
+    body,
   });
   if (!res.ok) throw new Error(`token取得に失敗: ${res.status}`);
   const data = await res.json();
-  cached = { token: data.access_token, exp: now + Math.max((data.expires_in || 3600) - 60, 60) * 1000 };
-  return cached.token;
+  return { token: data.access_token, rt: data.refresh_token || null, exp: Date.now() + Math.max((data.expires_in || 3600) - 120, 60) * 1000 };
+}
+
+async function getToken(env) {
+  if (cached.token && Date.now() < cached.exp) return cached.token;
+  const fromCache = await readCachedToken();
+  if (fromCache) { cached = fromCache; return cached.token; }
+  let d = null;
+  // 期限切れなら、新しく発行してもらう代わりに「更新」を試す（回数制限にかかりにくい）
+  if (cached.rt) {
+    try { d = await requestToken(env, `grant_type=refresh_token&refresh_token=${encodeURIComponent(cached.rt)}`); } catch { d = null; }
+  }
+  if (!d) d = await requestToken(env, 'grant_type=client_credentials');
+  cached = d;
+  await writeCachedToken(d);
+  return d.token;
 }
 
 async function scGet(path, env) {
