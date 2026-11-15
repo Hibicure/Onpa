@@ -641,7 +641,11 @@ async function search(q) {
     searchList = d.map(splitArtist);
     if (mode === 'search') renderTracks(searchList, msg('No results', 'Try different words'));
   } catch (e) {
-    if (mode === 'search') $('results').innerHTML = msg('Search failed', esc(e.message));
+    if (mode !== 'search') return;
+    // アプリ全体の検索枠が混んでいる時は、SoundCloud連携で自分の枠を使えるように案内する
+    $('results').innerHTML = sc
+      ? msg('Search is busy', 'Try again in a moment')
+      : msg('Search is busy right now', 'Connect SoundCloud to search with your own account') + '<div style="display:grid;place-items:center;margin-top:-8px"><button class="btn primary sc-connect">Connect SoundCloud</button></div>';
   }
 }
 
