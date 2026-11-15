@@ -155,6 +155,12 @@
   .disc .hub { position: absolute; inset: 33%; border-radius: 50%; pointer-events: none;
     background: radial-gradient(circle, rgba(236,240,246,.92) 0 52%, rgba(255,255,255,.55) 53% 70%, rgba(220,226,236,.6) 71% 100%);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), inset 0 0 0 3px rgba(22,26,51,.06), 0 0 0 1px rgba(22,26,51,.10), 0 1px 3px rgba(22,26,51,.18); }
+  /* 通話中は、CDの真ん中に相手が出る */
+  .disc .peer { position: absolute; inset: 35.5%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
+    font-family: var(--display); font-weight: 700; font-size: clamp(18px, 6.5vw, 30px); color: var(--ink);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.85), 0 0 0 4px rgba(22,26,51,.10), 0 4px 10px rgba(22,26,51,.25); }
+  .disc .peer i { position: absolute; right: 4%; bottom: 4%; width: 22%; height: 22%; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
+  .disc.incall .hole { display: none; }
   .disc .hole { position: absolute; left: 50%; top: 50%; width: 12%; height: 12%; margin: -6% 0 0 -6%; border-radius: 50%; background: var(--paper);
     box-shadow: inset 0 3px 6px rgba(22,26,51,.45), inset 0 -1px 1px rgba(255,255,255,.7), 0 0 0 1px rgba(22,26,51,.14), 0 1px 0 rgba(255,255,255,.6); }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -347,7 +353,7 @@
       <div style="width:40px"></div>
     </div>
     <div class="stage">
-      <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="sheen"></div><div class="hub"></div><div class="hole"></div></div>
+      <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="sheen"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
@@ -1201,6 +1207,7 @@ function endCall(msg) {
   if (wasLive && call.room) db.ref(`rooms/${call.room}/call/status`).get().then((s) => { if (s.val() === 'accepted') s.ref.set('ended'); });
   call.room = null; call.peer = null; call.muted = false;
   $('callbar').hidden = true; $('npTogether').hidden = true;
+  $('disc').classList.remove('incall'); $('discPeer').hidden = true;
   $('volVoice').disabled = true;
   $('mixNote').textContent = 'Voice volume is available during a call';
   renderFriends();
@@ -1218,6 +1225,10 @@ function showCallbar() {
   $('cbMute').classList.toggle('off', call.muted);
   $('cbEnd').innerHTML = ICON.end;
   if (call.state === 'live') { $('npTogether').hidden = false; $('npTogether').textContent = `Listening with ${call.peer.name}`; }
+  const live = call.state === 'live' && call.peer;
+  $('disc').classList.toggle('incall', !!live);
+  $('discPeer').hidden = !live;
+  if (live) { $('discPeerInitial').textContent = initial(call.peer.name); $('discPeer').title = call.peer.name; }
 }
 $('cbMute').addEventListener('click', async () => {
   if (!call.lk) return;
