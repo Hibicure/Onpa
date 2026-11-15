@@ -37,7 +37,12 @@
   .bar .now { flex: 1; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .bar .pp { width: 40px; height: 40px; border-radius: 50%; border: none; background: #ff5500; color: #fff; font-size: 15px; cursor: pointer; }
   .bar .meta { display: flex; justify-content: space-between; font-size: 11px; color: #999; margin-top: 6px; }
-  .bar input[type=range] { width: 100%; padding: 0; border: none; background: none; accent-color: #ff5500; margin-top: 6px; }
+  .bar input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; padding: 0; border: none; margin-top: 6px; cursor: pointer;
+    background: linear-gradient(90deg, #ff5500, #ec4899) 0 50% / var(--p, 0%) 4px no-repeat, linear-gradient(#ffffff22, #ffffff22) 0 50% / 100% 4px no-repeat; }
+  .bar input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
+  .bar input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%; background: #fff; }
+  .bar input[type=range]::-moz-range-track { background: transparent; }
+  .bar .pp { background: #fff; color: #000; }
   #main { display: none; }
 </style>
 </head>
@@ -281,6 +286,7 @@ player.addEventListener('timeupdate', () => {
   $('cur').textContent = fmt(player.currentTime);
   if (isFinite(player.duration)) { $('seek').max = Math.floor(player.duration); $('dur').textContent = fmt(player.duration); }
   $('seek').value = Math.floor(player.currentTime);
+  if (player.duration) $('seek').style.setProperty('--p', (player.currentTime / player.duration * 100) + '%');
 });
 player.addEventListener('ended', () => {
   // 起こす用の無音が終わっただけのときは無視する
