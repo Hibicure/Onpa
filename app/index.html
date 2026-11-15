@@ -546,7 +546,31 @@ function playPrev() {
   if (i >= 0) qi = i;
   pick(prev, false);
 }
-$('npNext').addEventListener('click', () => { unlockAudio(); if (!playNext(false)) toast('Nothing up next'); });
+$('npNext').addEventListener('click', () => { unlockAudio(); if (!playNext(false)) playRelated(false); });
+
+// 一覧もUp nextも最後まで流れたら、SoundCloudの「関連する曲」で続ける
+let relatedBusy = false;
+async function playRelated(auto = true) {
+  if (!track || relatedBusy) return false;
+  relatedBusy = true;
+  try {
+    const r = await fetch(`${WORKER}/related?id=${track.trackId}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    const played = new Set([String(track.trackId), ...playHistory.map((h) => String(h.trackId))]);
+    const list = d.map(splitArtist).filter((t) => !played.has(String(t.id)));
+    if (!list.length) { if (!auto) toast('Nothing up next'); return false; }
+    queue = list; qi = 0;
+    if (!auto) toast('Playing similar tracks');
+    pick(toMeta(queue[0]), auto);
+    return true;
+  } catch (e) {
+    if (!auto) toast('Nothing up next');
+    return false;
+  } finally {
+    relatedBusy = false;
+  }
+}
 $('npPrev').addEventListener('click', () => { unlockAudio(); playPrev(); });
 
 // ===================== Up next（次に流す曲。通話中は2人で共有） =====================
@@ -873,10 +897,13 @@ player.addEventListener('ended', () => {
   if (!isReal()) return;
   if (call.state === 'live') {
     // 一緒に聴いているときは、曲を流した人が次の曲を送る
-    if (roomState && roomState.by === me.uid && roomState.playing && !playNext()) pushRoomState({ ...roomState, playing: false, position: 0 });
+    if (roomState && roomState.by === me.uid && roomState.playing && !playNext()) {
+      const st = roomState;
+      playRelated(true).then((ok) => { if (!ok) pushRoomState({ ...st, playing: false, position: 0 }); });
+    }
     return;
   }
-  playNext();
+  if (!playNext()) playRelated(true);
 });
 let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
@@ -1038,7 +1065,8 @@ async function joinCall() {
   clearTimeout(call.ringTimer);
   showCallbar();
   try {
-    const r = await fetch(`${WORKER}/livekit-token?room=${call.room}&identity=${me.uid}&name=${encodeURIComponent(me.name)}`);
+    const idToken = await firebase.auth().currentUser.getIdToken();
+    const r = await fetch(`${WORKER}/livekit-token?room=${call.room}&name=${encodeURIComponent(me.name)}`, { headers: { Authorization: 'Bearer ' + idToken } });
     const { token, error } = await r.json();
     if (!token) throw new Error(error || 'token');
     const LK = LivekitClient;
