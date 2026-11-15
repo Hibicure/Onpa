@@ -497,6 +497,7 @@
     <div class="card-me">
       <div class="avatar" id="myAvatar"></div>
       <div style="flex:1;min-width:0"><div class="handle" id="myHandle"></div><div class="hint">Share your handle so friends can find you</div></div>
+      <button class="btn ghost" id="signOut">Sign out</button>
     </div>
     <div class="field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -834,6 +835,25 @@ function showTab(which) {
   if (which === 'home') renderHome();
 }
 $('tabHome').addEventListener('click', () => showTab('home'));
+// ログアウト（SoundCloudの人はいつでも入り直せる。@IDだけの人は、この端末から入れなくなるので2回押しで確認）
+let signOutArmed = 0;
+$('signOut').addEventListener('click', async () => {
+  const user = firebase.auth().currentUser;
+  if (Date.now() - signOutArmed > 4000) {
+    signOutArmed = Date.now();
+    $('signOut').textContent = 'Tap again';
+    toast(isScUser(user) ? 'Sign in again anytime with SoundCloud' : "Without SoundCloud, you can't sign back in to @" + me.handle);
+    setTimeout(() => { $('signOut').textContent = 'Sign out'; }, 4000);
+    return;
+  }
+  if (call.state !== 'idle') endCall();
+  try { player.pause(); } catch {}
+  try { await db.ref('users/' + me.uid).update({ online: false }); } catch {}
+  saveSc(null);
+  try { localStorage.removeItem(RECENT_KEY); } catch {}
+  await firebase.auth().signOut();
+  location.reload();
+});
 $('tabListen').addEventListener('click', () => {
   const again = !$('viewListen').hidden;
   showTab('home');
@@ -1330,7 +1350,18 @@ let track = null, loadedId = null, loadToken = 0, loading = false;
 function setMusicVol() { player.volume = volMusic(); }
 
 // 埋め込みプレーヤーは準備が要らないので、何もしない（呼び出し元はそのまま）
-function unlockAudio() {}
+// iPhoneは「タップした瞬間」に音の部品を起こしておかないと、あとで相手の声が鳴らない。
+// 通話ボタンや着信に出るボタンを押した時に、ここで起こしておく。
+let audioCtx = null;
+function unlockAudio() {
+  try {
+    if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; audioCtx = new AC(); }
+    if (audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
+    // 無音を一瞬鳴らして、確実に起こす
+    const b = audioCtx.createBuffer(1, 1, 22050), src = audioCtx.createBufferSource();
+    src.buffer = b; src.connect(audioCtx.destination); src.start(0);
+  } catch { /* 古い端末では何もしない */ }
+}
 
 async function loadTrack(meta, autoplay = false) {
   const my = ++loadToken;
@@ -1682,7 +1713,8 @@ async function joinCall() {
     const { token, error } = await r.json();
     if (!token) throw new Error(error || 'token');
     const LK = LivekitClient;
-    const room = new LK.Room({ webAudioMix: true, audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    unlockAudio();
+    const room = new LK.Room({ webAudioMix: audioCtx ? { audioContext: audioCtx } : true, audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     call.lk = room;
     room.on(LK.RoomEvent.TrackSubscribed, (t) => {
       if (t.kind === 'audio') { const el = t.attach(); el.hidden = true; document.body.appendChild(el); applyVoiceVolume(); }
@@ -1693,6 +1725,7 @@ async function joinCall() {
     await room.connect(LIVEKIT_URL, token);
     await room.localParticipant.setMicrophoneEnabled(true);
     await room.startAudio().catch(() => {});
+    if (audioCtx && audioCtx.state !== 'running') toast('Tap anywhere to hear your friend');
     call.state = 'live';
     call.startedAt = Date.now();
     call.timer = setInterval(showCallbar, 1000);
