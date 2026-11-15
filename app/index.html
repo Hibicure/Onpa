@@ -142,11 +142,9 @@
   .stage { flex: 1 0 auto; display: grid; place-items: center; padding: 18px 0 22px; }
   /* CD：盤面全体にジャケット、真ん中に透明なリングと穴 */
   .disc { width: min(76vw, 320px, 40dvh); aspect-ratio: 1; flex-shrink: 0; border-radius: 50%; position: relative; box-shadow: 0 34px 60px -18px rgba(22,26,51,.45), 0 14px 22px -10px rgba(22,26,51,.3), 0 0 0 1px rgba(22,26,51,.08); }
-  /* 盤の厚み（下にずらした銀色のふち） */
-  .disc::before { content: ''; position: absolute; inset: 0; border-radius: 50%; transform: translateY(5px); background: linear-gradient(180deg, #E3E6EE 0%, #B7BCCB 55%, #8D93A6 100%); box-shadow: 0 0 0 1px rgba(22,26,51,.12); }
-  /* ふちの光と影（左上が明るく、右下が暗い） */
+  /* CDのふち：均一な細い銀色の縁 */
   .disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 4;
-    box-shadow: inset 2px 3px 2px rgba(255,255,255,.75), inset -3px -5px 8px rgba(22,26,51,.28), inset 0 0 0 1.5px rgba(255,255,255,.45); }
+    box-shadow: inset 0 0 0 1px rgba(22,26,51,.18), inset 0 0 0 3.5px rgba(236,239,245,.92), inset 0 0 0 4.5px rgba(22,26,51,.10); }
   .disc .platter { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; background: var(--holo); animation: spin 7s linear infinite; animation-play-state: paused; }
   .disc.spinning .platter { animation-play-state: running; }
   .disc .face { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
