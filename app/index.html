@@ -1128,17 +1128,26 @@ class WidgetMedia extends EventTarget {
     });
   }
   pause() { this.w.pause(); }
-  async load(trackId) {
+  // autoplay: 読み込みが終わった瞬間にプレーヤー自身が鳴らし始める（待ち時間を最小にする）
+  async load(trackId, autoplay = false) {
     await this.ready;
     this._paused = true; this._t = 0; this._d = NaN;
     await new Promise((ok, ng) => {
       const t = setTimeout(() => ng(new Error('timeout')), 15000);
+      let failed = false;
+      const onErr = () => { failed = true; clearTimeout(t); ng(new Error('unplayable')); };
+      this.addEventListener('error', onErr, { once: true });
       this.w.load('https://api.soundcloud.com/tracks/' + trackId, {
-        auto_play: false, visual: false, show_artwork: false, buying: false, sharing: false,
+        auto_play: autoplay, visual: false, show_artwork: false, buying: false, sharing: false,
         download: false, show_comments: false, show_user: false, show_teaser: false,
         callback: () => {
+          if (failed) return;
+          clearTimeout(t);
+          this.removeEventListener('error', onErr);
           this.w.setVolume(Math.round(this._vol * 100));
-          this.w.getDuration((d) => { clearTimeout(t); if (d > 0) { this._d = d / 1000; ok(); } else ng(new Error('unplayable')); });
+          // 長さは後から届けばよいので、待たずに次へ進む
+          this.w.getDuration((d) => { if (d > 0) { this._d = d / 1000; this.fire('timeupdate'); } });
+          ok();
         },
       });
     });
@@ -1152,7 +1161,7 @@ function setMusicVol() { player.volume = volMusic(); }
 // 埋め込みプレーヤーは準備が要らないので、何もしない（呼び出し元はそのまま）
 function unlockAudio() {}
 
-async function loadTrack(meta) {
+async function loadTrack(meta, autoplay = false) {
   const my = ++loadToken;
   loading = true; loadedId = null;
   if (track && !goingBack && track.trackId !== meta.trackId) { playHistory.push(track); if (playHistory.length > 50) playHistory.shift(); }
@@ -1162,7 +1171,7 @@ async function loadTrack(meta) {
   setPP('load');
   try {
     player.pause();
-    await player.load(meta.trackId);
+    await player.load(meta.trackId, autoplay);
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     rememberPlayed(meta);
@@ -1183,7 +1192,11 @@ async function pick(meta, auto = false) {
     return;
   }
   if (!auto && track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
-  if (await loadTrack(meta)) { setMusicVol(); player.play().catch(() => setPP('play')); }
+  if (await loadTrack(meta, true)) {
+    setMusicVol();
+    if (player.paused) player.play().catch(() => { setPP('play'); toast('Tap play to start'); });
+    else { setPP('pause'); $('disc').classList.add('spinning'); markNow(); publishNow(true); }
+  }
 }
 
 function togglePlay() {
@@ -1220,7 +1233,7 @@ function renderTrack() {
 function markNow() {
   document.querySelectorAll('#results .row').forEach((r) => r.classList.toggle('now', !!track && String(track.trackId) === r.dataset.id && !player.paused));
 }
-const isReal = () => !!loadedId;
+const isReal = () => !!track;
 player.addEventListener('playing', () => { if (!isReal()) return; publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
 player.addEventListener('pause', () => { if (!isReal()) return; publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
 player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
