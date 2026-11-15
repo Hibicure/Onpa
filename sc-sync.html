@@ -283,7 +283,9 @@ player.addEventListener('timeupdate', () => {
   $('seek').value = Math.floor(player.currentTime);
 });
 player.addEventListener('ended', () => {
-  if (state && state.playing && state.by === me) pushState({ ...state, playing: false, position: 0 });
+  // 起こす用の無音が終わっただけのときは無視する
+  if (player.src === SILENT || !state || loadedTrack !== state.trackId) return;
+  if (state.playing && state.by === me) pushState({ ...state, playing: false, position: 0 });
 });
 </script>
 </body>
