@@ -53,7 +53,7 @@ final class Lab: ObservableObject {
         case widget = "埋め込み"
         var id: String { rawValue }
     }
-    @Published var engine: Engine = .stream {
+    @Published var engine: Engine = .widget {
         didSet {
             guard engine != oldValue else { return }
             // 切り替えたら、もう片方は止める
