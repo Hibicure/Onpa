@@ -157,7 +157,7 @@
   .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
-  .controls { display: grid; grid-template-columns: 1fr auto auto auto 1fr; align-items: center; gap: 8px; margin: 16px 0 6px; }
+  .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); align-items: center; gap: 4px; margin: 16px 0 6px; }
   .modes { display: flex; justify-content: flex-end; gap: 2px; }
   .mode { width: 32px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #A3A8B8; position: relative; }
   .mode svg { width: 20px; height: 20px; }
@@ -165,7 +165,7 @@
   .mode[aria-pressed="true"]::after, .mode[data-mode="all"]::after, .mode[data-mode="one"]::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--cobalt); }
   .mode .one { position: absolute; top: 7px; right: 0; font-family: var(--display); font-size: 9px; font-weight: 700; color: var(--cobalt); display: none; }
   .mode[data-mode="one"] .one { display: block; }
-  .skip { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
+  .skip { width: 54px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
   .skip svg { width: 36px; height: 36px; }
   .skip:active { background: var(--line); }
   .upnext { margin-top: 18px; }
