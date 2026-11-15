@@ -156,7 +156,26 @@
   .seek .knob { position: absolute; top: 6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   .times { display: flex; justify-content: space-between; font-family: var(--display); font-size: 11px; color: var(--mute); font-variant-numeric: tabular-nums; }
-  .controls { display: flex; justify-content: center; margin: 14px 0 6px; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 14px 0 6px; }
+  .skip { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
+  .skip svg { width: 26px; height: 26px; }
+  .skip:active { background: var(--line); }
+  .upnext { margin-top: 18px; }
+  .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .uphead .who { font-family: var(--body); font-weight: 500; font-size: 12px; color: var(--cobalt); }
+  .uprow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .uprow:last-child { border-bottom: none; }
+  .uprow img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--holo); flex-shrink: 0; }
+  .uprow .txt { flex: 1; min-width: 0; }
+  .uprow .t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .uprow .s { font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .uprow .x { width: 32px; height: 32px; border-radius: 50%; color: var(--mute); display: grid; place-items: center; }
+  .uprow .x svg { width: 16px; height: 16px; }
+  .upempty { font-size: 13px; color: var(--mute); padding: 6px 0; }
+  .row .add { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; color: var(--ink); flex-shrink: 0; }
+  .row .add svg { width: 16px; height: 16px; }
+  .row .add:active { background: var(--line); }
+  .row[role=button] { cursor: pointer; }
   .controls .pp { width: 68px; height: 68px; }
   .controls .pp svg { width: 26px; height: 26px; }
   .mix { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--surface); display: grid; gap: 12px; }
@@ -313,11 +332,15 @@
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><button class="pp" id="npPP" aria-label="Play or pause"></button></div>
+    <div class="controls"><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM19 6.2v11.6a1 1 0 0 1-1.5.86L9.6 13.3a1.5 1.5 0 0 1 0-2.6l7.9-5.36A1 1 0 0 1 19 6.2z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM5 6.2v11.6a1 1 0 0 0 1.5.86l7.9-5.36a1.5 1.5 0 0 0 0-2.6L6.5 5.34A1 1 0 0 0 5 6.2z"/></svg></button></div>
     <div class="mix">
       <label>Music<input type="range" id="volMusic" min="0" max="100" value="80"></label>
       <label>Voice<input type="range" id="volVoice" min="0" max="100" value="100" disabled></label>
       <div class="note" id="mixNote">Voice volume is available during a call</div>
+    </div>
+    <div class="upnext">
+      <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
+      <div id="upList"></div>
     </div>
   </div>
 </section>
@@ -433,7 +456,6 @@ function startApp() {
   watchFriends();
   watchIncoming();
   if (sc) loadLikes().catch(() => {});
-  if (isIOS) $('mixNote').textContent = 'On iPhone, use the side buttons for music. Voice volume is available during a call.';
 }
 
 // ===================== タブ =====================
@@ -461,11 +483,12 @@ $('q').addEventListener('input', (e) => {
 
 function rowHTML(t, i) {
   return `
-    <button class="row" data-i="${i}" data-id="${t.id}">
+    <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
       <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}</div></div>
       <span class="tag">${fmt(t.duration / 1000)}</span>
-    </button>`;
+      <button class="add" data-q="${i}" aria-label="Add to Up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>`;
 }
 function renderTracks(list, emptyHTML) {
   lastResults = list;
@@ -488,10 +511,15 @@ async function search(q) {
   }
 }
 
+$('results').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.row[role=button]')) { e.preventDefault(); e.target.click(); }
+});
 $('results').addEventListener('click', (e) => {
   if (e.target.closest('.sc-connect')) { connectSC(); return; }
   const pl = e.target.closest('[data-pl]');
   if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
+  const add = e.target.closest('[data-q]');
+  if (add) { addToUpNext(lastResults[Number(add.dataset.q)]); return; }
   const row = e.target.closest('.row');
   if (!row) return;
   playFrom(lastResults, Number(row.dataset.i));
@@ -501,8 +529,66 @@ function playFrom(list, i) {
   queue = list.slice(); qi = i;
   pick(toMeta(queue[qi]));
 }
-function hasNext() { return qi >= 0 && qi + 1 < queue.length; }
-function playNext() { if (!hasNext()) return false; qi++; pick(toMeta(queue[qi]), true); return true; }
+function hasNext() { return upNext.length > 0 || (qi >= 0 && qi + 1 < queue.length); }
+// 次の曲：「Up next」に入っている曲が先、なければ一覧の続き
+function playNext(auto = true) {
+  const n = takeUpNext();
+  if (n) { pick(n, auto); return true; }
+  if (qi >= 0 && qi + 1 < queue.length) { qi++; pick(toMeta(queue[qi]), auto); return true; }
+  return false;
+}
+function playPrev() {
+  if ((player.currentTime || 0) > 3 || !playHistory.length) { seekTo(0); return; }
+  const prev = playHistory.pop();
+  goingBack = true;
+  const i = queue.findIndex((t) => String(t.id) === String(prev.trackId));
+  if (i >= 0) qi = i;
+  pick(prev, false);
+}
+$('npNext').addEventListener('click', () => { unlockAudio(); if (!playNext(false)) toast('Nothing up next'); });
+$('npPrev').addEventListener('click', () => { unlockAudio(); playPrev(); });
+
+// ===================== Up next（次に流す曲。通話中は2人で共有） =====================
+let upNext = [], queueRef = null;
+const playHistory = [];
+let goingBack = false;
+const X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+
+function addToUpNext(t) {
+  const meta = toMeta(t);
+  unlockAudio();
+  if (!track) { pick(meta); return; } // 何も流れていなければ、そのまま再生
+  if (call.state === 'live' && queueRef) {
+    queueRef.push({ ...meta, artwork: meta.artwork || '', by: me.uid, byName: me.name, at: TS });
+  } else {
+    upNext.push({ ...meta, key: 'l' + Date.now() + Math.random() });
+    renderUpNext();
+  }
+  toast('Added to Up next');
+}
+function takeUpNext() {
+  const n = upNext[0];
+  if (!n) return null;
+  if (call.state === 'live' && queueRef) queueRef.child(n.key).remove();
+  upNext.shift();
+  renderUpNext();
+  return { trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork };
+}
+function renderUpNext() {
+  $('upWho').textContent = call.state === 'live' && call.peer ? `Shared with ${call.peer.name}` : '';
+  $('upList').innerHTML = upNext.length ? upNext.map((n) => `
+    <div class="uprow">
+      <img src="${esc(n.artwork)}" alt="" onerror="this.removeAttribute('src')">
+      <div class="txt"><div class="t">${esc(n.title)}</div><div class="s">${esc(n.artist)}${n.byName && call.state === 'live' ? ` <span style="color:var(--cobalt)">added by ${esc(n.by === me.uid ? 'you' : n.byName)}</span>` : ''}</div></div>
+      <button class="x" data-rm="${esc(n.key)}" aria-label="Remove">${X_ICON}</button>
+    </div>`).join('') : '<div class="upempty">Tap + on any track to play it next.</div>';
+}
+$('upList').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-rm]');
+  if (!b) return;
+  if (call.state === 'live' && queueRef) queueRef.child(b.dataset.rm).remove();
+  else { upNext = upNext.filter((n) => n.key !== b.dataset.rm); renderUpNext(); }
+});
 
 $('shuffle').addEventListener('click', () => {
   if (!lastResults.length) return;
@@ -656,6 +742,7 @@ function splitArtist(t) {
 const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 const player = new Audio();
 player.preload = 'auto';
+player.crossOrigin = 'anonymous';
 let hls = null, track = null, loadedId = null, loadToken = 0, loading = false;
 const playCache = new Map();
 
@@ -673,7 +760,24 @@ function getPlay(id) {
   return p;
 }
 
+// 音楽の音量は、iPhoneでも効くようにWeb Audio経由で変える
+let actx = null, gain = null;
+function ensureGraph() {
+  if (actx) { if (actx.state === 'suspended') actx.resume().catch(() => {}); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    actx = new AC();
+    const src = actx.createMediaElementSource(player);
+    gain = actx.createGain();
+    gain.gain.value = volMusic();
+    src.connect(gain);
+    gain.connect(actx.destination);
+  } catch (e) { console.warn(e); actx = null; gain = null; }
+}
+function setMusicVol() { if (gain) gain.gain.value = volMusic(); else player.volume = volMusic(); }
+
 function unlockAudio() {
+  ensureGraph();
   // iPhoneは「タップした瞬間」に鳴らし始めないと、あとで再生できない
   // （一度鳴らしたプレーヤーは、その後は自由に再生できる）
   if (!loadedId && !player.src) { player.src = SILENT; player.play().catch(() => {}); }
@@ -683,6 +787,8 @@ async function loadTrack(meta) {
   const my = ++loadToken;
   if (hls) { hls.destroy(); hls = null; }
   loading = true; loadedId = null;
+  if (track && !goingBack && track.trackId !== meta.trackId) { playHistory.push(track); if (playHistory.length > 50) playHistory.shift(); }
+  goingBack = false;
   track = meta;
   renderTrack();
   setPP('load');
@@ -723,7 +829,7 @@ async function pick(meta, auto = false) {
     return;
   }
   if (!auto && track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
-  if (await loadTrack(meta)) { player.volume = volMusic(); player.play().catch(() => setPP('play')); }
+  if (await loadTrack(meta)) { setMusicVol(); player.play().catch(() => setPP('play')); }
 }
 
 function togglePlay() {
@@ -796,7 +902,7 @@ seekEl.addEventListener('pointercancel', () => { dragging = false; seekEl.classL
 // 音量
 const volMusic = () => Number($('volMusic').value) / 100;
 function paintRange(el) { el.style.setProperty('--v', el.value + '%'); }
-$('volMusic').addEventListener('input', (e) => { paintRange(e.target); player.volume = volMusic(); });
+$('volMusic').addEventListener('input', (e) => { paintRange(e.target); setMusicVol(); });
 $('volVoice').addEventListener('input', (e) => { paintRange(e.target); applyVoiceVolume(); });
 paintRange($('volMusic')); paintRange($('volVoice'));
 
@@ -951,10 +1057,19 @@ async function joinCall() {
     call.timer = setInterval(showCallbar, 1000);
     showCallbar();
     $('volVoice').disabled = false;
-    if (!isIOS) $('mixNote').textContent = 'Balance voice and music';
+    $('mixNote').textContent = 'Balance voice and music';
     // 一緒に聴く：ルームの再生状態を見る
     stateRef = db.ref(`rooms/${call.room}/state`);
     stateRef.on('value', (s) => applyRoomState(s.val()));
+    // Up next を2人で共有する（自分が入れていた曲も持ち込む）
+    const mine = upNext.slice();
+    queueRef = db.ref(`rooms/${call.room}/queue`);
+    queueRef.on('value', (s) => {
+      const v = s.val() || {};
+      upNext = Object.keys(v).sort().map((k) => ({ ...v[k], key: k }));
+      renderUpNext();
+    });
+    mine.forEach((n) => queueRef.push({ trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork || '', by: me.uid, byName: me.name, at: TS }));
     // 自分が曲を流していたら、それをルームに持ち込む
     const st = (await stateRef.get()).val();
     if (!st && track && loadedId) pushRoomState({ ...track, playing: !player.paused, position: player.currentTime });
@@ -973,6 +1088,7 @@ function endCall(msg) {
   clearTimeout(call.ringTimer); clearInterval(call.timer);
   if (call.statusRef) call.statusRef.off();
   if (stateRef) stateRef.off();
+  if (queueRef) { queueRef.off(); queueRef = null; upNext = []; renderUpNext(); }
   stateRef = null; roomState = null;
   if (call.lk) { call.lk.disconnect(); call.lk = null; }
   document.querySelectorAll('body > audio').forEach((el) => el.remove());
@@ -980,7 +1096,7 @@ function endCall(msg) {
   call.room = null; call.peer = null; call.muted = false;
   $('callbar').hidden = true; $('npTogether').hidden = true;
   $('volVoice').disabled = true;
-  $('mixNote').textContent = isIOS ? 'On iPhone, use the side buttons for music. Voice volume is available during a call.' : 'Voice volume is available during a call';
+  $('mixNote').textContent = 'Voice volume is available during a call';
   renderFriends();
   if (msg) toast(msg);
 }
@@ -1036,7 +1152,7 @@ async function applyRoomState(s) {
     }
     const target = expectedPos(roomState);
     if (Math.abs(player.currentTime - target) > 0.7) player.currentTime = target;
-    player.volume = volMusic();
+    setMusicVol();
     if (roomState.playing) await player.play(); else player.pause();
   } catch (e) {
     if (e.name === 'NotAllowedError') toast('Tap anywhere to start playback');
@@ -1052,6 +1168,7 @@ setInterval(() => {
 }, 4000);
 // iPhoneで自動再生が止められたとき、どこかタップで追いつく
 document.addEventListener('pointerdown', () => {
+  if (actx && actx.state !== 'running') actx.resume().catch(() => {});
   if (call.state === 'live' && roomState && roomState.playing && player.paused && loadedId === roomState.trackId) {
     player.currentTime = expectedPos(roomState);
     player.play().catch(() => {});
@@ -1060,6 +1177,7 @@ document.addEventListener('pointerdown', () => {
 }, true);
 
 setPP('play');
+renderUpNext();
 </script>
 </body>
 </html>
