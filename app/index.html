@@ -179,9 +179,12 @@
   .onboard .at { position: relative; }
   .onboard .at input { padding-left: 34px; }
   .onboard .at::before { content: '@'; position: absolute; left: 16px; top: 13px; font-size: 17px; color: var(--mute); }
-  .onboard .fine { font-size: 13px; color: var(--mute); margin: 0; }
+  .onboard .fine { font-size: 13px; color: var(--mute); margin: -8px 0 8px; }
   .onboard .err { color: var(--danger); font-size: 13px; min-height: 20px; }
   .onboard .go { margin-top: auto; height: 54px; border-radius: 16px; background: var(--ink); color: #fff; font-weight: 700; font-size: 16px; }
+
+  .boot { position: fixed; inset: 0; display: grid; place-items: center; }
+  .boot .disc { width: 72px; }
 
   /* ---------- お知らせ ---------- */
   .toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: #fff; font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
@@ -195,6 +198,9 @@
 </head>
 <body>
 
+<!-- 起動中 -->
+<div class="boot" id="boot"><div class="disc spinning"><div class="label"></div><div class="hole"></div></div></div>
+
 <!-- 初回：名前と@IDを決める -->
 <section class="onboard" id="onboard" hidden>
   <div class="disc"><div class="label"></div><div class="hole"></div></div>
@@ -202,8 +208,8 @@
   <p>Pick a name and a handle. No email, no password.</p>
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
   <label class="f"><span>Handle</span><div class="at"><input id="obHandle" maxlength="15" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="hibiki"></div></label>
-  <div class="err" id="obErr"></div>
   <p class="fine">Friends search this to add you. Letters, numbers and _ only.</p>
+  <div class="err" id="obErr"></div>
   <button class="go" id="obGo">Get started</button>
 </section>
 
@@ -355,6 +361,7 @@ firebase.auth().onAuthStateChanged(async (user) => {
   catch (e) { toast("Can't reach the server (" + e.message + ')'); return; }
   if (u && u.handle) { me = { uid: user.uid, handle: u.handle, name: u.name }; startApp(); }
   else { $('onboard').hidden = false; }
+  $('boot').hidden = true;
 });
 
 $('obHandle').addEventListener('input', (e) => { e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''); });
@@ -381,6 +388,7 @@ $('obGo').addEventListener('click', async () => {
 });
 
 function startApp() {
+  $('boot').hidden = true;
   $('app').hidden = false;
   $('meLabel').textContent = '@' + me.handle;
   $('myHandle').textContent = '@' + me.handle;
