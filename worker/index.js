@@ -361,6 +361,25 @@ export default {
         return json(hit ? await hit.json() : { none: true, blockedUntil: await readBlocked() }, 200, cors);
       }
 
+      // ---- 調査用: 制限中でも1回だけ発行を試す（券そのものは返さない）
+      if (p === '/debug/try') {
+        const res = await fetch(TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json; charset=utf-8', 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${btoa(`${env.SC_CLIENT_ID}:${env.SC_CLIENT_SECRET}`)}` },
+          body: 'grant_type=client_credentials',
+        });
+        const text = await res.text();
+        let ok = false;
+        if (res.ok) {
+          try {
+            const data = JSON.parse(text);
+            const d = { token: data.access_token, rt: data.refresh_token || null, exp: Date.now() + Math.max((data.expires_in || 3600) - 120, 60) * 1000 };
+            cached = d; await writeCachedToken(d); await writeBlocked(0); ok = true;
+          } catch { /* 無視 */ }
+        }
+        return json({ status: res.status, ok, headers: Object.fromEntries([...res.headers]), body: ok ? '(token saved)' : text.slice(0, 400) }, 200, cors);
+      }
+
       // ---- 再生: /play?id=曲ID → 鳴らせるURL（フル優先、だめなら30秒）
       if (p === '/play') {
         const id = url.searchParams.get('id') || '';
