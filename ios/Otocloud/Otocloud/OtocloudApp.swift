@@ -67,6 +67,7 @@ struct WebShell: UIViewRepresentable {
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
+    @MainActor
     final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate, UIScrollViewDelegate {
         weak var webView: WKWebView?
         let nativeCall = NativeCall()
@@ -207,7 +208,8 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
     private func applyProcessing() {
         guard room != nil else { return }
         let outs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType)
-        let headphones = outs.contains { [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio].contains($0) }
+        let wired: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio]
+        let headphones = outs.contains { wired.contains($0) }
         AudioManager.shared.isVoiceProcessingBypassed = headphones
     }
 
