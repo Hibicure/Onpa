@@ -223,29 +223,19 @@
   .disc .edge::after { content: ''; position: absolute; inset: 0; border-radius: 50%;
     background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,.28));
     -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 98.4%, #000 98.6%); mask-image: radial-gradient(circle closest-side, transparent 0 98.4%, #000 98.6%); }
-  /* 真ん中：透明なプラスチックのリングと穴 */
+  /* 真ん中：CDケースの透明な留め具。中心は黒い太陽（黒い円から光線がのびる） */
   .disc .hub { position: absolute; inset: 34%; border-radius: 50%; pointer-events: none;
-    background:
-      radial-gradient(circle closest-side, rgba(255,255,255,.10) 0 76%, rgba(255,255,255,.32) 78% 84%, rgba(214,216,220,.6) 86% 100%);
-
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.85), 0 0 0 .5px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.22); transition: inset .35s cubic-bezier(.2,.8,.2,1); }
-  /* 透明な樹脂の部分：穴のまわりに、中心へ集まる細い筋と、段差の細い線 */
   .disc .hub::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
-    background: repeating-conic-gradient(from 0deg, rgba(20,20,24,.16) 0deg .45deg, rgba(255,255,255,0) .45deg .9deg, rgba(255,255,255,.4) .9deg 1.25deg, rgba(255,255,255,0) 1.25deg 1.8deg);
-    -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 34%, #000 37% 70%, transparent 73%);
-    mask-image: radial-gradient(circle closest-side, transparent 0 34%, #000 37% 70%, transparent 73%); }
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3CradialGradient id='s'%3E%3Cstop offset='0' stop-color='%23030304'/%3E%3Cstop offset='.6' stop-color='%230d0d0f'/%3E%3Cstop offset='1' stop-color='%231b1b1e'/%3E%3C/radialGradient%3E%3CradialGradient id='p' cx='45%25' cy='40%25' r='60%25'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.55'/%3E%3Cstop offset='.75' stop-color='%23E6E8EC' stop-opacity='.42'/%3E%3Cstop offset='1' stop-color='%23C9CCD2' stop-opacity='.6'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='100' cy='100' r='99.5' fill='url%28%23p%29'/%3E%3Ccircle cx='100' cy='100' r='95.5' fill='none' stroke='%23fff' stroke-opacity='.9' stroke-width='.8'/%3E%3Ccircle cx='100' cy='100' r='91.5' fill='none' stroke='%23000' stroke-opacity='.1' stroke-width='.6'/%3E%3Ccircle cx='100' cy='100' r='88' fill='none' stroke='%23fff' stroke-opacity='.7' stroke-width='.6'/%3E%3Cg transform='translate%280 .8%29' fill='%23fff' fill-opacity='.9'%3E%3Ccircle cx='100' cy='100' r='36'/%3E%3Cpath d='M93.1 67.6 L96.5 23.6 Q100.0 17.9 103.5 23.6 L106.9 67.6 Z M110.3 68.5 L135.2 32.1 Q141.1 28.9 141.2 35.6 L122.1 75.4 Z M124.6 77.9 L164.4 58.8 Q171.1 58.9 167.9 64.8 L131.5 89.7 Z M132.4 93.1 L176.4 96.5 Q182.1 100.0 176.4 103.5 L132.4 106.9 Z M131.5 110.3 L167.9 135.2 Q171.1 141.0 164.4 141.2 L124.6 122.1 Z M122.1 124.6 L141.2 164.4 Q141.1 171.1 135.2 167.9 L110.3 131.5 Z M106.9 132.4 L103.5 176.4 Q100.0 182.1 96.5 176.4 L93.1 132.4 Z M89.7 131.5 L64.8 167.9 Q59.0 171.1 58.8 164.4 L77.9 124.6 Z M75.4 122.1 L35.6 141.2 Q28.9 141.1 32.1 135.2 L68.5 110.3 Z M67.6 106.9 L23.6 103.5 Q17.9 100.0 23.6 96.5 L67.6 93.1 Z M68.5 89.7 L32.1 64.8 Q28.9 58.9 35.6 58.8 L75.4 77.9 Z M77.9 75.4 L58.8 35.6 Q58.9 28.9 64.8 32.1 L89.7 68.5 Z ' stroke='%23fff' stroke-opacity='.9' stroke-width='1' stroke-linejoin='round'/%3E%3C/g%3E%3Cg fill='url%28%23s%29'%3E%3Ccircle cx='100' cy='100' r='36'/%3E%3Cpath d='M93.1 67.6 L96.5 23.6 Q100.0 17.9 103.5 23.6 L106.9 67.6 Z M110.3 68.5 L135.2 32.1 Q141.1 28.9 141.2 35.6 L122.1 75.4 Z M124.6 77.9 L164.4 58.8 Q171.1 58.9 167.9 64.8 L131.5 89.7 Z M132.4 93.1 L176.4 96.5 Q182.1 100.0 176.4 103.5 L132.4 106.9 Z M131.5 110.3 L167.9 135.2 Q171.1 141.0 164.4 141.2 L124.6 122.1 Z M122.1 124.6 L141.2 164.4 Q141.1 171.1 135.2 167.9 L110.3 131.5 Z M106.9 132.4 L103.5 176.4 Q100.0 182.1 96.5 176.4 L93.1 132.4 Z M89.7 131.5 L64.8 167.9 Q59.0 171.1 58.8 164.4 L77.9 124.6 Z M75.4 122.1 L35.6 141.2 Q28.9 141.1 32.1 135.2 L68.5 110.3 Z M67.6 106.9 L23.6 103.5 Q17.9 100.0 23.6 96.5 L67.6 93.1 Z M68.5 89.7 L32.1 64.8 Q28.9 58.9 35.6 58.8 L75.4 77.9 Z M77.9 75.4 L58.8 35.6 Q58.9 28.9 64.8 32.1 L89.7 68.5 Z ' stroke='%23111113' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat; }
   .disc.spinning .hub::before { animation: spin 9s linear infinite; }
-  .disc .hub::after { content: ''; position: absolute; inset: 0; border-radius: 50%;
-    background: radial-gradient(circle closest-side, transparent 0 34.5%, rgba(20,20,24,.16) 35% 35.8%, rgba(255,255,255,.9) 36.2% 37%, transparent 37.4% 72.6%,
-      rgba(255,255,255,.9) 73% 74%, rgba(20,20,24,.14) 74.4% 75.4%, transparent 76%); }
   /* 通話中は、CDの真ん中に相手が出る */
   .disc .peer { position: absolute; inset: 35.2%; border-radius: 50%; background: var(--holo); display: grid; place-items: center; z-index: 3;
     font-family: var(--display); font-weight: 700; font-size: clamp(22px, 8vw, 36px); color: #151517; overflow: hidden;
     box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); }
   .disc .peer i { position: absolute; right: 9%; bottom: 9%; width: 16%; height: 16%; z-index: 1; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 2px #fff; }
-  .disc.incall .hole { display: none; }
   /* 穴：何もない（後ろの背景がそのまま見える）。縁だけ */
-  .disc .hole { position: absolute; left: 44%; top: 44%; width: 12%; height: 12%; border-radius: 50%; z-index: 2; background: transparent;
+  .disc .hole { display: none; position: absolute; left: 44%; top: 44%; width: 12%; height: 12%; border-radius: 50%; z-index: 2; background: transparent;
     box-shadow: inset 0 0 0 .5px rgba(0,0,0,.35), inset 0 1px 2px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.55); }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* ジャケットを左右にスワイプして曲送り */
