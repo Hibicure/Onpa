@@ -606,7 +606,8 @@
   .field input { border: 0 !important; border-radius: var(--nose) !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; }
   .field input:focus { background: color-mix(in srgb, var(--ink) 11%, transparent) !important; }
   .seg { border-radius: var(--nose) !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; }
-  .seg button { border-radius: var(--nose) !important; }
+  .seg button { border-radius: var(--nose) !important; transition: background .18s ease, color .18s ease; }
+  .seg { touch-action: none; }
   .seg button[aria-selected="true"] { background: color-mix(in srgb, var(--ink) 12%, transparent) !important; box-shadow: none !important; }
   .row .tag { border-radius: 14px / 50% !important; border: 0 !important; background: color-mix(in srgb, var(--ink) 7%, transparent); padding: 2px 9px !important; }
   .row .add { border: 0 !important; background: none !important; }
@@ -1629,7 +1630,21 @@ $('shuffle').addEventListener('click', () => {
 });
 
 // タブの切り替え
-$('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
+$('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b && b.dataset.mode !== mode) setMode(b.dataset.mode); });
+// Search / Likes / Playlists のバーを指でなぞって切り替え（選んでいる所が指についてくる）
+(() => {
+  const seg = $('seg'); let id = null, moved = false;
+  const pick = (x) => {
+    const bs = [...seg.querySelectorAll('[data-mode]')];
+    const b = bs.find((el) => { const r = el.getBoundingClientRect(); return x >= r.left && x <= r.right; }) || (x < bs[0].getBoundingClientRect().left ? bs[0] : bs[bs.length - 1]);
+    bs.forEach((el) => el.setAttribute('aria-selected', String(el === b)));
+    return b;
+  };
+  seg.addEventListener('pointerdown', (e) => { id = e.pointerId; moved = false; seg.setPointerCapture(id); });
+  seg.addEventListener('pointermove', (e) => { if (e.pointerId !== id) return; moved = true; pick(e.clientX); });
+  const end = (e) => { if (e.pointerId !== id) return; id = null; if (!moved) return; const b = pick(e.clientX); if (b.dataset.mode !== mode) setMode(b.dataset.mode); };
+  seg.addEventListener('pointerup', end); seg.addEventListener('pointercancel', end);
+})();
 function setMode(m) {
   mode = m;
   document.querySelectorAll('#seg [data-mode]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
