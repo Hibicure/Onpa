@@ -2,6 +2,7 @@ import AVFoundation
 import LiveKit
 import SwiftUI
 import WebKit
+import ObjectiveC
 
 // Otocloud のアプリ本体。
 // 画面とふるまいは https://on-pa.net/app/ と同じものを、アプリの中でそのまま表示する。
@@ -55,6 +56,7 @@ struct WebShell: UIViewRepresentable {
         if #available(iOS 16.4, *) { web.isInspectable = true }
         // 毎回いちばん新しいサイトを読む（古い画面が残らないように）
         web.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
+        web.hideInputAccessoryBar() // キーボードの上の「前・次・完了」のバーを出さない
         context.coordinator.webView = web
         context.coordinator.nativeCall.webView = web
         // アプリに戻ってきた時、しばらく経っていたら新しいサイトを読み直す
@@ -448,5 +450,23 @@ final class Radio {
     func delete(id: String) {
         guard !id.isEmpty, !id.contains("/") else { return }
         try? FileManager.default.removeItem(at: root.appendingPathComponent(id, isDirectory: true))
+    }
+}
+
+// MARK: - キーボードの上のバー（前の欄・次の欄・完了）を消す
+// 入力欄を行き来するためのiPhone標準のバー。このアプリでは使わないので出さない。
+extension WKWebView {
+    func hideInputAccessoryBar() {
+        guard let content = scrollView.subviews.first(where: { String(describing: type(of: $0)).hasPrefix("WKContent") }),
+              let base: AnyClass = object_getClass(content) else { return }
+        let name = "\(NSStringFromClass(base))_OtoNoAccessory"
+        var cls: AnyClass? = NSClassFromString(name)
+        if cls == nil, let c = objc_allocateClassPair(base, name, 0) {
+            let block: @convention(block) (AnyObject) -> UIView? = { _ in nil }
+            class_addMethod(c, #selector(getter: UIResponder.inputAccessoryView), imp_implementationWithBlock(block), "@@:")
+            objc_registerClassPair(c)
+            cls = c
+        }
+        if let cls { object_setClass(content, cls) }
     }
 }
