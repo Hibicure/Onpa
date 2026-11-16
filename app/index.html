@@ -444,7 +444,7 @@
   .hrow { display: flex; gap: 12px; overflow-x: auto; padding: 0 20px 4px; scroll-padding-inline: 20px; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .hrow::-webkit-scrollbar { display: none; }
   .jk { flex: 0 0 auto; width: 132px; scroll-snap-align: start; text-align: left; }
-  .jk .cover { width: 132px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; position: relative; background: var(--chip);
+  .jk .cover { width: 132px; aspect-ratio: 1; border-radius: 4px; overflow: hidden; position: relative; background: var(--chip);
     box-shadow: 0 0 0 .5px rgba(0,0,0,.12), 0 10px 20px -14px rgba(0,0,0,.5); }
   .jk .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .jk .cover img:not([src]) { display: none; }
@@ -454,6 +454,12 @@
   .jk .t { font-size: 13px; font-weight: 600; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .jk .s { font-size: 12px; font-weight: 500; color: color-mix(in srgb, var(--ink) 55%, var(--mute)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .jgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0 20px; }
+  /* アーティストのページ：ジャケットを四角で隙間なく */
+  .sqgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 6px 0 0; }
+  .sq { aspect-ratio: 1; background: var(--chip); overflow: hidden; display: block; }
+  .sq img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sq img:not([src]) { display: none; }
+  .sq:active { opacity: .7; }
   .jgrid .jk { width: auto; min-width: 0; }
   .jgrid .jk .cover { width: 100%; }
   .hero { margin: 18px 16px 0; padding: 22px 20px; border-radius: 22px; background: var(--surface); text-align: center; }
@@ -1291,6 +1297,8 @@ $('results').addEventListener('click', (e) => {
   if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
   const add = e.target.closest('[data-q]');
   if (add) { addToUpNext(lastResults[Number(add.dataset.q)]); return; }
+  const sq = e.target.closest('.sq');
+  if (sq) { playFrom(lastResults, Number(sq.dataset.i)); return; }
   const row = e.target.closest('.row');
   if (!row) return;
   playFrom(lastResults, Number(row.dataset.i));
@@ -1626,7 +1634,11 @@ async function openArtist(userId, name) {
     const r = await fetch(`${WORKER}/user/${userId}/tracks`, { headers: await scHeaders() });
     if (!r.ok) throw new Error(r.status);
     const d = (await r.json()).map(splitArtist);
-    if (mode === 'artist') renderTracks(d, msg('No tracks yet'));
+    if (mode === 'artist') {
+      lastResults = d;
+      // ジャケットだけを四角でぎっしり並べる
+      $('results').innerHTML = d.length ? `<div class="sqgrid">${d.map((t, i) => `<button class="sq" data-i="${i}" aria-label="${esc(t.title)}"><img src="${esc(big(t.artwork))}" alt="" loading="lazy" onerror="this.removeAttribute('src')"></button>`).join('')}</div>` : msg('No tracks yet');
+    }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
 }
 async function openTrackArtist() {
