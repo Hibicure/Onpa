@@ -350,6 +350,10 @@
   /* 四角の時は、ふちの細い線を出さない（影だけ）。下地の銀色がふちからのぞかないように */
   .np.square #disc, .np.square #discPeek { box-shadow: 0 28px 48px -22px rgba(0,0,0,.45), 0 10px 16px -10px rgba(0,0,0,.28); }
   .np.square #disc .platter, .np.square #discPeek .platter { background: transparent; }
+  /* 四角の時：ふちに細い線（下の色のすき間）が出ないように、ジャケットを少しだけ大きくして、ふちの線や光を全部消す */
+  .np.square #disc .face, .np.square #discPeek .face { transform: scale(1.02); }
+  .np.square #disc::before, .np.square #disc::after, .np.square #discPeek::before, .np.square #discPeek::after { display: none; }
+  .np.square #disc .edge::before, .np.square #disc .edge::after { display: none; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
   .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 16px 0 6px; }
   .modes { display: flex; justify-content: flex-start; }
