@@ -166,8 +166,10 @@
   .card-me .hint { font-size: 12px; color: var(--mute); }
   .avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--holo); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--ink); flex-shrink: 0; position: relative; }
   .avatar .pic, .disc .peer .pic { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-  .avatar .dot { position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--dot-off); border: 2px solid var(--paper); }
-  .avatar .dot.on { background: var(--live); }
+  /* オンライン：点を外に出さず、丸のふちの内側に細いリング */
+  .avatar .dot { display: none; }
+  .avatar:has(.dot.on)::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 2.5px var(--live), inset 0 0 0 4px color-mix(in srgb, var(--paper) 70%, transparent); pointer-events: none; z-index: 1; }
+  .avatar:has(.dot:not(.on)) { filter: saturate(.5); opacity: .8; }
   .section { margin: 22px 20px 4px; font-size: 13px; color: var(--mute); }
   .btn { height: 38px; padding: 0 16px; border-radius: 99px; font-weight: 700; font-size: 14px; flex-shrink: 0; }
   .btn.primary { background: var(--ink); color: var(--on-ink); }
@@ -316,6 +318,7 @@
   /* 三原色（背景の色）ボタンは、画面の右上に */
   .np .top #ambBtn { position: absolute; right: 12px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
   .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
+  .np .top #themeBtn { position: absolute; right: 54px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
   .heart.ambt svg { width: 27px; height: 27px; }
@@ -433,6 +436,20 @@
   @keyframes egfade { from { opacity: 0; } }
   @keyframes egup { from { transform: translateY(100%); } }
   @keyframes egnod { 40% { transform: translateY(-5px); } }
+  /* 友達ダイヤル：ディスクのまん中をタップ → 電話のダイヤルみたいに、縦（横）にくるくる回して選んでかける */
+  .dial { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    background: color-mix(in srgb, var(--paper) 82%, transparent); -webkit-backdrop-filter: blur(22px) saturate(1.3); backdrop-filter: blur(22px) saturate(1.3); animation: egfade .22s ease; touch-action: none; }
+  .dial[hidden] { display: none; }
+  .dial-wheel { position: relative; width: 100%; height: 400px; perspective: 700px; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); }
+  .dial-item { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; will-change: transform, opacity; }
+  .dial-item .avatar { width: 100%; height: 100%; font-size: 46px; }
+  .dial-item .avatar::after { box-shadow: inset 0 0 0 4px var(--live), inset 0 0 0 6.5px color-mix(in srgb, var(--paper) 70%, transparent) !important; }
+  .dial-info { text-align: center; min-height: 48px; }
+  .dial-info .t { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; color: var(--ink); }
+  .dial-info .s { margin-top: 3px; font-size: 14px; color: var(--mute); }
+  .dial-info .s .on { color: var(--live); font-weight: 700; }
+  .dial-call { width: min(80vw, 320px); margin-top: 4px; }
+  .dial .eg-no { margin-top: 0; }
   /* 「…」のメニュー */
   .as-card { align-items: stretch; text-align: left; padding-top: 12px; }
   .as-item { display: flex; align-items: center; gap: 14px; height: 56px; font-size: 17px; font-weight: 600; color: var(--ink); border-bottom: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
@@ -760,7 +777,6 @@
     <div class="mark">Otocloud</div>
     <div class="right">
       <button class="me" id="meLabel" aria-label="Settings"></button>
-      <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
     </div>
   </header>
 
@@ -910,6 +926,7 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
+      <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
     </div>
     <div class="stage">
@@ -943,6 +960,12 @@
 </section>
 
 <!-- 着信 -->
+<section class="dial" id="dial" hidden role="dialog" aria-label="Call a friend">
+  <div class="dial-wheel" id="dialWheel"></div>
+  <div class="dial-info"><div class="t" id="dialName"></div><div class="s" id="dialSub"></div></div>
+  <button class="eg-go dial-call" id="dialCall">Call</button>
+  <button class="eg-no" id="dialClose">Close</button>
+</section>
 <section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
@@ -1746,6 +1769,10 @@ function neighborMeta(dir) {
     }
     if (!horizontal) {
       // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
+      if (horizontal === null && !e.target.closest('#discPeer') && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
+        const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (Math.hypot(e.clientX - cx, e.clientY - cy) < r.width * 0.17) { openDial(); return; } // まん中（穴のまわり）
+      }
       if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer') && call.state !== 'live') {
         const np = $('np');
         if (np.classList.contains('square')) { np.classList.remove('square'); setFull(true); }
@@ -2800,6 +2827,68 @@ $('found').addEventListener('click', async (e) => {
 });
 
 
+// ===================== 友達ダイヤル =====================
+const dial = { list: [], pos: 0, raf: 0 };
+const DIAL_STEP = 150;
+function openDial() {
+  dial.list = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0));
+  if (!dial.list.length) { toast('Add friends first'); return; }
+  $('dialWheel').innerHTML = dial.list.map(([uid, f]) => `<div class="dial-item" data-uid="${uid}"><div class="avatar">${face(f)}<span class="dot ${f.online ? 'on' : ''}"></span></div></div>`).join('');
+  dial.pos = 0; paintDial(); $('dial').hidden = false;
+}
+function paintDial() {
+  const items = $('dialWheel').children;
+  for (let i = 0; i < items.length; i++) {
+    const o = i - dial.pos, a = Math.abs(o);
+    items[i].style.transform = `translateY(${o * DIAL_STEP * (1 - Math.min(a, 3) * 0.08)}px) rotateX(${-o * 22}deg) scale(${Math.max(0.45, 1 - a * 0.2)})`;
+    items[i].style.opacity = String(Math.max(0, 1 - a * 0.42));
+    items[i].style.zIndex = String(100 - Math.round(a * 10));
+  }
+  const k = Math.max(0, Math.min(dial.list.length - 1, Math.round(dial.pos)));
+  const [, f] = dial.list[k];
+  $('dialName').textContent = f.name || '@' + f.handle;
+  const nowSong = f.online && f.now && f.now.playing && f.now.title ? `  ·  ♪ ${esc(f.now.title)}` : '';
+  $('dialSub').innerHTML = `@${esc(f.handle)}  ${f.online ? '<span class="on">online</span>' : 'offline'}${nowSong}`;
+  $('dialCall').disabled = call.state !== 'idle';
+}
+function snapDial(target) {
+  cancelAnimationFrame(dial.raf);
+  const to = Math.max(0, Math.min(dial.list.length - 1, Math.round(target)));
+  const step = () => { dial.pos += (to - dial.pos) * 0.22; if (Math.abs(to - dial.pos) < 0.002) dial.pos = to; paintDial(); if (dial.pos !== to) dial.raf = requestAnimationFrame(step); };
+  dial.raf = requestAnimationFrame(step);
+}
+(() => {
+  const box = $('dial'); let id = null, last = 0, p0 = 0, v = 0, lt = 0, moved = false, sx = 0, sy = 0;
+  box.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    id = e.pointerId; cancelAnimationFrame(dial.raf); sx = e.clientX; sy = e.clientY; last = 0; p0 = dial.pos; v = 0; lt = performance.now(); moved = false;
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy, d = Math.abs(dy) >= Math.abs(dx) ? dy : dx; // 縦でも横でも回せる
+    if (Math.abs(d) > 4) moved = true;
+    const now = performance.now(); v = (d - last) / Math.max(1, now - lt); last = d; lt = now;
+    dial.pos = Math.max(-0.4, Math.min(dial.list.length - 0.6, p0 - d / DIAL_STEP)); paintDial();
+  });
+  const up = (e) => {
+    if (e.pointerId !== id) return; id = null;
+    if (!moved) { // タップした顔を選ぶ
+      const it = e.target.closest('.dial-item');
+      if (it) { const i = [...$('dialWheel').children].indexOf(it); if (i >= 0) snapDial(i); }
+      return;
+    }
+    snapDial(dial.pos - v * 6);
+  };
+  box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+})();
+$('dialClose').addEventListener('click', () => { $('dial').hidden = true; });
+$('dialCall').addEventListener('click', () => {
+  const k = Math.max(0, Math.min(dial.list.length - 1, Math.round(dial.pos)));
+  const [uid] = dial.list[k];
+  $('dial').hidden = true;
+  startCall(uid);
+});
+
 // ===================== 呼出音 =====================
 // 電話をかけてから相手が出るまで、相手が決めた曲（決めていなければデフォルトの曲）が、かけた側に流れる。
 // 決めた曲は users/{uid}/ringback に { trackId, title, artist, artwork, secret, duration, at(秒：ここから), end(秒：ここまで。来たら at に戻ってくり返す) }
@@ -2835,8 +2924,11 @@ async function openInSC() {
   if (!url) { toast("Couldn't find this song on SoundCloud"); return; }
   if (track.secret && !/\/s-/.test(url)) url += '/' + track.secret; // 鍵つきの曲は鍵つきのリンクで
   if (NATIVE_CALL) {
-    const r = await nat('open', { url }).catch(() => null);
-    if (!r || !r.opened) toast('Update the app to open SoundCloud');
+    const r = await Promise.race([nat('open', { url }).catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 1500))]);
+    if (!r || !r.opened) {
+      // 古いアプリ（外のアプリで開く仕組みがない）：リンクをコピーしておく
+      try { await navigator.clipboard.writeText(url); toast('Link copied — paste it in Safari'); } catch { toast('Open the new Otocloud app to use this'); }
+    }
     return;
   }
   window.open(url, '_blank', 'noopener');
