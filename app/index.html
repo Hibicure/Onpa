@@ -246,6 +246,9 @@
     -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 37%, #000 39% 98%, transparent 99%);
     mask-image: radial-gradient(circle closest-side, transparent 0 37%, #000 39% 98%, transparent 99%); }
   .disc:has(.face[src]) .shine { display: none; }
+  /* ジャケットが乗っている時は、ふちの線と影をなくして、画像を端までそのまま見せる */
+  .np .disc:has(.face[src]) { box-shadow: none; }
+  .np .disc:has(.face[src]) .edge { display: none; }
   /* ふち：細い銀の面取り。上が明るく下が暗い光で、盤の厚みを出す */
   .disc .edge { border-radius: 50%; pointer-events: none;
     box-shadow: inset 0 0 0 .5px rgba(0,0,0,.35), inset 0 0 0 2px rgba(232,234,238,.9), inset 0 0 0 2.5px rgba(0,0,0,.16), inset 0 0 10px rgba(0,0,0,.14); }
@@ -1323,7 +1326,7 @@ $('tabFriends').addEventListener('click', () => showTab('friends'));
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -1903,7 +1906,13 @@ class WidgetMedia extends EventTarget {
       sl.w.bind(E.PLAY, on(() => { this._paused = false; this._at = performance.now(); this.fire('play'); this.fire('playing'); }));
       sl.w.bind(E.PAUSE, on(() => { if (this._paused) return; this._t = this.currentTime; this._paused = true; this.fire('pause'); }));
       sl.w.bind(E.FINISH, on(() => { this._paused = true; this.fire('pause'); this.fire('ended'); }));
-      sl.w.bind(E.PLAY_PROGRESS, on((p) => { this._t = p.currentPosition / 1000; this._at = performance.now(); this.fire('timeupdate'); }));
+      sl.w.bind(E.PLAY_PROGRESS, on((p) => {
+        if (this._seekTo != null) {
+          if (Math.abs(p.currentPosition - this._seekTo) > 1500) return; // 飛ぶ前の古い位置の知らせは無視
+          this._seekDone();
+        }
+        this._t = p.currentPosition / 1000; this._at = performance.now(); this.fire('timeupdate');
+      }));
       sl.w.bind(E.ERROR, on(() => this.fire('error')));
     });
     this.ready = this.slots[0].ready;
@@ -1918,7 +1927,21 @@ class WidgetMedia extends EventTarget {
     const t = this._t + (performance.now() - this._at) / 1000;
     return isFinite(this._d) ? Math.min(this._d, t) : t;
   }
-  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); this.w.seekTo(Math.round(this._t * 1000)); this.fire('timeupdate'); }
+  set currentTime(v) {
+    this._t = Math.max(0, v || 0); this._at = performance.now();
+    const ms = Math.round(this._t * 1000);
+    // 再生中に飛ぶ時は、飛んだ先の音が出始めるまで一瞬だけ音を消す（途切れ途切れに聞こえないように、一発でクリアに）
+    if (!this._paused) {
+      this.w.setVolume(0); this._seekTo = ms;
+      clearTimeout(this._seekT); this._seekT = setTimeout(() => this._seekDone(), 1200);
+    }
+    this.w.seekTo(ms); this.fire('timeupdate');
+  }
+  _seekDone() {
+    if (this._seekTo == null) return;
+    this._seekTo = null; clearTimeout(this._seekT);
+    setTimeout(() => this.w.setVolume(Math.round(this._vol * 100)), 80);
+  }
   get duration() { return this._d; }
   get paused() { return this._paused; }
   get volume() { return this._vol; }
@@ -2076,8 +2099,15 @@ function togglePlay() {
   if (player.paused) player.play().catch(() => {}); else player.pause();
 }
 
+// 曲の長さ（秒）。プレーヤーがまだ長さを知らない時（再生前・止まっている時）は、曲の情報の長さを使う
+function durNow() {
+  const d = player.duration;
+  if (isFinite(d) && d > 0) return d;
+  return track && track.duration > 0 ? track.duration / 1000 : NaN;
+}
 function seekTo(t) {
   if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, position: t }); return; }
+  if (player.paused) resumeAt = t > 0.5 ? t : 0; // 止まっている時は、再生した時にそこから
   player.currentTime = t;
 }
 
@@ -2178,7 +2208,7 @@ function drawWave(frac) {
   g.globalAlpha = 1;
 }
 function drawProgress(t) {
-  const d = player.duration;
+  const d = durNow();
   if (!isFinite(d) || !d) return;
   const pct = Math.min(100, t / d * 100) + '%';
   $('fill').style.width = pct; $('knob').style.left = pct; $('miniBar').style.width = pct;
@@ -2292,8 +2322,8 @@ $('npClose').addEventListener('click', closeNp);
 
 // シークバー
 const seekEl = $('seek');
-const posToTime = (x) => { const r = seekEl.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * (player.duration || 0); };
-seekEl.addEventListener('pointerdown', (e) => { if (!isFinite(player.duration)) return; dragging = true; seekEl.classList.add('drag'); seekEl.setPointerCapture(e.pointerId); drawProgress(posToTime(e.clientX)); });
+const posToTime = (x) => { const r = seekEl.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * (durNow() || 0); };
+seekEl.addEventListener('pointerdown', (e) => { if (!track || !(durNow() > 0)) return; dragging = true; seekEl.classList.add('drag'); seekEl.setPointerCapture(e.pointerId); drawProgress(posToTime(e.clientX)); });
 seekEl.addEventListener('pointermove', (e) => { if (dragging) drawProgress(posToTime(e.clientX)); });
 seekEl.addEventListener('pointerup', (e) => { if (!dragging) return; dragging = false; seekEl.classList.remove('drag'); seekTo(posToTime(e.clientX)); });
 seekEl.addEventListener('pointercancel', () => { dragging = false; seekEl.classList.remove('drag'); });
