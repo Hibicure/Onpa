@@ -307,12 +307,15 @@
   .titlebar .tt { flex: 1; min-width: 0; }
   /* 右側：上に背景の色ボタン、下にハート（曲名・アーティスト名と同じ2段） */
   /* 曲名と三原色、アーティスト名とハートを、それぞれ同じ段にそろえる */
-  .titlebar { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+  .titlebar { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0; align-items: center; }
   .titlebar .tt, .titlebar .tbtns { display: contents; }
   .titlebar #npT { grid-column: 1; grid-row: 1; }
   .titlebar #npS { grid-column: 1; grid-row: 2; }
-  .titlebar #ambBtn { grid-column: 2; grid-row: 2; height: 30px; }
-  .titlebar #heart { grid-column: 2; grid-row: 1; height: 30px; margin: -4px 0; } /* 上：ハート（曲名の段）、下：三原色（アーティスト名の段） */
+  /* ハートは曲名とアーティスト名のまん中の高さに（1行でも2行でも） */
+  .titlebar #heart { grid-column: 2; grid-row: 1 / span 2; align-self: center; height: 34px; }
+  /* 三原色（背景の色）ボタンは、画面の右上に */
+  .np .top #ambBtn { position: absolute; right: 12px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
+  .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
   .heart.ambt svg { width: 27px; height: 27px; }
@@ -327,8 +330,8 @@
   .heart[aria-pressed="true"] { color: var(--ink); }
   .heart[aria-pressed="true"] svg { fill: currentColor; }
   .heart:active svg { transform: scale(.85); }
-  .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-  .np .artist { color: color-mix(in srgb, var(--ink) 72%, var(--mute)); font-weight: 600; font-size: 16px; margin-top: 4px; cursor: pointer; }
+  .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.16; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .np .artist { color: color-mix(in srgb, var(--ink) 72%, var(--mute)); font-weight: 600; font-size: 16px; line-height: 1.3; margin-top: 2px; cursor: pointer; }
   .seek { position: relative; height: 28px; margin-top: 18px; cursor: pointer; touch-action: none; }
   .seek .track { position: absolute; left: 0; right: 0; top: 11px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .seek .fill { height: 100%; width: 0; background: var(--ink); }
@@ -871,6 +874,7 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
+      <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
     </div>
     <div class="stage">
             <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
@@ -878,7 +882,7 @@
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
-      <div class="tbtns"><button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button><button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button></div>
+      <div class="tbtns"><button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button></div>
     </div>
     <div class="seek" id="seek"><canvas class="wave" id="wave"></canvas><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
