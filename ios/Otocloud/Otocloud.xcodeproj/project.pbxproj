@@ -195,6 +195,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Otocloud;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Otocloudで通話するためにマイクを使います。";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Apple Music の曲を、友達と一緒に聴くために使います。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "audio voip";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -222,6 +223,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Otocloud;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Otocloudで通話するためにマイクを使います。";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Apple Music の曲を、友達と一緒に聴くために使います。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "audio voip";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -3,6 +3,7 @@ import LiveKit
 import SwiftUI
 import WebKit
 import ObjectiveC
+import MusicKit
 
 // Otocloud のアプリ本体。
 // 画面とふるまいは https://on-pa.net/app/ と同じものを、アプリの中でそのまま表示する。
@@ -127,6 +128,8 @@ struct WebShell: UIViewRepresentable {
 final class NativeCall: NSObject, WKScriptMessageHandler {
     weak var webView: WKWebView?
     let radio = Radio()
+    let am = AppleMusic()
+    private var amHooked = false
     private var room: Room?
     private var timer: Timer?
     private var voiceVolume: Double = 1
@@ -199,6 +202,21 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     await hangUp()
                 case "route":
                     result = earphones()
+                // ---- Apple Music（2人とも会員の時は、それぞれのiPhoneで同じ曲を流す）
+                case "amStatus":
+                    result = await am.status()
+                case "amAuth":
+                    result = await am.authorize()
+                case "amSearch":
+                    result = ["items": try await am.search(body["q"] as? String ?? "")]
+                case "amPlay":
+                    hookAM()
+                    try await am.play(id: body["trackId"] as? String ?? "", at: body["at"] as? Double ?? 0, autoplay: body["autoplay"] as? Bool ?? true)
+                    result = ["ok": true, "duration": am.duration]
+                case "amPause": am.pause()
+                case "amResume": await am.resume()
+                case "amSeek": am.seek(body["t"] as? Double ?? 0)
+                case "amStop": am.stop()
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
@@ -285,6 +303,13 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                            options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers])
         try? s.setActive(true)
         log("session set")
+    }
+
+    private func hookAM() {
+        guard !amHooked else { return }
+        amHooked = true
+        am.onTick = { [weak self] t, playing in self?.send(["type": "amTime", "t": t, "playing": playing]) }
+        am.onEnded = { [weak self] in self?.send(["type": "amEnded"]) }
     }
 
     /// 今イヤホン（有線・AirPodsなど）から音が出ているか、と、その名前
@@ -493,5 +518,82 @@ extension WKWebView {
             cls = c
         }
         if let cls { object_setClass(content, cls) }
+    }
+}
+
+
+// MARK: - Apple Music（MusicKit）
+// Apple Music の会員の人は、Apple Music の曲をこのアプリの中で流せる。
+// 一緒に聴く時は、2人のiPhoneがそれぞれ自分の Apple Music で同じ曲を同じ位置から流す（音楽を相手に送らない）。
+@MainActor
+final class AppleMusic {
+    private let player = ApplicationMusicPlayer.shared
+    private var timer: Timer?
+    private var current: Song?
+    private var lastT: Double = 0
+    private var wasPlaying = false
+    var onTick: ((Double, Bool) -> Void)?
+    var onEnded: (() -> Void)?
+
+    var duration: Double { current?.duration ?? 0 }
+    private var playing: Bool { player.state.playbackStatus == .playing }
+
+    func status() async -> [String: Any] {
+        let auth = MusicAuthorization.currentStatus
+        var canPlay = false
+        if auth == .authorized, let sub = try? await MusicSubscription.current { canPlay = sub.canPlayCatalogContent }
+        return ["ok": true, "auth": String(describing: auth), "canPlay": canPlay]
+    }
+
+    func authorize() async -> [String: Any] {
+        _ = await MusicAuthorization.request()
+        return await status()
+    }
+
+    func search(_ q: String) async throws -> [[String: Any]] {
+        guard !q.isEmpty else { return [] }
+        var req = MusicCatalogSearchRequest(term: q, types: [Song.self])
+        req.limit = 25
+        let res = try await req.response()
+        return res.songs.map { s in
+            ["id": s.id.rawValue, "title": s.title, "artist": s.artistName,
+             "artwork": s.artwork?.url(width: 500, height: 500)?.absoluteString ?? "",
+             "duration": Int((s.duration ?? 0) * 1000), "isrc": s.isrc ?? "",
+             "url": s.url?.absoluteString ?? ""]
+        }
+    }
+
+    func play(id: String, at: Double, autoplay: Bool) async throws {
+        let req = MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: MusicItemID(id))
+        let res = try await req.response()
+        guard let song = res.items.first else { throw NSError(domain: "AppleMusic", code: 404, userInfo: [NSLocalizedDescriptionKey: "Song not found"]) }
+        current = song
+        player.queue = [song]
+        try await player.prepareToPlay()
+        if at > 0 { player.playbackTime = at }
+        if autoplay { try await player.play() }
+        lastT = at; wasPlaying = autoplay
+        startTimer()
+    }
+
+    func pause() { player.pause() }
+    func resume() async { try? await player.play() }
+    func seek(_ t: Double) { player.playbackTime = t; lastT = t }
+    func stop() { player.stop(); timer?.invalidate(); timer = nil; current = nil }
+
+    // 再生位置を少しずつ画面に知らせる。曲の終わりも知らせる
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let song = self.current else { return }
+                let t = self.player.playbackTime, p = self.playing
+                self.onTick?(t, p)
+                let d = song.duration ?? 0
+                if d > 0, self.wasPlaying, !p, self.lastT > d - 2 { self.wasPlaying = false; self.onEnded?() }
+                if p { self.wasPlaying = true }
+                self.lastT = t
+            }
+        }
     }
 }
