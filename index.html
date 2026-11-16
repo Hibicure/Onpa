@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer-when-downgrade">
-    <title>Onpa - 音楽シェア通話アプリ</title>
+    <title>Otocloud - 音楽シェア通話アプリ</title>
     <!-- SkyWay SDK (new version) -->
     <script src="https://cdn.webrtc.ecl.ntt.com/skyway-4.4.5.js"></script>
     <style>
@@ -1066,7 +1066,7 @@
         <div class="content">
             <!-- Header -->
             <div class="header">
-                <div class="logo">Onpa</div>
+                <div class="logo">Otocloud</div>
                 <div class="header-icons">
                     <div class="icon-btn" onclick="shareLink()">📤</div>
                     <div class="icon-btn" onclick="toggleTheme()">🎨</div>
@@ -1337,7 +1337,7 @@
     <!-- Connection Setup Modal -->
     <div class="settings-modal active" id="setupModal">
         <div class="settings-content" onclick="event.stopPropagation()">
-            <div class="settings-title">🎵 Welcome to Onpa</div>
+            <div class="settings-title">🎵 Welcome to Otocloud</div>
 
             <div class="settings-section">
                 <div class="settings-label">Your User ID</div>
@@ -1484,13 +1484,13 @@
                 
                 if (error.name === 'NotAllowedError') {
                     errorMessage = '🎤 Microphone Access Denied\n\n';
-                    errorMessage += 'To use Onpa, you need to:\n\n';
+                    errorMessage += 'To use Otocloud, you need to:\n\n';
                     errorMessage += '1. Open Safari Settings\n';
                     errorMessage += '2. Scroll down and tap "Safari"\n';
                     errorMessage += '3. Tap "Camera & Microphone"\n';
                     errorMessage += '4. Set to "Ask" or "Allow"\n';
                     errorMessage += '5. Reload this page\n\n';
-                    errorMessage += 'Note: Onpa requires HTTPS to work on iPhone.';
+                    errorMessage += 'Note: Otocloud requires HTTPS to work on iPhone.';
                 } else if (error.name === 'NotFoundError') {
                     errorMessage = '🎤 No microphone found\n\nPlease check that your device has a working microphone.';
                 } else if (error.name === 'NotReadableError') {
@@ -1630,15 +1630,15 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // Share Onpa link
+        // Share Otocloud link
         function shareLink() {
             const appUrl = window.location.href;
             
             // Check if Web Share API is available (works on mobile)
             if (navigator.share) {
                 navigator.share({
-                    title: 'Onpa - Music Call App',
-                    text: 'Join me on Onpa! Listen to music together while on call 🎵',
+                    title: 'Otocloud - Music Call App',
+                    text: 'Join me on Otocloud! Listen to music together while on call 🎵',
                     url: appUrl
                 })
                 .then(() => console.log('Shared successfully'))

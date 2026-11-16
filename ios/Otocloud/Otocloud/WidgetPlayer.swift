@@ -55,7 +55,7 @@ final class WidgetPlayer: NSObject, ObservableObject, WKScriptMessageHandler {
           w.bind(SC.Widget.Events.PLAY_PROGRESS, (p) => post({ e: 'progress', pos: p.currentPosition / 1000 }));
         </script></body></html>
         """
-        // 埋め込みプレーヤーが自分のサイトから呼ばれたと分かるよう、Onpaのアドレスを基準にする
+        // 埋め込みプレーヤーが自分のサイトから呼ばれたと分かるよう、Otocloudのアドレスを基準にする
         webView.loadHTMLString(html, baseURL: URL(string: "https://on-pa.net/"))
     }
 

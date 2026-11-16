@@ -979,7 +979,7 @@
 </section>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<!-- 音を鳴らす係：SoundCloud公式の埋め込みプレーヤー（見えないように置いて、Onpaのボタンで操作する） -->
+<!-- 音を鳴らす係：SoundCloud公式の埋め込みプレーヤー（見えないように置いて、Otocloudのボタンで操作する） -->
 <div class="schost" aria-hidden="true"><iframe id="scw" title="SoundCloud player" tabindex="-1" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F293&amp;auto_play=false&amp;visual=false"></iframe><iframe id="scw2" title="SoundCloud player 2" tabindex="-1" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F293&amp;auto_play=false&amp;visual=false"></iframe></div>
 
 <script>
@@ -2022,7 +2022,7 @@ async function scApi(path, method = 'GET') {
   if (!r.ok) throw new Error(d.error || r.status);
   return d;
 }
-// SoundCloudのアイコンを、Onpaのプロフィール画像にもする
+// SoundCloudのアイコンを、Otocloudのプロフィール画像にもする
 async function syncScAvatar() {
   if (!me || !sc) return;
   try {
@@ -2083,7 +2083,7 @@ function splitArtist(t) {
 
 // ===================== 音楽：再生のしくみ =====================
 // SoundCloud公式の埋め込みプレーヤーを、普通の<audio>と同じ使い方で操作できるようにする係。
-// Onpaのサーバーを通さないので、アプリ全体の1日の再生回数の上限を使わない。
+// Otocloudのサーバーを通さないので、アプリ全体の1日の再生回数の上限を使わない。
 class WidgetMedia extends EventTarget {
   // iframes が2つの時は、次の曲を裏のプレーヤーに先に読み込んでおき、曲送りで入れ替えるだけにする（待ち時間ほぼゼロ）
   constructor(iframes) {
