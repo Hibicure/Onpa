@@ -183,7 +183,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                                                                        captureOptions: capture,
                                                                        publishOptions: Self.publish)
                 case "vol":
-                    voiceVolume = max(0, min(2, (body["v"] as? Double) ?? 1))
+                    voiceVolume = max(0, min(6, (body["v"] as? Double) ?? 1))
                     applyVoiceVolume()
                 case "disconnect":
                     await hangUp()
