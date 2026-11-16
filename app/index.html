@@ -741,7 +741,7 @@ function applyTheme(t) {
 // ===================== 設定 =====================
 const WORKER = 'https://geocloud.icchasong.workers.dev';
 // 共有リンクから開いた曲（ログインやSoundCloud連携をはさんでも覚えておく）
-try { const t0 = new URLSearchParams(location.search).get('t'); if (t0 && /^\d{1,20}$/.test(t0)) sessionStorage.setItem('oto_t', t0); } catch {}
+try { const q0 = new URLSearchParams(location.search), t0 = q0.get('t'), st0 = q0.get('st') || ''; if (t0 && /^\d{1,20}$/.test(t0)) { sessionStorage.setItem('oto_t', t0); sessionStorage.setItem('oto_st', /^s-[A-Za-z0-9]{1,40}$/.test(st0) ? st0 : ''); } } catch {}
 const LIVEKIT_URL = 'wss://otocloud-wygn7mrs.livekit.cloud';
 firebase.initializeApp({
   apiKey: 'AIzaSyB_bITavjyZJ86Ky9BHjYJb9IcXbieHA0g',
@@ -1019,11 +1019,12 @@ function startApp() {
 }
 async function openSharedTrack() {
   let id = null;
-  try { id = sessionStorage.getItem('oto_t'); sessionStorage.removeItem('oto_t'); } catch {}
+  let st = '';
+  try { id = sessionStorage.getItem('oto_t'); st = sessionStorage.getItem('oto_st') || ''; sessionStorage.removeItem('oto_t'); sessionStorage.removeItem('oto_st'); } catch {}
   if (!id) return false;
-  try { const u = new URL(location.href); if (u.searchParams.has('t')) { u.searchParams.delete('t'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch {}
+  try { const u = new URL(location.href); if (u.searchParams.has('t')) { u.searchParams.delete('t'); u.searchParams.delete('st'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch {}
   try {
-    const r = await fetch(`${WORKER}/t/${id}`, { headers: await scHeaders() });
+    const r = await fetch(`${WORKER}/t/${id}` + (st ? '?st=' + encodeURIComponent(st) : ''), { headers: await scHeaders() });
     if (!r.ok) throw new Error(r.status);
     const t = await r.json();
     $('miniOpen').click(); pick(toMeta(t), true);
@@ -1041,7 +1042,7 @@ function saveLast(force) {
   lastSavedAt = Date.now();
   try { localStorage.setItem(LAST_KEY, JSON.stringify({ meta: track, pos: player.currentTime || 0 })); } catch { /* 無視 */ }
 }
-const rawOf = (m) => ({ id: m.trackId, title: m.title, artist: m.artist, artwork: m.artwork || '' });
+const rawOf = (m) => ({ id: m.trackId, title: m.title, artist: m.artist, artwork: m.artwork || '', secret: m.secret || '' });
 async function likesPool() {
   if (!likesList && sc) { try { await loadLikes(); } catch { /* 無視 */ } }
   return (likesList && likesList.length) ? likesList : recent;
@@ -1153,7 +1154,7 @@ $('tabFriends').addEventListener('click', () => showTab('friends'));
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, secret: t.secret || '' });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -1375,7 +1376,7 @@ function addToUpNext(t) {
   unlockAudio();
   if (!track) { pick(meta); return; } // 何も流れていなければ、そのまま再生
   if (call.state === 'live' && queueRef) {
-    queueRef.push({ ...meta, artwork: meta.artwork || '', by: me.uid, byName: me.name, at: TS });
+    queueRef.push({ ...meta, artwork: meta.artwork || '', secret: meta.secret || '', by: me.uid, byName: me.name, at: TS });
   } else {
     upNext.push({ ...meta, key: 'l' + Date.now() + Math.random() });
     renderUpNext();
@@ -1386,8 +1387,8 @@ let preloadTimer = null;
 // 次に流れる曲（先読み用。実際には取り出さない）
 function peekNext() {
   if (repeatMode === 'one') return null;
-  if (upNext.length) return upNext[0].trackId;
-  if (qi >= 0 && qi + 1 < queue.length) return queue[qi + 1].id;
+  if (upNext.length) return { id: upNext[0].trackId, secret: upNext[0].secret || '' };
+  if (qi >= 0 && qi + 1 < queue.length) return { id: queue[qi + 1].id, secret: queue[qi + 1].secret || '' };
   return null;
 }
 function takeUpNext() {
@@ -1396,7 +1397,7 @@ function takeUpNext() {
   if (call.state === 'live' && queueRef) queueRef.child(n.key).remove();
   upNext.shift();
   renderUpNext();
-  return { trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork };
+  return { trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork, secret: n.secret || '' };
 }
 function renderUpNext() {
   $('upWho').textContent = call.state === 'live' && call.peer ? `Shared with ${call.peer.name}` : '';
@@ -1626,20 +1627,22 @@ class WidgetMedia extends EventTarget {
       download: false, show_comments: false, show_user: false, show_teaser: false };
   }
   // 次に流れそうな曲を、裏のプレーヤーに鳴らさずに読み込んでおく
-  async preload(trackId) {
-    if (this.slots.length < 2 || !trackId) return;
+  url(id, secret) { return 'https://api.soundcloud.com/tracks/' + id + (secret ? '?secret_token=' + encodeURIComponent(secret) : ''); }
+  async preload(next) {
+    if (this.slots.length < 2 || !next || !next.id) return;
+    const trackId = next.id;
     const sp = this.slots[1 - this.a];
     if (sp.id === trackId) return;
     sp.id = trackId; sp.loaded = false; sp.d = NaN;
     await sp.ready;
-    sp.w.load('https://api.soundcloud.com/tracks/' + trackId, { ...this.opts(false), callback: () => {
+    sp.w.load(this.url(trackId, next.secret), { ...this.opts(false), callback: () => {
       if (sp.id !== trackId || sp === this.slots[this.a]) return;
       sp.loaded = true; sp.w.setVolume(Math.round(this._vol * 100));
       sp.w.getDuration((d) => { if (d > 0) sp.d = d / 1000; });
     } });
   }
   // autoplay: 読み込みが終わった瞬間にプレーヤー自身が鳴らし始める（待ち時間を最小にする）
-  async load(trackId, autoplay = false) {
+  async load(trackId, autoplay = false, secret = '') {
     await this.ready;
     const sp = this.slots.length > 1 ? this.slots[1 - this.a] : null;
     if (sp && sp.id === trackId && sp.loaded) {
@@ -1663,7 +1666,7 @@ class WidgetMedia extends EventTarget {
       let failed = false;
       const onErr = () => { failed = true; clearTimeout(t); ng(new Error('unplayable')); };
       this.addEventListener('error', onErr, { once: true });
-      sl.w.load('https://api.soundcloud.com/tracks/' + trackId, {
+      sl.w.load(this.url(trackId, secret), {
         ...this.opts(autoplay),
         callback: () => {
           if (failed) return;
@@ -1710,7 +1713,7 @@ async function loadTrack(meta, autoplay = false) {
   setPP('load');
   try {
     player.pause();
-    await player.load(meta.trackId, autoplay);
+    await player.load(meta.trackId, autoplay, meta.secret);
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     rememberPlayed(meta);
@@ -1951,7 +1954,7 @@ async function storyImage(t) {
 }
 // 共有：曲のリンク。インスタやLINEではジャケット付きのカードになり、開くとその場で再生できる。
 // 「Listen together in Otocloud」からアプリ（サイト）でも開ける
-const shareUrl = (t) => `${WORKER}/s/${t.trackId}`;
+const shareUrl = (t) => `${WORKER}/s/${t.trackId}` + (t.secret ? '?st=' + encodeURIComponent(t.secret) : '');
 $('shareBtn').addEventListener('click', async () => {
   if (!track) return;
   const url = shareUrl(track);
@@ -1969,7 +1972,7 @@ const RECENT_KEY = 'oto_recent';
 let recent = [];
 try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { recent = []; }
 function rememberPlayed(meta) {
-  const t = { id: meta.trackId, title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0 };
+  const t = { id: meta.trackId, title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0, secret: meta.secret || '' };
   recent = [t, ...recent.filter((r) => String(r.id) !== String(t.id))].slice(0, 30);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch { /* 無視 */ }
   if (!$('viewHome').hidden) renderHome();
@@ -2297,7 +2300,7 @@ async function joinCall() {
       upNext = Object.keys(v).sort().map((k) => ({ ...v[k], key: k }));
       renderUpNext();
     });
-    mine.forEach((n) => queueRef.push({ trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork || '', by: me.uid, byName: me.name, at: TS }));
+    mine.forEach((n) => queueRef.push({ trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork || '', secret: n.secret || '', by: me.uid, byName: me.name, at: TS }));
     // 自分が曲を流していたら、それをルームに持ち込む
     const st = (await stateRef.get()).val();
     if (!st && track && loadedId) pushRoomState({ ...track, playing: !player.paused, position: player.currentTime });
@@ -2372,8 +2375,8 @@ const expectedPos = (s) => !s ? 0 : s.playing ? s.position + (serverNow() - s.up
 
 function pushRoomState(s) {
   if (!stateRef) return;
-  const { trackId, title, artist, artwork, playing, position } = s;
-  stateRef.set({ trackId, title, artist, artwork: artwork || '', playing, position, by: me.uid, updatedAt: TS });
+  const { trackId, title, artist, artwork, secret, playing, position } = s;
+  stateRef.set({ trackId, title, artist, artwork: artwork || '', secret: secret || '', playing, position, by: me.uid, updatedAt: TS });
 }
 
 let applying = false;
@@ -2383,7 +2386,7 @@ async function applyRoomState(s) {
   applying = true;
   try {
     if (loadedId !== s.trackId) {
-      const ok = await loadTrack({ trackId: s.trackId, title: s.title, artist: s.artist, artwork: s.artwork });
+      const ok = await loadTrack({ trackId: s.trackId, title: s.title, artist: s.artist, artwork: s.artwork, secret: s.secret || '' });
       if (!ok || !roomState || roomState.trackId !== s.trackId) return;
     }
     const target = expectedPos(roomState);

@@ -63,6 +63,7 @@ function mapTrack(t) {
     duration: t.duration,
     access: t.access,
     permalink_url: t.permalink_url,
+    secret: t.sharing === 'private' ? (t.secret_token || '') : '',
   };
 }
 const listOf = (d) => (Array.isArray(d) ? d : d?.collection || []);
@@ -340,25 +341,28 @@ async function scRefresh(request, env, cors) {
 
 // ===================== 共有 =====================
 // 曲の情報は1日キャッシュする（入場券の回数を使いすぎないように）
-async function trackInfo(id, env, userToken = '') {
+async function trackInfo(id, env, userToken = '', st = '') {
+  if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
   const cache = caches.default;
-  const key = new Request('https://cache.otocloud/track/' + id);
+  const key = new Request('https://cache.otocloud/track/' + id + (st ? '/' + st : ''));
   const hit = await cache.match(key);
   if (hit) return hit.json();
   try {
-    const t = mapTrack(await scGet('/tracks/' + id, env, userToken));
+    const t = mapTrack(await scGet('/tracks/' + id + (st ? '?secret_token=' + st : ''), env, userToken));
+    if (st) t.secret = st;
     if (t.artwork) t.artwork = t.artwork.replace('-large.', '-t500x500.');
     await cache.put(key, new Response(JSON.stringify(t), { headers: { 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'application/json' } }));
     return t;
   } catch { return null; }
 }
 const escH = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-async function sharePage(id, env) {
-  const t = (await trackInfo(id, env)) || { id, title: 'A song on Otocloud', artist: '', artwork: '' };
-  const app = 'https://on-pa.net/app/?t=' + id;
+async function sharePage(id, env, st = '') {
+  if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
+  const t = (await trackInfo(id, env, '', st)) || { id, title: 'A song on Otocloud', artist: '', artwork: '' };
+  const app = 'https://on-pa.net/app/?t=' + id + (st ? '&st=' + st : '');
   const art = /^https:\/\/[a-z0-9.-]*sndcdn\.com\//.test(t.artwork || '') ? t.artwork : '';
   const title = t.artist ? `${t.title} — ${t.artist}` : t.title;
-  const embed = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent('https://api.soundcloud.com/tracks/' + id) + '&color=%23151517&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false';
+  const embed = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent('https://api.soundcloud.com/tracks/' + id + (st ? '?secret_token=' + st : '')) + '&color=%23151517&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false';
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${escH(title)} · Otocloud</title>
@@ -389,7 +393,7 @@ h1{font:700 clamp(22px,6.5vw,30px)/1.15 Unbounded,sans-serif;text-align:center;l
 <div class="disc" id="disc"></div>
 <h1>${escH(t.title)}</h1>${t.artist ? `<div class="artist">${escH(t.artist)}</div>` : ''}
 <div class="player"><iframe id="w" allow="autoplay" src="${embed}"></iframe></div>
-<a class="open" href="${app}">Listen together in Otocloud</a>
+<a class="open" href="${escH(app)}">Listen together in Otocloud</a>
 <div class="note">Call a friend and hear this song at the same time.</div>
 <script src="https://w.soundcloud.com/player/api.js"></script>
 <script>try{const w=SC.Widget(document.getElementById('w')),d=document.getElementById('disc');w.bind(SC.Widget.Events.PLAY,()=>d.classList.add('on'));w.bind(SC.Widget.Events.PAUSE,()=>d.classList.remove('on'));w.bind(SC.Widget.Events.FINISH,()=>d.classList.remove('on'))}catch(e){}</script>
@@ -418,12 +422,12 @@ export default {
       // ---- 1曲の情報: /t/123（共有リンクから開いた時に使う）
       let m = p.match(/^\/t\/(\d{1,20})$/);
       if (m) {
-        const t = await trackInfo(m[1], env, userToken);
+        const t = await trackInfo(m[1], env, userToken, url.searchParams.get('st') || '');
         return t ? json(t, 200, cors) : json({ error: 'not found' }, 404, cors);
       }
       // ---- 共有ページ: /s/123（インスタ・LINEなどで、ジャケット付きのカードになって、その場で再生できる）
       m = p.match(/^\/s\/(\d{1,20})$/);
-      if (m) return sharePage(m[1], env);
+      if (m) return sharePage(m[1], env, url.searchParams.get('st') || '');
 
       // ---- ジャケット画像の中継: /img?u=（SoundCloudの画像だけ）
       // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする
