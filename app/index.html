@@ -748,7 +748,7 @@
   <div class="disc spinning"><div class="platter"></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
   <h1>Talk and listen,<br>at the same time.</h1>
   <p id="obLead">Sign in with SoundCloud to use your account on every device.</p>
-  <button class="sc-go" id="obSC"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 10.2a4.6 4.6 0 0 0-8.8-1.6 3.3 3.3 0 0 0-1 .3v8.6h9.8a3.6 3.6 0 0 0 0-7.3zM6.6 9.4v8.1H5.8V9.6l.8-.2zM4.7 10.3v7.2h-.8v-7l.8-.2zM2.8 11.6v5.9H2v-5.6l.8-.3z"/></svg>Continue with SoundCloud</button>
+  <button class="sc-go" id="obSC"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 10.2a4.6 4.6 0 0 0-8.8-1.6 3.3 3.3 0 0 0-1 .3v8.6h9.8a3.6 3.6 0 0 0 0-7.3zM6.6 9.4v8.1H5.8V9.6l.8-.2zM4.7 10.3v7.2h-.8v-7l.8-.2zM2.8 11.6v5.9H2v-5.6l.8-.3z"/></svg>Connect with SoundCloud</button>
   <p class="ob-why" id="obWhy">Your likes, playlists and full search come with it.</p>
   <button class="ob-skip" id="obSkip">No SoundCloud? Pick a handle</button>
   <button class="ob-skip" id="obHave">Already have a handle? Sign in</button>
@@ -1027,14 +1027,14 @@ function applyTheme(t) {
 }
 (() => {
   let t = null;
-  try { t = localStorage.getItem('onpa_theme'); } catch { /* 無視 */ }
+  try { t = localStorage.getItem('otocloud_theme') || localStorage.getItem('onpa_theme'); } catch { /* 無視 */ }
   if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   applyTheme(t);
   document.getElementById('themeBtn').addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     const b = document.getElementById('themeBtn'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
-    try { localStorage.setItem('onpa_theme', next); } catch { /* 無視 */ }
+    try { localStorage.setItem('otocloud_theme', next); } catch { /* 無視 */ }
   });
 })();
 // ===================== 設定 =====================
@@ -2008,10 +2008,10 @@ async function openTrackArtist() {
 $('npS').addEventListener('click', openTrackArtist);
 
 // ===================== SoundCloud連携 =====================
-const SC_KEY = 'onpa_sc';
+const SC_KEY = 'otocloud_sc';
 let sc = null, likesList = null;
 const likedIds = new Set();
-try { sc = JSON.parse(localStorage.getItem(SC_KEY)); } catch { sc = null; }
+try { sc = JSON.parse(localStorage.getItem(SC_KEY) || localStorage.getItem('onpa_sc')); } catch { sc = null; } // 古い名前で保存してあった分も読む
 function saveSc(v) {
   sc = v;
   try { if (v) localStorage.setItem(SC_KEY, JSON.stringify(v)); else localStorage.removeItem(SC_KEY); } catch { /* 保存できなくても続ける */ }

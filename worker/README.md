@@ -1,4 +1,4 @@
-# Onpa relay (Cloudflare Worker `geocloud`)
+# Otocloud relay (Cloudflare Worker `geocloud`)
 
 Deployed at https://geocloud.icchasong.workers.dev
 

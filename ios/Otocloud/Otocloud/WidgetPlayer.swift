@@ -20,7 +20,7 @@ final class WidgetPlayer: NSObject, ObservableObject, WKScriptMessageHandler {
         config.mediaTypesRequiringUserActionForPlayback = []   // ボタンを押さなくても再生してよい
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 160), configuration: config)
         super.init()
-        config.userContentController.add(WeakHandler(self), name: "onpa")
+        config.userContentController.add(WeakHandler(self), name: "otocloud")
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.isScrollEnabled = false
@@ -40,7 +40,7 @@ final class WidgetPlayer: NSObject, ObservableObject, WKScriptMessageHandler {
         <script src="https://w.soundcloud.com/player/api.js"></script></head><body>
         <iframe id="sc" allow="autoplay; encrypted-media" src="\(src)"></iframe>
         <script>
-          const post = (o) => window.webkit.messageHandlers.onpa.postMessage(o);
+          const post = (o) => window.webkit.messageHandlers.otocloud.postMessage(o);
           const w = SC.Widget(document.getElementById('sc'));
           window.w = w;
           w.bind(SC.Widget.Events.READY, () => {

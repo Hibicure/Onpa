@@ -1,4 +1,4 @@
-// Cloudflare Worker - Onpa 中継役（SoundCloud 公式API ＋ LiveKit 入場券）
+// Cloudflare Worker - Otocloud 中継役（SoundCloud 公式API ＋ LiveKit 入場券）
 // 秘密の値はここに書かず、Cloudflareの「Variables and Secrets」に入れる：
 //   SC_CLIENT_ID / SC_CLIENT_SECRET … SoundCloudアプリの鍵
 //   LK_API_KEY / LK_API_SECRET     … LiveKitの鍵
@@ -203,7 +203,7 @@ async function candidates(id, env, userToken = '') {
   ].filter((c) => c.apiUrl);
 }
 
-// ===================== Onpaのログイン確認（Firebase） =====================
+// ===================== Otocloudのログイン確認（Firebase） =====================
 const FIREBASE_PROJECT = 'onpa-e7cc6';
 const FIREBASE_DB = 'https://onpa-e7cc6-default-rtdb.asia-southeast1.firebasedatabase.app';
 const GOOGLE_JWKS = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -214,7 +214,7 @@ function b64urlToBytes(s) {
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 }
 
-// アプリから届いた「Onpaのログイン証明（IDトークン）」が本物か確かめて、ユーザーIDを返す
+// アプリから届いた「Otocloudのログイン証明（IDトークン）」が本物か確かめて、ユーザーIDを返す
 async function verifyFirebaseIdToken(idToken) {
   const parts = (idToken || '').split('.');
   if (parts.length !== 3) throw new Error('ログインが必要です');
@@ -539,7 +539,7 @@ export default {
         const room = (url.searchParams.get('room') || '').slice(0, 64);
         const name = (url.searchParams.get('name') || '').slice(0, 40);
         if (!/^[\w-]+$/.test(room)) return json({ error: 'room は英数字・_・- だけ使えます' }, 400, cors);
-        // Onpaにログインしていて、この通話の当事者である人だけに発行する
+        // Otocloudにログインしていて、この通話の当事者である人だけに発行する
         const idToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
         let uid;
         try { uid = await verifyFirebaseIdToken(idToken); } catch (e) { return json({ error: e.message }, 401, cors); }
