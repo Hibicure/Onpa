@@ -2742,7 +2742,8 @@ $('found').addEventListener('click', async (e) => {
 // ===================== 呼出音 =====================
 // 電話をかけてから相手が出るまで、相手が決めた曲（決めていなければデフォルトの曲）が、かけた側に流れる。
 // 決めた曲は users/{uid}/ringback に { trackId, title, artist, artwork, secret, duration, at(秒：ここから), end(秒：ここまで。来たら at に戻ってくり返す) }
-const DEFAULT_RINGBACK = null; // デフォルトの曲が決まったらここに入れる
+// デフォルト：風花「sheep feat. Hibicure」の頭のきれいな所（盛り上がる直前の16秒手前まで）をくり返す
+const DEFAULT_RINGBACK = { trackId: 2199003091, title: 'sheep feat. Hibicure', artist: '風花', artwork: 'https://i1.sndcdn.com/artworks-ZS8FujgdcnzjuOLb-DXyTog-large.jpg', secret: '', duration: 118178, at: 0, end: 15.8 };
 let myRingback = null;
 async function paintRingback() {
   try { myRingback = (await db.ref(`users/${me.uid}/ringback`).get()).val(); } catch { /* 無視 */ }
