@@ -1527,7 +1527,7 @@ function neighborMeta(dir) {
   const setPeek = (dir) => {
     if (side === dir) return;
     side = dir;
-    const m = neighborMeta(dir);
+    const m = neighborMeta(-dir); // 右に出る(1)のは次の曲、左に出る(-1)のは前の曲
     const art = m && m.artwork ? m.artwork.replace('-large.', '-t500x500.') : '';
     if (art) pkArt.src = art; else pkArt.removeAttribute('src');
     pk.classList.add('show');
@@ -1571,6 +1571,11 @@ function neighborMeta(dir) {
     if (!horizontal) return;
     dx = mx;
     hist.push([performance.now(), dx]); if (hist.length > 6) hist.shift();
+    if (!$('np').classList.contains('square')) { // CD：最初の動き。となりのCDは出さない
+      el.style.transform = `translateX(${dx}px) rotate(${dx / 8}deg)`;
+      el.style.opacity = String(1 - Math.min(Math.abs(dx) / 400, 0.5));
+      return;
+    }
     if (track && dx !== 0) setPeek(dx < 0 ? 1 : -1);
     place(dx);
   });
@@ -1596,6 +1601,7 @@ function neighborMeta(dir) {
     // 指の速さも見る：さっと払えば少しの距離でも次へ
     const h0 = hist[0], h1 = hist[hist.length - 1];
     const v = (h1[1] - h0[1]) / Math.max(1, h1[0] - h0[0]);
+    if (!$('np').classList.contains('square')) { throwDisc(v); return; }
     const go = !!track && side !== 0 && (Math.abs(dx) > span() * 0.33 || (Math.abs(v) > 0.45 && Math.sign(v) === Math.sign(dx)));
     anim(false);
     if (!go) { glide(dx, 0, 340); timer = setTimeout(reset, 380); return; }
@@ -1610,6 +1616,30 @@ function neighborMeta(dir) {
       if (dir < 0) $('npNext').click(); else $('npPrev').click();
       setTimeout(() => { busy = false; }, 120);
     }, 370);
+  };
+  // CD：最初にやっていた動き。指を離すと回りながら飛んでいって、反対側から次のCDが回りながら入ってくる
+  const throwDisc = (v) => {
+    el.style.transition = ''; // ふつうのなめらかな動き（CSS）に戻す
+    const go = !!track && (Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28) || (Math.abs(v) > 0.45 && Math.sign(v) === Math.sign(dx)));
+    if (!go) { el.style.transform = ''; el.style.opacity = ''; return; }
+    busy = true;
+    const dir = dx < 0 ? -1 : 1;
+    const m = neighborMeta(dir); // 入ってくるCDには、最初から次の曲のジャケットを（前の絵がダブらないように）
+    const art = m && m.artwork ? m.artwork.replace('-large.', '-t500x500.') : '';
+    el.style.transform = `translateX(${dir * window.innerWidth}px) rotate(${dir * 40}deg)`;
+    el.style.opacity = '0';
+    timer = setTimeout(() => {
+      timer = null;
+      if (art) $('npArt').src = art;
+      if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${-dir * window.innerWidth * 0.6}px) rotate(${-dir * 30}deg)`;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.transition = '';
+        el.style.transform = ''; el.style.opacity = '';
+        setTimeout(() => { busy = false; }, 300);
+      }));
+    }, 220);
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; if (pulling) { pulling = false; $('np').classList.remove('dragging'); $('np').style.transform = ''; } reset(); });
