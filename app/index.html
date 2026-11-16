@@ -580,7 +580,11 @@
   /* 画面の高さいっぱいの正方形。曲の進みに合わせて、左はしから右はしまで横に動く（シークすると一緒に動く） */
   .np .fullart .img { position: absolute; top: 0; bottom: 0; left: 0; height: 100%; aspect-ratio: 1; background-size: cover; background-position: center; will-change: transform; transition: transform .35s linear; }
   .np .fullart .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.72) 100%); }
-  .np .fullart .peekimg { visibility: hidden; }
+  /* 全画面：画像は「カード」の中で動く。横にスライドする時は、カードの角が丸くなって、間に黒いすき間（SoundCloudみたいに） */
+  .np .fullart .card { position: absolute; inset: 0; overflow: hidden; transition: border-radius .25s ease; }
+  .np .fullart .peekcard { visibility: hidden; }
+  .np .fullart.paging .card { border-radius: 28px; }
+  .np .fullart.paging .shade { opacity: .6; }
   .np .fullart.swiping .img { transition: none; }
   /* 四角いジャケットの時は、となりのCDも四角で */
   .np.square #discPeek, .np.square #discPeek .platter { border-radius: 3px; }
@@ -796,7 +800,7 @@
 
 <section class="np" id="np" aria-hidden="true">
   <!-- 背景：ジャケットの色がゆっくり渦を巻いて広がる（オン／オフできる） -->
-  <div class="fullart" id="fullArt" aria-hidden="true"><div class="img" id="fullImg"></div><div class="img peekimg" id="fullPeek"></div><div class="shade"></div></div>
+  <div class="fullart" id="fullArt" aria-hidden="true"><div class="card" id="fullCard"><div class="img" id="fullImg"></div></div><div class="card peekcard" id="fullPeekCard"><div class="img" id="fullPeek"></div></div><div class="shade"></div></div>
   <div class="amb" id="amb" aria-hidden="true">
     <div class="spin s1"><div class="blob"></div></div>
     <div class="spin s2"><div class="blob"></div></div>
@@ -1554,7 +1558,7 @@ function neighborMeta(dir) {
     }
     if (!horizontal) {
       // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
-      if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer')) {
+      if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer') && call.state !== 'live') {
         const np = $('np');
         if (np.classList.contains('square')) { np.classList.remove('square'); setFull(true); }
         else np.classList.add('square');
@@ -2212,10 +2216,11 @@ $('npClose').addEventListener('click', closeNp);
   let y0 = 0, t0 = 0, dy = 0, id = null;
   const startOk = (e) => !e.target.closest('#recBtn, #ambBtn') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
   let x0 = 0, dx = 0, way = null, side = 0;
-  const img = $('fullImg'), pk = $('fullPeek'), fa = $('fullArt');
-  const W = () => np.clientWidth;
-  const baseX = () => { const m = /translateX\((-?[\d.]+)px\)/.exec(img.style.transform || ''); return m ? Number(m[1]) : 0; };
-  let bx = 0;
+  const img = $('fullImg'), pk = $('fullPeek'), fa = $('fullArt'), card = $('fullCard'), pcard = $('fullPeekCard');
+  const GAPF = 14;
+  const W = () => np.clientWidth + GAPF;
+  const EASEF = 'transform .36s cubic-bezier(.2,.85,.25,1)';
+  const animF = (on) => { card.style.transition = on ? EASEF + ', border-radius .25s ease' : 'border-radius .25s ease'; pcard.style.transition = card.style.transition; };
   np.addEventListener('pointerdown', (e) => {
     if (!np.classList.contains('open') || !startOk(e)) return;
     id = e.pointerId; y0 = e.clientY; x0 = e.clientX; t0 = performance.now(); dy = 0; dx = 0; way = null; side = 0;
@@ -2227,9 +2232,9 @@ $('npClose').addEventListener('click', closeNp);
     const mx = e.clientX - x0, my = e.clientY - y0;
     if (way === null) {
       if (Math.hypot(mx, my) < 8) return;
-      way = Math.abs(mx) > Math.abs(my) && track ? 'h' : 'v';
+      way = Math.abs(mx) > Math.abs(my) && track && !loading ? 'h' : 'v';
       if (way === 'v') np.classList.add('dragging');
-      else { fa.classList.add('swiping'); bx = baseX(); fullSwiping = true; }
+      else { fa.classList.add('paging'); animF(false); fullSwiping = true; }
     }
     if (way === 'v') { dy = Math.max(0, my); np.style.transform = `translateY(${dy}px)`; return; }
     dx = mx;
@@ -2238,28 +2243,28 @@ $('npClose').addEventListener('click', closeNp);
       side = sd;
       const m = neighborMeta(sd > 0 ? -1 : 1);
       pk.style.backgroundImage = m && m.artwork ? `url("${m.artwork.replace('-large.', '-t500x500.')}")` : 'none';
-      pk.style.visibility = 'visible';
+      pk.style.transform = 'translateX(0px)';
+      pcard.style.visibility = 'visible';
     }
-    img.style.transform = `translateX(${bx + dx}px)`;
-    pk.style.transform = `translateX(${dx + side * W()}px)`;
+    card.style.transform = `translateX(${dx}px)`;
+    pcard.style.transform = `translateX(${dx + side * W()}px)`;
   });
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
     if (way === 'h') {
-      fa.classList.remove('swiping');
+      animF(true);
       const go = Math.abs(dx) > Math.min(90, W() * 0.25);
-      if (!go) { img.style.transform = `translateX(${bx}px)`; pk.style.transform = `translateX(${side * W()}px)`; setTimeout(() => { pk.style.visibility = 'hidden'; fullSwiping = false; }, 360); return; }
-      // 今の画像が出ていき、次の画像が入ってくる
-      img.style.transform = `translateX(${bx - side * W()}px)`;
-      pk.style.transform = 'translateX(0px)';
+      const done = () => { fa.classList.remove('paging'); animF(false); card.style.transform = ''; pcard.style.transform = ''; pcard.style.visibility = 'hidden'; fullSwiping = false; };
+      if (!go) { card.style.transform = 'translateX(0px)'; pcard.style.transform = `translateX(${side * W()}px)`; setTimeout(done, 380); return; }
+      // 今のカードが出ていき、次のカードが真ん中に来る
+      card.style.transform = `translateX(${-side * W()}px)`;
+      pcard.style.transform = 'translateX(0px)';
       setTimeout(() => {
-        fa.classList.add('swiping');
         img.style.backgroundImage = pk.style.backgroundImage; img.style.transform = 'translateX(0px)';
-        pk.style.visibility = 'hidden';
-        requestAnimationFrame(() => { fa.classList.remove('swiping'); fullSwiping = false; });
+        done();
         if (side > 0) $('npNext').click(); else $('npPrev').click();
-      }, 360);
+      }, 380);
       return;
     }
     np.classList.remove('dragging');
@@ -2868,6 +2873,7 @@ function endCall(msg) {
 
 function showCallbar() {
   $('np').classList.toggle('oncall', call.state === 'live');
+  if (call.state === 'live') { $('np').classList.remove('square'); if ($('np').classList.contains('full')) setFull(false); } // 電話中はCDの表示に固定
   if (call.state === 'idle') return;
   $('callbar').hidden = $('np').classList.contains('outgoing');
   $('callbar').classList.toggle('ringing', call.state !== 'live');
