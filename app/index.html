@@ -298,10 +298,10 @@
   .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   /* 波形のシークバー（波形が取れた時だけ。取れない時は普通のバー） */
-  .seek .wave { position: absolute; left: 0; right: 0; top: -12px; width: 100%; height: 52px; display: none; }
+  .seek .wave { position: absolute; left: 0; right: 0; top: -20px; width: 100%; height: 46px; display: none; }
   .seek.waved .wave { display: block; }
   .seek.waved .track, .seek.waved .knob { display: none; }
-  .seek.waved + .times { margin-top: 18px; } /* 波形と時間の数字が重ならないように */
+  .seek.waved + .times { margin-top: 8px; } /* 波形と時間の数字が重ならないように */
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np.square #disc, .np.square #disc .platter { border-radius: 6px; }
@@ -1952,8 +1952,8 @@ function drawWave(frac) {
   const on = cs.getPropertyValue('--ink').trim() || '#151517', off = cs.getPropertyValue('--line').trim() || '#C2C4C8';
   const n = waveBars.length, gap = 1.2, bw = Math.max(1, (W - gap * (n - 1)) / n);
   for (let i = 0; i < n; i++) {
-    const h = Math.max(3, waveBars[i] * (H - 4));
-    const x = i * (bw + gap), y = (H - h) / 2;
+    const h = Math.max(2, waveBars[i] * (H - 2));
+    const x = i * (bw + gap), y = H - h; // 下半分はなし：下の線から上に伸びる
     g.fillStyle = (i + 0.5) / n <= frac ? on : off;
     g.fillRect(x, y, bw, h);
   }
