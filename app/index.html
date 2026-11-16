@@ -2032,13 +2032,13 @@ async function loadWave(meta) {
     if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
     // 音の大きさをそのまま高さに。曲の中で一番静かなあたり〜一番大きいあたりを、低い〜高いにめいっぱい広げる
     const sorted = bars.slice().sort((x, y) => x - y);
-    const lo = sorted[Math.floor(sorted.length * 0.01)], hi = sorted[Math.floor(sorted.length * 0.98)];
-    const n0 = bars.length, edge = Math.max(3, Math.round(n0 * 0.025));
+    const lo = sorted[0], hi = sorted[Math.floor(sorted.length * 0.98)];
+    const n0 = bars.length, edge = Math.max(4, Math.round(n0 * 0.04));
     waveBars = bars.map((v, i) => {
       let h = Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 1.7);
       // 始まりと終わりは小さく（曲が始まる・終わる感じ）
       const e = Math.min(i, n0 - 1 - i);
-      if (e < edge) h *= 0.25 + 0.75 * (e / edge);
+      if (e < edge) { const q = e / edge; h *= 0.12 + 0.88 * q * q * (3 - 2 * q); } // なめらかに小さく
       return 0.05 + 0.95 * h;
     });
     $('seek').classList.add('waved');
