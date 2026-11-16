@@ -1798,18 +1798,25 @@ class WidgetMedia extends EventTarget {
     this.slots.forEach((sl, k) => {
       sl.ready = new Promise((ok) => sl.w.bind(E.READY, ok));
       const on = (fn) => (...x) => { if (k === this.a) fn(...x); };
-      sl.w.bind(E.PLAY, on(() => { this._paused = false; this.fire('play'); this.fire('playing'); }));
-      sl.w.bind(E.PAUSE, on(() => { if (this._paused) return; this._paused = true; this.fire('pause'); }));
+      sl.w.bind(E.PLAY, on(() => { this._paused = false; this._at = performance.now(); this.fire('play'); this.fire('playing'); }));
+      sl.w.bind(E.PAUSE, on(() => { if (this._paused) return; this._t = this.currentTime; this._paused = true; this.fire('pause'); }));
       sl.w.bind(E.FINISH, on(() => { this._paused = true; this.fire('pause'); this.fire('ended'); }));
-      sl.w.bind(E.PLAY_PROGRESS, on((p) => { this._t = p.currentPosition / 1000; this.fire('timeupdate'); }));
+      sl.w.bind(E.PLAY_PROGRESS, on((p) => { this._t = p.currentPosition / 1000; this._at = performance.now(); this.fire('timeupdate'); }));
       sl.w.bind(E.ERROR, on(() => this.fire('error')));
     });
     this.ready = this.slots[0].ready;
+    this._at = performance.now();
+    // SoundCloudのプレーヤーは再生位置の知らせが遅れたり止まったりするので、知らせの間はこちらで時計を進めて画面を動かす
+    setInterval(() => { if (!this._paused) this.fire('timeupdate'); }, 200);
   }
   get w() { return this.slots[this.a].w; }
   fire(name) { this.dispatchEvent(new Event(name)); }
-  get currentTime() { return this._t; }
-  set currentTime(v) { this._t = Math.max(0, v || 0); this.w.seekTo(Math.round(this._t * 1000)); this.fire('timeupdate'); }
+  get currentTime() {
+    if (this._paused) return this._t;
+    const t = this._t + (performance.now() - this._at) / 1000;
+    return isFinite(this._d) ? Math.min(this._d, t) : t;
+  }
+  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); this.w.seekTo(Math.round(this._t * 1000)); this.fire('timeupdate'); }
   get duration() { return this._d; }
   get paused() { return this._paused; }
   get volume() { return this._vol; }
@@ -2074,9 +2081,14 @@ function drawWave(frac) {
   for (let i = 0; i < n; i++) {
     const h = Math.max(2, waveBars[i] * (H - 2));
     const x = i * (bw + gap), y = (H - h) / 2; // 上下対称
-    g.fillStyle = (i + 0.5) / n <= frac ? on : off;
+    g.globalAlpha = (i + 0.5) / n <= frac ? 1 : 0.28;
+    g.fillStyle = on;
     g.fillRect(x, y, bw, h);
   }
+  g.globalAlpha = 1;
+  // 今の再生位置
+  const px = Math.round(Math.min(1, Math.max(0, frac)) * W);
+  g.fillStyle = on; g.fillRect(Math.min(W - 2, Math.max(0, px - 1)), 0, 2, H);
 }
 function drawProgress(t) {
   const d = player.duration;
