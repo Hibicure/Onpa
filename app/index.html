@@ -140,6 +140,13 @@
   .row .eq b:nth-child(4) { animation-duration: .95s; animation-delay: -.15s; }
   @keyframes eqb { 0% { transform: scaleY(.25); } 50% { transform: scaleY(.85); } 100% { transform: scaleY(.45); } }
   @media (prefers-reduced-motion: reduce) { .row .eq b { animation: none; transform: scaleY(.6); } }
+  /* 曲の行を右へスライド：左から「次に再生」が出てくる */
+  #results { overflow-x: clip; }
+  #results .row[data-id] { position: relative; touch-action: pan-y; transition: transform .26s cubic-bezier(.2,.8,.2,1); }
+  #results .row.swiping { transition: none; }
+  #results .row[data-id]::before { content: 'Play next'; position: absolute; right: 100%; top: 0; bottom: 0; width: 100vw; display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 18px; box-sizing: border-box; background: color-mix(in srgb, var(--ink) 14%, transparent); color: var(--ink); font-weight: 700; font-size: 13px; transition: background .15s, color .15s; }
+  #results .row.armed::before { background: var(--ink); color: var(--paper); }
   .row .txt { flex: 1; min-width: 0; }
   .row .t { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row.now .t { color: var(--cobalt); }
@@ -1391,7 +1398,43 @@ async function search(q) {
 $('results').addEventListener('keydown', (e) => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.row[role=button]')) { e.preventDefault(); e.target.click(); }
 });
+// 曲の行を右へスライドすると「次に再生」（Apple Musicみたいに）
+(() => {
+  const box = $('results');
+  let row = null, sx = 0, sy = 0, dx = 0, id = null, horiz = null;
+  const TH = 76;
+  box.addEventListener('pointerdown', (e) => {
+    const r = e.target.closest('.row[data-id]');
+    if (!r || e.target.closest('button')) return;
+    row = r; id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; horiz = null;
+  });
+  box.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id || !row) return;
+    const mx = e.clientX - sx, my = e.clientY - sy;
+    if (horiz === null && Math.hypot(mx, my) > 8) {
+      horiz = Math.abs(mx) > Math.abs(my) * 1.2 && mx > 0;
+      if (horiz) { row.setPointerCapture(id); row.classList.add('swiping'); } else { row = null; return; }
+    }
+    if (!horiz) return;
+    dx = Math.max(0, mx); const shown = dx < TH ? dx : TH + (dx - TH) * 0.35; // 決まる所を過ぎると重くなる
+    row.style.transform = `translateX(${shown}px)`;
+    row.classList.toggle('armed', dx >= TH);
+  });
+  const end = (e) => {
+    if (e.pointerId !== id || !row) return;
+    const r = row; row = null; id = null;
+    if (!horiz) return;
+    r.dataset.swiped = '1'; setTimeout(() => { delete r.dataset.swiped; }, 350);
+    const go = dx >= TH && e.type === 'pointerup';
+    r.classList.remove('swiping'); r.style.transform = '';
+    setTimeout(() => r.classList.remove('armed'), 260);
+    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) playNextUp(t); }
+  };
+  box.addEventListener('pointerup', end);
+  box.addEventListener('pointercancel', end);
+})();
 $('results').addEventListener('click', (e) => {
+  if (e.target.closest('.row[data-swiped]')) return; // スライドした指を離しただけ
   if (e.target.closest('.sc-connect')) { connectSC(); return; }
   const pl = e.target.closest('[data-pl]');
   if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
@@ -1678,6 +1721,20 @@ function addToUpNext(t) {
     renderUpNext();
   }
   toast('Added to Up next');
+}
+// 次に再生：Up next のいちばん前に入れる（通話中は2人の共有リストの先頭に）
+function playNextUp(t) {
+  const meta = toMeta(t);
+  unlockAudio();
+  if (!track) { pick(meta); return; }
+  if (call.state === 'live' && queueRef) {
+    // 共有リストは名前順に並ぶので、ふつうの名前より前に来る名前をつける（あとから入れたものほど前）
+    queueRef.child('!' + String(9e12 - Date.now()).padStart(13, '0')).set({ ...meta, artwork: meta.artwork || '', secret: meta.secret || '', by: me.uid, byName: me.name, at: TS });
+  } else {
+    upNext.unshift({ ...meta, key: 'l' + Date.now() + Math.random() });
+    renderUpNext();
+  }
+  toast('Playing next');
 }
 let preloadTimer = null;
 // 次に流れる曲（先読み用。実際には取り出さない）
