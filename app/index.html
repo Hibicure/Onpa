@@ -142,8 +142,9 @@
   .card-me { margin: 12px 16px 4px; padding: 16px; border-radius: 18px; background: var(--surface); display: flex; align-items: center; gap: 14px; }
   .card-me .myname { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card-me .handle { font-size: 14px; color: var(--mute); font-weight: 600; margin-top: 2px; }
-  .card-me .mebtn { width: 40px; height: 40px; color: var(--ink); }
-  .card-me .mebtn svg { width: 18px; height: 18px; }
+  .card-me .mebtn { width: 40px; height: 44px; color: var(--ink); margin: 0 -6px; }
+  .card-me .mebtn svg { width: 24px; height: 24px; }
+  .card-me .mebtn:last-child { margin-right: -10px; }
   .card-me .hint { font-size: 12px; color: var(--mute); }
   .avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--holo); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--ink); flex-shrink: 0; position: relative; }
   .avatar .pic, .disc .peer .pic { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
@@ -685,8 +686,8 @@
     <div class="card-me">
       <div class="avatar" id="myAvatar"></div>
       <div style="flex:1;min-width:0"><div class="myname" id="myName"></div><div class="handle" id="myHandle"></div></div>
-      <button class="round glass mebtn" id="copyHandle" aria-label="Copy your handle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button>
-      <button class="round glass mebtn" id="shareMe" aria-label="Share your profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
+      <button class="mebtn" id="copyHandle" aria-label="Copy your handle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button>
+      <button class="mebtn" id="shareMe" aria-label="Share your profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
     </div>
     <div class="field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -852,8 +853,8 @@ const ICON = {
   load: '<div class="spinner"></div>',
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   micOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.9 2.3M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.7 3M12 18v3M3 3l18 18"/></svg>',
-  end: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 9c-2.4 0-4.6.5-6.6 1.4-.9.4-1.4 1.3-1.4 2.2v2.1c0 .7.7 1.2 1.4 1l3-.9c.6-.2 1-.7 1-1.3v-1.5c1.7-.5 3.5-.5 5.2 0v1.5c0 .6.4 1.1 1 1.3l3 .9c.7.2 1.4-.3 1.4-1v-2.1c0-.9-.5-1.8-1.4-2.2C16.6 9.5 14.4 9 12 9z"/></svg>',
-  phone: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>',
+  end: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width=".6" stroke-linejoin="round"><g transform="rotate(135 12 12) translate(0 1)"><path d="M7.2 3.6c-.9-.9-2.4-.9-3.2.1L3 4.9C2 6.2 1.9 8 2.6 9.5c2.4 5.2 6.6 9.4 11.8 11.8 1.5.7 3.3.6 4.6-.4l1.2-1c1-.8 1-2.3.1-3.2l-2.4-2.4c-.8-.8-2.1-.9-3-.2l-1.3 1c-.4.3-.9.3-1.3.1-2-1.3-3.7-3-5-5-.2-.4-.2-.9.1-1.3l1-1.3c.7-.9.6-2.2-.2-3z"/></g></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width=".6" stroke-linejoin="round"><path d="M7.2 3.6c-.9-.9-2.4-.9-3.2.1L3 4.9C2 6.2 1.9 8 2.6 9.5c2.4 5.2 6.6 9.4 11.8 11.8 1.5.7 3.3.6 4.6-.4l1.2-1c1-.8 1-2.3.1-3.2l-2.4-2.4c-.8-.8-2.1-.9-3-.2l-1.3 1c-.4.3-.9.3-1.3.1-2-1.3-3.7-3-5-5-.2-.4-.2-.9.1-1.3l1-1.3c.7-.9.6-2.2-.2-3z"/></svg>',
 };
 let toastTimer = null;
 function toast(msg) {
