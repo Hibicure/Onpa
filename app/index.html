@@ -463,6 +463,26 @@
   .ambbtn { position: absolute; left: 0; bottom: 0; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--mute); z-index: 2; }
   .ambbtn svg { width: 19px; height: 19px; }
   .ambbtn[aria-pressed="true"] { color: var(--ink); }
+  /* ---------- 設定 ---------- */
+  .me { cursor: pointer; padding: 6px 2px; }
+  .sheet { position: fixed; inset: 0; z-index: 60; background: var(--paper); transform: translateY(100%); transition: transform .38s cubic-bezier(.2,.8,.2,1); overflow-y: auto; }
+  .sheet.open { transform: none; }
+  .sheet-in { max-width: 480px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); }
+  .sheet-top { display: flex; align-items: center; justify-content: space-between; height: 44px; }
+  .sheet-top b { font-family: var(--display); font-size: 20px; letter-spacing: -0.02em; }
+  .sheet .done { font-weight: 700; font-size: 16px; color: var(--ink); padding: 8px 4px; }
+  .set-me { display: flex; align-items: center; gap: 14px; margin: 18px 0 8px; }
+  .set-me .avatar { width: 56px; height: 56px; }
+  .set-me b { display: block; font-size: 18px; }
+  .set-me span { color: var(--mute); font-size: 14px; }
+  .set-group { margin-top: 22px; padding: 16px; border-radius: 18px; background: var(--surface); }
+  .set-label { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+  .set-hint { color: var(--mute); font-size: 13px; line-height: 1.5; margin: -2px 0 10px; }
+  .set-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .set-row span { color: var(--mute); font-size: 14px; }
+  .set-row input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 16px; outline: none; }
+  .set-row input:focus { border-color: var(--ink); }
+  .set-out { width: 100%; height: 44px; font-weight: 700; font-size: 16px; color: var(--ink); }
 </style>
 </head>
 <body>
@@ -503,7 +523,7 @@
   <header class="head">
     <div class="mark">Otocloud</div>
     <div class="right">
-      <div class="me" id="meLabel"></div>
+      <button class="me" id="meLabel" aria-label="Settings"></button>
       <button class="theme glass" id="themeBtn" aria-label="Switch to night mode"></button>
     </div>
   </header>
@@ -575,11 +595,6 @@
     <div class="card-me">
       <div class="avatar" id="myAvatar"></div>
       <div style="flex:1;min-width:0"><div class="handle" id="myHandle"></div><div class="hint">Share your handle so friends can find you</div></div>
-      <button class="btn ghost" id="signOut">Sign out</button>
-    </div>
-    <div class="setpw" id="setPw" hidden>
-      <input id="setPwIn" type="password" autocomplete="new-password" placeholder="Password (6+ characters)">
-      <button class="btn primary" id="setPwGo">Save</button>
     </div>
     <div class="field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -608,6 +623,29 @@
 </div>
 
 <!-- 再生画面 -->
+<!-- 設定：右上の @ID を押すと開く -->
+<section class="sheet" id="settings" aria-hidden="true" aria-label="Settings">
+  <div class="sheet-in">
+    <div class="sheet-top"><b>Settings</b><button class="done" id="setDone">Done</button></div>
+    <div class="set-me"><div class="avatar" id="setAvatar"></div><div><b id="setName"></b><span id="setHandle"></span></div></div>
+
+    <div class="set-group">
+      <div class="set-label">SoundCloud</div>
+      <div class="set-row"><span id="setScState"></span><button class="btn ghost sc-connect" id="setScBtn">Connect</button></div>
+    </div>
+
+    <div class="set-group" id="setPwGroup">
+      <div class="set-label" id="setPwLabel">Password</div>
+      <p class="set-hint" id="setPwHint"></p>
+      <div class="set-row"><input id="setPwIn" type="password" autocomplete="new-password" placeholder="6+ characters"><button class="btn primary" id="setPwGo">Save</button></div>
+    </div>
+
+    <div class="set-group">
+      <button class="set-out" id="signOut">Sign out</button>
+    </div>
+  </div>
+</section>
+
 <section class="np" id="np" aria-hidden="true">
   <!-- 背景：ジャケットの色がゆっくり渦を巻いて広がる（オン／オフできる） -->
   <div class="amb" id="amb" aria-hidden="true">
@@ -974,30 +1012,51 @@ function showTab(which) {
   if (which === 'home') renderHome();
 }
 $('tabHome').addEventListener('click', () => showTab('home'));
-// ログアウト（SoundCloudの人はいつでも入り直せる。@IDだけの人は、この端末から入れなくなるので2回押しで確認）
-let signOutArmed = 0;
+// ===================== 設定（右上の @ID から） =====================
+function openSettings() {
+  const user = firebase.auth().currentUser;
+  const linked = isScUser(user);
+  setFace($('setAvatar'), me); $('setName').textContent = me.name || me.handle; $('setHandle').textContent = '@' + me.handle;
+  $('setScState').textContent = linked ? 'Signed in with SoundCloud' : (sc ? 'Connected' : 'Not connected');
+  $('setScBtn').hidden = linked && !!sc;
+  $('setScBtn').textContent = linked ? 'Reconnect' : 'Connect';
+  // パスワード：SoundCloudで入っている人には不要
+  $('setPwGroup').hidden = linked;
+  const hasPw = user && !user.isAnonymous;
+  $('setPwLabel').textContent = hasPw ? 'Change password' : 'Set a password';
+  $('setPwHint').textContent = hasPw ? 'Sign in with @' + me.handle + ' and this password on any device.' : 'Without a password you can only use @' + me.handle + ' on this device. Set one to sign in anywhere.';
+  $('setPwIn').value = '';
+  signOutArmed = 0; $('signOut').textContent = 'Sign out';
+  const sh = $('settings'); sh.classList.add('open'); sh.setAttribute('aria-hidden', 'false');
+}
+function closeSettings() { const sh = $('settings'); sh.classList.remove('open'); sh.setAttribute('aria-hidden', 'true'); }
+$('meLabel').addEventListener('click', openSettings);
+$('setDone').addEventListener('click', closeSettings);
+$('setScBtn').addEventListener('click', () => connectSC());
+
 $('setPwGo').addEventListener('click', async () => {
   const user = firebase.auth().currentUser, pw = $('setPwIn').value;
   if (pw.length < 6) { toast('Use 6 or more characters'); return; }
+  $('setPwGo').disabled = true;
   try {
-    await user.linkWithCredential(firebase.auth.EmailAuthProvider.credential(handleEmail(user.uid), pw));
-    $('setPw').hidden = true; $('setPwIn').value = '';
+    if (user.isAnonymous) await user.linkWithCredential(firebase.auth.EmailAuthProvider.credential(handleEmail(user.uid), pw));
+    else await user.updatePassword(pw);
     toast('Password saved. Sign in with @' + me.handle + ' anywhere.');
-  } catch (e) { toast("Couldn't save the password (" + e.message + ')'); }
+    openSettings();
+  } catch (e) {
+    toast(/recent-login/.test(e.code || '') ? 'For safety, sign out and sign in again, then change it' : "Couldn't save the password (" + e.message + ')');
+  } finally { $('setPwGo').disabled = false; }
 });
+
+// ログアウト（@IDだけでパスワードがない人は、先にパスワードを決めてもらう）
+let signOutArmed = 0;
 $('signOut').addEventListener('click', async () => {
   const user = firebase.auth().currentUser;
-  if (user.isAnonymous) {
-    // まだパスワードがない：先に決めてもらう（でないと二度と入れない）
-    $('setPw').hidden = false; $('setPwIn').focus();
-    toast('Set a password first so you can sign back in to @' + me.handle);
-    return;
-  }
+  if (user.isAnonymous) { $('setPwIn').focus(); toast('Set a password first so you can sign back in to @' + me.handle); return; }
   if (Date.now() - signOutArmed > 4000) {
     signOutArmed = Date.now();
-    $('signOut').textContent = 'Tap again';
-    toast(isScUser(user) ? 'Sign in again anytime with SoundCloud' : 'Sign in again with @' + me.handle + ' and your password');
-    setTimeout(() => { $('signOut').textContent = 'Sign out'; }, 4000);
+    $('signOut').textContent = 'Tap again to sign out';
+    setTimeout(() => { if (Date.now() - signOutArmed >= 4000) $('signOut').textContent = 'Sign out'; }, 4100);
     return;
   }
   if (call.state !== 'idle') endCall();
