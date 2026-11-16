@@ -1994,14 +1994,10 @@ async function loadWave(meta) {
     if (!r.ok || waveFor !== meta.trackId) return;
     const bars = await r.json();
     if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
-    // 強弱をはっきり：まわりの平均との差を強調してから、高低を広げる
-    const k = 4, loc = bars.map((v, i) => {
-      let sum = 0, c = 0;
-      for (let j = Math.max(0, i - k); j <= Math.min(bars.length - 1, i + k); j++) { sum += bars[j]; c++; }
-      return v - 0.92 * (sum / c);
-    });
-    const mx = Math.max(...loc), mn = Math.min(...loc);
-    waveBars = loc.map((v) => 0.03 + 0.97 * Math.pow((v - mn) / Math.max(0.001, mx - mn), 2.6));
+    // 音の大きさをそのまま高さに。曲の中で一番静かなあたり〜一番大きいあたりを、低い〜高いにめいっぱい広げる
+    const sorted = bars.slice().sort((x, y) => x - y);
+    const lo = sorted[Math.floor(sorted.length * 0.04)], hi = sorted[Math.floor(sorted.length * 0.98)];
+    waveBars = bars.map((v) => 0.07 + 0.93 * Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 1.5));
     $('seek').classList.add('waved');
     drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   } catch { /* 普通のバーのまま */ }
