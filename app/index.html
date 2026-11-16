@@ -553,9 +553,9 @@
   /* 再生まわり：丸い囲いはなし。アイコンだけで立つ、平たいデザイン */
   .controls .skip, .controls .pp, .controls .mode { background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 12px; }
   .controls .skip { width: 64px; height: 56px; color: var(--ink); }
-  .controls .skip svg { width: 46px; height: 34px; }
+  .controls .skip svg { width: 44px; height: 28px; }
   .controls .pp { width: 76px; height: 64px; color: var(--ink); }
-  .controls .pp svg { width: 52px; height: 52px; }
+  .controls .pp svg { width: 50px; height: 50px; }
   .controls .skip:active, .controls .pp:active, .controls .mode:active { transform: scale(.9); opacity: .7; }
   .controls .mode { color: var(--mute); }
   .controls .mode svg { width: 28px; height: 28px; }
@@ -2042,6 +2042,16 @@ async function loadWave(meta) {
       if (e < edge) { const q = e / edge; h *= 0.12 + 0.88 * q * q * (3 - 2 * q); } // なめらかに小さく
       return 0.05 + 0.95 * h;
     });
+    // 終わり：音が下がり始めたところから最後まで、だんだん低くなるようにつなぐ（急に崖みたいに落ちないように）
+    const tail = Math.max(8, Math.round(n0 * 0.09));
+    let start = n0 - tail;
+    for (let i = n0 - 1; i > n0 - tail; i--) if (waveBars[i] > 0.6) { start = i; break; }
+    start = Math.max(n0 - tail, start - Math.round(tail / 2));
+    const top = waveBars[start];
+    for (let i = start; i < n0; i++) {
+      const q = (i - start) / Math.max(1, n0 - 1 - start);
+      waveBars[i] = Math.min(waveBars[i] * 0.35 + 0.65 * top * Math.pow(1 - q, 1.4), top) + 0.04 * (1 - q);
+    }
     $('seek').classList.add('waved');
     drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   } catch { /* 普通のバーのまま */ }
