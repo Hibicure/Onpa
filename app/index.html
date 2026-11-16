@@ -629,13 +629,7 @@
   #results .row .rheart svg { width: 20px; height: 20px; fill: none; }
   #results .row .rheart[aria-pressed="true"] svg { fill: currentColor; }
   #results .row .add { margin-right: -6px; }
-  /* CDの時：ジャケットの色が、ディスクのまわりから水面の波みたいに、じわーっと外へ広がり続ける（点滅しない）。波の濃さは曲の波形に合わせる */
-  .np .radiate { position: absolute; width: min(80vw, 340px, 43dvh); aspect-ratio: 1; border-radius: 50%; pointer-events: none; z-index: 0; }
-  .np .radiate canvas { position: absolute; left: 50%; top: 50%; width: 240%; height: 240%; transform: translate(-50%, -50%); filter: blur(9px) saturate(1.7); opacity: 0; transition: opacity 1.2s ease; }
-  .np .radiate.on canvas { opacity: 1; }
-  .np.square .radiate, .np.full .radiate, .np:not(.has-art) .radiate { display: none; }
   .np #disc { z-index: 1; }
-  @media (prefers-reduced-motion: reduce) { .np .radiate { display: none; } }
 </style>
 </head>
 <body>
@@ -821,8 +815,7 @@
       <button class="recbtn glass" id="recBtn" hidden></button>
     </div>
     <div class="stage">
-      <div class="radiate" id="radiate" aria-hidden="true"><canvas></canvas></div>
-      <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
+            <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
     <div class="titlebar">
@@ -2082,7 +2075,6 @@ function renderTrack() {
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
   $('np').classList.toggle('has-art', !!track.artwork);
   $('np').style.setProperty('--rad-art', track.artwork ? `url("${track.artwork.replace('-large.', '-t300x300.')}")` : 'none');
-  window.radiateArt?.(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
   if ($('np').classList.contains('full')) { if (track.artwork) setFull(true); else setFull(false); }
   paintHeart();
   markNow();
@@ -2126,85 +2118,19 @@ player.addEventListener('playing', () => addCue());
 let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
 let waveBars = null, waveFor = null;
-// ── CDのまわりの波：一定の速さで外へ流れるさざ波。波の強さは「その時に鳴っていた音の大きさ」（波形）で決まる ──
-window.radiateArt = (() => {
-  const box = $('radiate'), cv = box.querySelector('canvas'), g = cv.getContext('2d');
-  const off = document.createElement('canvas'), og = off.getContext('2d');
-  let img = null, src = '', pat = null, patSize = 0, raf = 0, last = 0, phase = 0, stopAt = 0;
-  const SPEED = 24, LAMBDA = 46; // 波が外へ進む速さ(px/秒)・波と波の間隔(px)
-  function ampAt(t) {
-    const d = player.duration;
-    if (!waveBars || !isFinite(d) || !d) return 0.55; // 波形がない時は一定の波
-    const f = Math.min(1, Math.max(0, t / d)) * (waveBars.length - 1), i = Math.floor(f), q = f - i;
-    return waveBars[i] * (1 - q) + (waveBars[Math.min(waveBars.length - 1, i + 1)] || 0) * q;
-  }
-  function frame(now) {
-    const np = $('np'), playing = $('disc').classList.contains('spinning');
-    const show = playing && img && !np.classList.contains('square') && !np.classList.contains('full') && np.classList.contains('has-art');
-    box.classList.toggle('on', !!show);
-    if (!show && now > stopAt) { raf = 0; last = 0; return; }
-    raf = requestAnimationFrame(frame);
-    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0; last = now;
-    if (playing) phase += dt * SPEED / LAMBDA;
-    const S = Math.round(cv.clientWidth); if (!S || !img) return;
-    if (cv.width !== S) { cv.width = cv.height = S; pat = null; }
-    if (!pat || patSize !== S) { off.width = off.height = S; og.drawImage(img, 0, 0, S, S); pat = g.createPattern(off, 'no-repeat'); patSize = S; }
-    g.clearRect(0, 0, S, S);
-    const c = S / 2, R0 = S / 4.8 * 0.92, R1 = S / 2, t = player.currentTime || 0, step = 3;
-    g.strokeStyle = pat; g.lineWidth = step + 1.5;
-    for (let r = R0; r < R1; r += step) {
-      const x = (r - R0) / (R1 - R0);
-      const fade = Math.pow(1 - x, 1.5) * Math.min(1, x * 6);
-      const a = ampAt(t - (r - R0) / SPEED); // 外側ほど、少し前に鳴った音
-      const ripple = 0.5 + 0.5 * Math.cos(2 * Math.PI * ((r - R0) / LAMBDA - phase));
-      g.globalAlpha = fade * (0.2 + 0.8 * a) * (0.3 + 0.7 * ripple) * 0.9;
-      g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.stroke();
-    }
-    g.globalAlpha = 1;
-  }
-  function kick() { stopAt = performance.now() + 1300; if (!raf) raf = requestAnimationFrame(frame); }
-  player.addEventListener('playing', kick); player.addEventListener('pause', kick);
-  new MutationObserver(kick).observe($('np'), { attributes: true, attributeFilter: ['class'] });
-  const set = u => {
-    if (u === src) return; src = u; pat = null;
-    if (!u) { img = null; kick(); return; }
-    const im = new Image();
-    im.onload = () => { if (src === u) { img = im; pat = null; kick(); } };
-    im.src = u;
-  };
-  const m = /url\("(.+)"\)/.exec($('np').style.getPropertyValue('--rad-art') || ''); // もう曲が決まっていたら、そのジャケットで
-  if (m) set(m[1]);
-  return set;
-})();
 
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {
-    const r = await fetch(`${WORKER}/wave/${meta.trackId}?n=180` + (meta.secret ? '&st=' + encodeURIComponent(meta.secret) : ''));
+    const r = await fetch(`${WORKER}/wave/${meta.trackId}?n=90` + (meta.secret ? '&st=' + encodeURIComponent(meta.secret) : ''));
     if (!r.ok || waveFor !== meta.trackId) return;
     const bars = await r.json();
     if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
     // 音の大きさをそのまま高さに。曲の中で一番静かなあたり〜一番大きいあたりを、低い〜高いにめいっぱい広げる
     const sorted = bars.slice().sort((x, y) => x - y);
     const lo = sorted[0], hi = sorted[Math.floor(sorted.length * 0.98)];
-    const n0 = bars.length, edge = Math.max(4, Math.round(n0 * 0.04));
-    waveBars = bars.map((v, i) => {
-      let h = Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 1.7);
-      // 始まりと終わりは小さく（曲が始まる・終わる感じ）
-      const e = Math.min(i, n0 - 1 - i);
-      if (e < edge) { const q = e / edge; h *= 0.12 + 0.88 * q * q * (3 - 2 * q); } // なめらかに小さく
-      return 0.05 + 0.95 * h;
-    });
-    // 終わり：音が下がり始めたところから最後まで、だんだん低くなるようにつなぐ（急に崖みたいに落ちないように）
-    const tail = Math.max(8, Math.round(n0 * 0.09));
-    let start = n0 - tail;
-    for (let i = n0 - 1; i > n0 - tail; i--) if (waveBars[i] > 0.6) { start = i; break; }
-    start = Math.max(n0 - tail, start - Math.round(tail / 2));
-    const top = waveBars[start];
-    for (let i = start; i < n0; i++) {
-      const q = (i - start) / Math.max(1, n0 - 1 - start);
-      waveBars[i] = Math.min(waveBars[i] * 0.35 + 0.65 * top * Math.pow(1 - q, 1.4), top) + 0.04 * (1 - q);
-    }
+    // 始まり・終わりをすぼめる加工はしない（音の大きさそのまま）。少しだけメリハリを強めに
+    waveBars = bars.map(v => 0.06 + 0.94 * Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 2.0));
     $('seek').classList.add('waved');
     drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   } catch { /* 普通のバーのまま */ }
@@ -2218,10 +2144,10 @@ function drawWave(frac) {
   const cs = getComputedStyle($('np'));
   const on = cs.getPropertyValue('--ink').trim() || '#151517', off = cs.getPropertyValue('--line').trim() || '#C2C4C8';
   // 棒は必ず枠の幅ぴったりに収める（前は細すぎる時に最小幅で広がって、右はしの棒が枠からはみ出して消えていた）
-  const n = waveBars.length, step = W / n, bw = Math.max(0.6, step * 0.62);
+  const n = waveBars.length, step = W / n, bw = Math.max(1, step * 0.66);
   for (let i = 0; i < n; i++) {
     const h = Math.max(2, waveBars[i] * (H - 2));
-    const x = i * step, y = (H - h) / 2; // 上下対称
+    const x = i * step, y = H - h; // 真ん中で半分に割って、上半分だけ（下から上へ伸びる）
     g.globalAlpha = (i + 0.5) / n <= frac ? 1 : 0.28;
     g.fillStyle = on;
     g.fillRect(x, y, bw, h);
