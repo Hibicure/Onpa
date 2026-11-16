@@ -595,6 +595,12 @@
   .set-me b { display: block; font-size: 18px; }
   .set-me span { color: var(--mute); font-size: 14px; }
   .set-group { margin-top: 22px; padding: 16px; border-radius: 18px; background: var(--surface); }
+  .set-rb { display: flex; align-items: center; gap: 12px; }
+  .set-rb img { width: 46px; height: 46px; object-fit: cover; background: color-mix(in srgb, var(--ink) 8%, transparent); flex-shrink: 0; }
+  .set-rb img:not([src]) { visibility: hidden; }
+  .set-rb .txt { min-width: 0; flex: 1; }
+  .set-rb .t { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .set-rb .s { font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .set-label { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
   .set-hint { color: var(--mute); font-size: 13px; line-height: 1.5; margin: -2px 0 10px; }
   .set-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
@@ -837,6 +843,14 @@
     <div class="set-group">
       <div class="set-label">SoundCloud</div>
       <div class="set-row"><span id="setScState"></span><button class="btn ghost sc-connect" id="setScBtn">Connect</button></div>
+    </div>
+
+    <div class="set-group">
+      <div class="set-label">Ringback</div>
+      <p class="set-hint">When friends call you, this song plays for them until you pick up.</p>
+      <div class="set-rb"><img id="setRbArt" alt=""><div class="txt"><div class="t" id="setRbT"></div><div class="s" id="setRbS"></div></div></div>
+      <div class="set-row" style="margin-top:10px"><button class="btn ghost" id="setRbUse">Use the song playing now</button><button class="btn ghost" id="setRbReset" hidden>Default</button></div>
+      <p class="set-hint" id="setRbNote" style="margin-top:8px"></p>
     </div>
 
     <div class="set-group" id="setPwGroup">
@@ -1250,7 +1264,7 @@ async function openSharedTrack() {
 const LAST_KEY = 'oto_last';
 let lastSavedAt = 0, resumeAt = 0;
 function saveLast(force) {
-  if (!track || (!force && Date.now() - lastSavedAt < 4000)) return;
+  if (rb || !track || (!force && Date.now() - lastSavedAt < 4000)) return;
   lastSavedAt = Date.now();
   try { localStorage.setItem(LAST_KEY, JSON.stringify({ meta: track, pos: player.currentTime || 0 })); } catch { /* 無視 */ }
 }
@@ -1330,6 +1344,7 @@ function openSettings() {
   $('setPwHint').textContent = hasPw ? 'Sign in with @' + me.handle + ' and this password on any device.' : 'Without a password you can only use @' + me.handle + ' on this device. Set one to sign in anywhere.';
   $('setPwIn').value = '';
   signOutArmed = 0; $('signOut').textContent = 'Sign out';
+  paintRingback();
   const sh = $('settings'); sh.classList.add('open'); sh.setAttribute('aria-hidden', 'false');
 }
 function closeSettings() { const sh = $('settings'); sh.classList.remove('open'); sh.setAttribute('aria-hidden', 'true'); }
@@ -2284,6 +2299,7 @@ player.addEventListener('timeupdate', () => {
 });
 player.addEventListener('ended', () => {
   if (!isReal()) return;
+  if (rb) { player.currentTime = 0; player.play().catch(() => {}); return; } // 呼出音が終わったら頭から
   if (!earlyNow) { if (loading || !loadedId || endedFor === loadedId) return; endedFor = loadedId; }
   if (call.state === 'live') {
     // 一緒に聴いているときは、曲を流した人が次の曲を送る
@@ -2624,7 +2640,7 @@ $('viewHome').addEventListener('click', (e) => {
 // 自分が今聴いている曲を友達に見せる
 let lastNow = '';
 function publishNow(playing) {
-  if (!me || !track) return;
+  if (!me || !track || rb) return;
   const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', playing: !!playing, at: TS };
   const key = `${v.trackId}:${v.playing}`;
   if (key === lastNow) return;
@@ -2726,6 +2742,63 @@ $('found').addEventListener('click', async (e) => {
   toast('Friend added');
 });
 
+
+// ===================== 呼出音 =====================
+// 電話をかけてから相手が出るまで、相手が決めた曲（決めていなければデフォルトの曲）が、かけた側に流れる。
+// 決めた曲は users/{uid}/ringback に { trackId, title, artist, artwork, secret, duration, at(秒：ここから流す) }
+const DEFAULT_RINGBACK = null; // デフォルトの曲が決まったらここに入れる
+let myRingback = null;
+async function paintRingback() {
+  try { myRingback = (await db.ref(`users/${me.uid}/ringback`).get()).val(); } catch { /* 無視 */ }
+  const r = myRingback && myRingback.trackId ? myRingback : DEFAULT_RINGBACK;
+  const art = r && r.artwork ? r.artwork : '';
+  if (art) $('setRbArt').src = art; else $('setRbArt').removeAttribute('src');
+  $('setRbT').textContent = r ? r.title : 'No song yet';
+  $('setRbS').textContent = r ? (r.artist || '') + (r.at > 0 ? `  ·  from ${fmt(r.at)}` : '') + (myRingback && myRingback.trackId ? '' : '  ·  default') : 'Play a song and set it here';
+  $('setRbReset').hidden = !(myRingback && myRingback.trackId);
+  $('setRbNote').textContent = 'Tip: move to the part you like first — it starts from there.';
+}
+$('setRbUse').addEventListener('click', async () => {
+  if (!track || !loadedId || rb) { toast('Play a song first'); return; }
+  const at = Math.max(0, Math.floor(player.currentTime || 0));
+  const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', secret: track.secret || '', duration: track.duration || 0, at };
+  try { await db.ref(`users/${me.uid}/ringback`).set(v); toast('Ringback set'); } catch { toast("Couldn't save"); }
+  paintRingback();
+});
+$('setRbReset').addEventListener('click', async () => {
+  try { await db.ref(`users/${me.uid}/ringback`).remove(); } catch { /* 無視 */ }
+  paintRingback();
+});
+var rb = null; // 呼出音を流している間：{ pre: 呼び出す前に流れていた曲 }
+async function startRingback(peerUid) {
+  let song = null;
+  try { song = (await db.ref(`users/${peerUid}/ringback`).get()).val(); } catch { /* 無視 */ }
+  if (!song || !song.trackId) song = DEFAULT_RINGBACK;
+  if (!song || call.state !== 'ringing' || !call.caller) return;
+  rb = { pre: track && loadedId ? { meta: track, pos: player.currentTime || 0, playing: !player.paused } : null };
+  const meta = { trackId: song.trackId, title: song.title, artist: song.artist, artwork: song.artwork || '', secret: song.secret || '', duration: song.duration || 0 };
+  goingBack = true; // 呼出音は「前の曲」の履歴に入れない
+  const ok = await loadTrack(meta, true);
+  if (!rb) return; // 呼んでいる間に終わった
+  if (ok) {
+    if (song.at > 0) player.currentTime = song.at;
+    setMusicVol();
+    if (player.paused) player.play().catch(() => {});
+  }
+  if ($('np').classList.contains('outgoing')) { $('npT').textContent = call.peer.name || ('@' + call.peer.handle); $('npS').textContent = `Calling @${call.peer.handle}…  ♪ ${meta.title}`; }
+}
+// 呼出音をやめて、呼び出す前の曲に戻す
+async function stopRingback() {
+  if (!rb) return;
+  const pre = rb.pre; rb = null;
+  if (!pre) { player.pause(); return; }
+  goingBack = true;
+  if (await loadTrack(pre.meta, pre.playing)) {
+    if (pre.pos > 0) { if (pre.playing) player.currentTime = pre.pos; else { resumeAt = pre.pos; drawProgress(pre.pos); } }
+    if (pre.playing) { setMusicVol(); if (player.paused) player.play().catch(() => {}); }
+  }
+}
+
 // ===================== 通話 =====================
 // ---- 通話の前に「イヤホンをつけて」。iPhoneアプリでは、イヤホンがつながるまで通話できない（音の良さを守るため）
 let earOkWeb = false;
@@ -2777,6 +2850,7 @@ async function startCall(peerUid) {
   await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
   await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, fromAvatar: safeImg(me.avatar) || null, room: call.room, at: TS });
   watchCallStatus();
+  startRingback(peerUid);
   call.ringTimer = setTimeout(() => {
     if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(`@${f.handle} didn't answer`); }
   }, 35000);
@@ -2991,6 +3065,7 @@ function endRadio() { if (!radioPlay) return; radioPlay = null; nat('recEnd').ca
 async function joinCall() {
   if (call.state === 'joining' || call.state === 'live') return;
   call.state = 'joining';
+  await stopRingback(); // 相手が出た：呼出音をやめて、自分の曲に戻してから2人の部屋へ
   clearTimeout(call.ringTimer);
   showCallbar();
   try {
@@ -3065,6 +3140,7 @@ async function joinCall() {
 
 function endCall(msg) {
   if (call.state === 'idle') return;
+  stopRingback();
   const wasLive = call.state === 'live';
   call.state = 'idle';
   clearTimeout(call.ringTimer); clearInterval(call.timer);
