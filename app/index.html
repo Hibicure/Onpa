@@ -2122,7 +2122,7 @@ let waveBars = null, waveFor = null;
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {
-    const r = await fetch(`${WORKER}/wave/${meta.trackId}?n=90` + (meta.secret ? '&st=' + encodeURIComponent(meta.secret) : ''));
+    const r = await fetch(`${WORKER}/wave/${meta.trackId}?n=135` + (meta.secret ? '&st=' + encodeURIComponent(meta.secret) : ''));
     if (!r.ok || waveFor !== meta.trackId) return;
     const bars = await r.json();
     if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
@@ -2144,7 +2144,7 @@ function drawWave(frac) {
   const cs = getComputedStyle($('np'));
   const on = cs.getPropertyValue('--ink').trim() || '#151517', off = cs.getPropertyValue('--line').trim() || '#C2C4C8';
   // 棒は必ず枠の幅ぴったりに収める（前は細すぎる時に最小幅で広がって、右はしの棒が枠からはみ出して消えていた）
-  const n = waveBars.length, step = W / n, bw = Math.max(1, step * 0.66);
+  const n = waveBars.length, step = W / n, bw = Math.max(0.8, step * 0.56);
   for (let i = 0; i < n; i++) {
     const h = Math.max(2, waveBars[i] * (H - 2));
     const x = i * step, y = H - h; // 真ん中で半分に割って、上半分だけ（下から上へ伸びる）
