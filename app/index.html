@@ -1013,12 +1013,12 @@ function startApp() {
   watchFriends();
   watchIncoming();
   if (sc) loadLikes().catch(() => {});
-  openSharedTrack();
+  openSharedTrack().then((opened) => { if (!opened) restoreLast(); });
 }
 async function openSharedTrack() {
   let id = null;
   try { id = sessionStorage.getItem('oto_t'); sessionStorage.removeItem('oto_t'); } catch {}
-  if (!id) return;
+  if (!id) return false;
   try { const u = new URL(location.href); if (u.searchParams.has('t')) { u.searchParams.delete('t'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch {}
   try {
     const r = await fetch(`${WORKER}/t/${id}`, { headers: await scHeaders() });
@@ -1026,7 +1026,54 @@ async function openSharedTrack() {
     const t = await r.json();
     $('miniOpen').click(); pick(toMeta(t), true);
   } catch { toast("Couldn't open that song"); }
+  return true;
 }
+
+// ===================== 前回の続き =====================
+// アプリを開いたら、いきなりCDの画面。前回の曲があればそこから（止まった位置から）、
+// なければ再生ボタンで「いいね」をシャッフル再生
+const LAST_KEY = 'oto_last';
+let lastSavedAt = 0, resumeAt = 0;
+function saveLast(force) {
+  if (!track || (!force && Date.now() - lastSavedAt < 4000)) return;
+  lastSavedAt = Date.now();
+  try { localStorage.setItem(LAST_KEY, JSON.stringify({ meta: track, pos: player.currentTime || 0 })); } catch { /* 無視 */ }
+}
+const rawOf = (m) => ({ id: m.trackId, title: m.title, artist: m.artist, artwork: m.artwork || '' });
+async function likesPool() {
+  if (!likesList && sc) { try { await loadLikes(); } catch { /* 無視 */ } }
+  return (likesList && likesList.length) ? likesList : recent;
+}
+function showEmptyNp() {
+  $('npT').textContent = sc ? 'Shuffle your likes' : 'Press play';
+  $('npS').textContent = sc ? 'Press play to start' : 'Songs you played will shuffle here';
+  setPP('play');
+}
+async function restoreLast() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch { /* 無視 */ }
+  $('miniOpen').click();
+  if (!d || !d.meta || !d.meta.trackId) { showEmptyNp(); return; }
+  if (await loadTrack(d.meta, false)) {
+    setPP('play');
+    resumeAt = d.pos > 3 ? d.pos : 0;
+    if (resumeAt) drawProgress(resumeAt);
+    // この曲が終わったら、いいねのシャッフルに続く
+    const pool = await likesPool();
+    if (!track || track.trackId !== d.meta.trackId) return;
+    queue = [rawOf(d.meta), ...shuffled(pool.filter((t) => String(t.id) !== String(d.meta.trackId)))];
+    origQueue = queue.slice(); qi = 0;
+    player.preload(peekNext());
+  }
+}
+// 何も選んでいない時に再生ボタン：いいねをシャッフル
+async function startDefault() {
+  unlockAudio();
+  const pool = await likesPool();
+  if (!pool || !pool.length) { toast('Search for a song to start'); return; }
+  playFrom(shuffled(pool), 0);
+}
+
 
 // ===================== タブ =====================
 function showTab(which) {
@@ -1692,6 +1739,7 @@ async function pick(meta, auto = false) {
 }
 
 function togglePlay() {
+  if (!track && !loading && call.state !== 'live') { startDefault(); return; }
   if (!track || loading) return;
   if (call.state === 'live' && roomState) {
     unlockAudio();
@@ -1743,6 +1791,10 @@ player.addEventListener('ended', () => {
   }
   if (!playNext()) playRelated(true);
 });
+// 前回の続き：止まった位置から再開・今の曲と位置を覚えておく
+player.addEventListener('playing', () => { if (resumeAt) { const t = resumeAt; resumeAt = 0; player.currentTime = t; } });
+player.addEventListener('timeupdate', () => saveLast(false));
+player.addEventListener('pause', () => saveLast(true));
 let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
 function drawProgress(t) {
