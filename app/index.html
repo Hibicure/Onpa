@@ -253,7 +253,15 @@
     -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 37%, #000 39% 98%, transparent 99%);
     mask-image: radial-gradient(circle closest-side, transparent 0 37%, #000 39% 98%, transparent 99%); }
   /* ジャケットが乗ったCD：画像は端まで。ふちは細い線だけ（太いと安っぽい）。光の反射は乗せない */
-  .disc:has(.face[src]) .shine { display: none; }
+  /* 穴のまわりの、何も印刷されていない鏡の輪：銀色に、光の当たる所だけうっすら虹色（盤が回っても反射は動かない） */
+  .disc:has(.face[src]) .shine { display: block; mix-blend-mode: normal;
+    background:
+      conic-gradient(from 20deg, rgba(255,255,255,0) 0deg, rgba(255,160,200,.55) 12deg, rgba(255,230,150,.55) 22deg, rgba(160,240,205,.5) 32deg, rgba(150,205,255,.5) 42deg, rgba(205,170,255,.42) 52deg, rgba(255,255,255,0) 66deg,
+        rgba(255,255,255,0) 180deg, rgba(255,160,200,.45) 192deg, rgba(255,230,150,.45) 202deg, rgba(160,240,205,.4) 212deg, rgba(150,205,255,.4) 222deg, rgba(205,170,255,.34) 232deg, rgba(255,255,255,0) 246deg),
+      conic-gradient(from 300deg, rgba(255,255,255,.0) 0deg, rgba(255,255,255,.9) 25deg, rgba(255,255,255,0) 55deg, rgba(0,0,0,.18) 150deg, rgba(255,255,255,0) 210deg, rgba(255,255,255,.7) 300deg, rgba(255,255,255,0) 330deg),
+      radial-gradient(circle closest-side, #DDE0E5 0 33%, #F4F5F7 34.5%, #C4C8CF 36.5%, #D9DCE1 38%);
+    -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 32.2%, #000 32.6% 37.8%, transparent 38.3%);
+    mask-image: radial-gradient(circle closest-side, transparent 0 32.2%, #000 32.6% 37.8%, transparent 38.3%); }
   .disc:has(.face[src]) .edge { box-shadow: inset 0 0 0 .5px rgba(0,0,0,.32), inset 0 0 0 1.1px rgba(236,238,242,.85), inset 0 0 0 1.5px rgba(0,0,0,.12), inset 0 0 6px rgba(0,0,0,.10); }
   .disc:has(.face[src]) .edge::after { -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 99.1%, #000 99.3%); mask-image: radial-gradient(circle closest-side, transparent 0 99.1%, #000 99.3%); opacity: .7; }
   /* ふち：細い銀の面取り。上が明るく下が暗い光で、盤の厚みを出す */
