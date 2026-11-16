@@ -128,8 +128,6 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
 
     override init() {
         super.init()
-        NotificationCenter.default.addObserver(self, selector: #selector(routeChanged),
-                                               name: AVAudioSession.routeChangeNotification, object: nil)
     }
 
     // ページからのお願い
@@ -144,9 +142,8 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "mic":
                     let on = body["on"] as? Bool ?? true
                     _ = try await room?.localParticipant.setMicrophone(enabled: on,
-                                                                       captureOptions: Self.capture,
+                                                                       captureOptions: capture,
                                                                        publishOptions: Self.publish)
-                    applyProcessing()
                 case "vol":
                     voiceVolume = max(0, min(2, (body["v"] as? Double) ?? 1))
                     applyVoiceVolume()
@@ -163,11 +160,17 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
     }
 
     // 声の送り方：ふつうの通話（24kbps）より高い音質で、無音の間も途切れさせない
-    static let capture = AudioCaptureOptions(echoCancellation: true, autoGainControl: true, noiseSuppression: true)
+    private var capture = AudioCaptureOptions(echoCancellation: true, autoGainControl: true, noiseSuppression: true)
     static let publish = AudioPublishOptions(encoding: AudioEncoding(maxBitrate: 64000), dtx: false, red: true)
 
     private func connect(url: String, token: String) async throws {
         await hangUp()
+        // AirPodsなどがつながっている時は、iPhoneの「通話用の音の処理」を使わない。
+        // それを使うと、iPhoneが音をAirPodsから本体のスピーカーに勝手に切り替えてしまうため。
+        // （イヤホンなら音が相手に返らないので、その処理はいらない）
+        let hp = headphonesConnected()
+        try? AudioManager.shared.setPlatformVoiceProcessingAllowed(!hp)
+        capture = AudioCaptureOptions(echoCancellation: !hp, autoGainControl: true, noiseSuppression: true)
         configureSession()
         // 喋っても音楽をできるだけ下げない
         AudioManager.shared.duckingLevel = .min
@@ -179,12 +182,11 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         do {
             try await room.connect(url: url, token: token)
             wasConnected = true
-            try await room.localParticipant.setMicrophone(enabled: true, captureOptions: Self.capture, publishOptions: Self.publish)
+            try await room.localParticipant.setMicrophone(enabled: true, captureOptions: capture, publishOptions: Self.publish)
         } catch {
             await hangUp()
             throw error
         }
-        applyProcessing()
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
@@ -203,18 +205,9 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         try? s.setActive(true)
     }
 
-    /// イヤホンの時は、エコー消しの処理を止める（声も音楽もそのままの音質で、音楽も一切下がらない）。
-    /// スピーカーの時は、相手に音が返らないようにエコー消しを使う。
-    private func applyProcessing() {
-        guard room != nil else { return }
-        let outs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType)
+    private func headphonesConnected() -> Bool {
         let wired: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio]
-        let headphones = outs.contains { wired.contains($0) }
-        AudioManager.shared.isVoiceProcessingBypassed = headphones
-    }
-
-    @objc private func routeChanged() {
-        Task { @MainActor in self.applyProcessing() }
+        return AVAudioSession.sharedInstance().currentRoute.outputs.contains { wired.contains($0.portType) }
     }
 
     private func applyVoiceVolume() {
