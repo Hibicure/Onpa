@@ -1529,15 +1529,28 @@ function neighborMeta(dir) {
     if (art) pkArt.src = art; else pkArt.removeAttribute('src');
     pk.classList.add('show');
   };
-  // 2枚は常に同じ間隔のまま横に動く（iPodみたいに）
-  const place = (x) => {
-    // CDの時は転がるように回す（楽しい）。四角いジャケットの時はまっすぐ横だけ
-    const sq = $('np').classList.contains('square');
-    const r = sq ? 0 : 1 / 6, lift = sq || x === 0 ? 1 : 1.04; // CDは少し浮いて、転がるようにくるっと回る
-    el.style.transform = `translateX(${x}px) rotate(${x * r}deg) scale(${lift})`;
-    if (side) { const px = x + side * span(); pk.style.transform = `translateX(${px}px) rotate(${px * r}deg) scale(${lift})`; }
+  // 2枚は常に同じ間隔のまま横に動く
+  // CDの時：ふわっと浮き上がりながら、転がるようにくるっと回って、斜め上へ弧を描いて出ていく（入ってくる方は斜め上から降りてくる）
+  // 四角いジャケットの時：まっすぐ横だけ
+  const pose = (x, sq) => {
+    if (sq) return `translateX(${x}px)`;
+    const p = Math.min(1, Math.abs(x) / span()), arc = Math.sin(Math.PI * p); // 真ん中と、となりの位置では0。間でいちばん浮く
+    return `translateX(${x}px) translateY(${(-26 * arc).toFixed(2)}px) rotate(${(x / 6).toFixed(2)}deg) scale(${(1 + 0.06 * arc).toFixed(4)})`;
   };
-  const reset = () => { clearTimeout(timer); timer = null; side = 0; anim(false); pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; requestAnimationFrame(() => { el.style.transition = ''; pk.style.transition = ''; }); };
+  let tw = 0;
+  // 指を離した後も同じ弧の上を動かす（CSSの補間だと弧にならないので、1コマずつ置く）
+  const glide = (from, to, ms) => {
+    cancelAnimationFrame(tw); const t0 = performance.now();
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (now) => { const t = Math.min(1, (now - t0) / ms); place(from + (to - from) * ease(t)); if (t < 1) tw = requestAnimationFrame(step); };
+    tw = requestAnimationFrame(step);
+  };
+  const place = (x) => {
+    const sq = $('np').classList.contains('square');
+    el.style.transform = pose(x, sq);
+    if (side) pk.style.transform = pose(x + side * span(), sq);
+  };
+  const reset = () => { cancelAnimationFrame(tw); clearTimeout(timer); timer = null; side = 0; anim(false); pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; requestAnimationFrame(() => { el.style.transition = ''; pk.style.transition = ''; }); };
   el.addEventListener('pointerdown', (e) => {
     if (busy || loading) { id = null; return; } // 曲が切り替わる途中は次のスライドを受け付けない（ジャケットがダブらないように）
     if (timer) reset(); // 戻る途中なら、すぐ元の位置にしてから
@@ -1581,12 +1594,12 @@ function neighborMeta(dir) {
     const h0 = hist[0], h1 = hist[hist.length - 1];
     const v = (h1[1] - h0[1]) / Math.max(1, h1[0] - h0[0]);
     const go = !!track && side !== 0 && (Math.abs(dx) > span() * 0.33 || (Math.abs(v) > 0.45 && Math.sign(v) === Math.sign(dx)));
-    anim(true);
-    if (!go) { place(0); timer = setTimeout(reset, 380); return; }
+    anim(false);
+    if (!go) { glide(dx, 0, 340); timer = setTimeout(reset, 380); return; }
     // 今のCDが出ていき、となりのCDがちょうど真ん中に来る
     busy = true;
     const dir = dx < 0 ? -1 : 1;
-    place(dir * span());
+    glide(dx, dir * span(), 340);
     timer = setTimeout(() => {
       const src = pkArt.getAttribute('src');
       if (src) $('npArt').src = src; else $('npArt').removeAttribute('src');
