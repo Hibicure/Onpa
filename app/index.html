@@ -1589,7 +1589,7 @@ $('npMode').addEventListener('click', () => {
   toast(MODE_INFO[next].label);
 });
 function replayCurrent() {
-  if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, playing: true, position: 0 }); return; }
+  if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, playing: true, position: 0, startIn: START_LEAD }); return; }
   player.currentTime = 0; player.play().catch(() => {});
 }
 function hasNext() { return upNext.length > 0 || (qi >= 0 && qi + 1 < queue.length); }
@@ -2269,7 +2269,7 @@ async function pick(meta, auto = false) {
   if (!auto) unlockAudio();
   if (!auto) endRadio();
   if (call.state === 'live') {
-    pushRoomState({ ...meta, playing: true, position: 0 });
+    pushRoomState({ ...meta, playing: true, position: 0, startIn: START_LEAD });
     return;
   }
   if (!auto && track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
@@ -3356,27 +3356,61 @@ function applyVoiceVolume() {
 }
 
 // ===================== 一緒に聴く（同期） =====================
-const expectedPos = (s) => !s ? 0 : s.playing ? s.position + (serverNow() - s.updatedAt) / 1000 : s.position;
-
+// せーの：曲を変える時は「今から少し先の時刻」を2人で決めて、その時刻に同時に鳴らし始める。
+// 合図が届くまでの遅れや、プレーヤーの読み込みの速さの差は、この待ち時間の中で吸収される
+const START_LEAD = 1300; // ms
+const expectedPos = (s) => {
+  if (!s) return 0;
+  if (!s.playing) return s.position;
+  const t0 = s.startAt || s.updatedAt;
+  return s.position + Math.max(0, serverNow() - t0) / 1000;
+};
+let pushTimer = null, pushPending = null;
 function pushRoomState(s) {
   if (!stateRef) return;
-  const { trackId, title, artist, artwork, secret, playing, position } = s;
-  stateRef.set({ trackId, title, artist, artwork: artwork || '', secret: secret || '', playing, position, by: me.uid, updatedAt: TS });
+  pushPending = s;
+  clearTimeout(pushTimer);
+  // 曲を変える操作が短い間に続いたら、最後の1回だけ送る（連打で2人がばらばらにならないように）
+  pushTimer = setTimeout(() => {
+    const v = pushPending; pushPending = null; if (!v || !stateRef) return;
+    const { trackId, title, artist, artwork, secret, playing, position } = v;
+    const startAt = v.startIn ? serverNow() + v.startIn : 0;
+    stateRef.set({ trackId, title, artist, artwork: artwork || '', secret: secret || '', playing, position, startAt, by: me.uid, updatedAt: TS });
+  }, s.startIn ? 220 : 0);
 }
 
-let applying = false;
+let applying = false, startTimer = null;
 async function applyRoomState(s) {
+  const prev = roomState;
   roomState = s;
   if (!s || !s.updatedAt) return;
+  // 相手が操作した時は、ひとこと出す
+  if (prev && s.by && s.by !== me.uid && call.peer) {
+    if (prev.trackId !== s.trackId) toast(`${call.peer.name} ▶ ${s.title || ''}`);
+    else if (prev.playing !== s.playing) toast(`${call.peer.name} ${s.playing ? 'resumed' : 'paused'}`);
+  }
   applying = true;
+  clearTimeout(startTimer);
   try {
     if (loadedId !== s.trackId) {
       const ok = await loadTrack({ trackId: s.trackId, title: s.title, artist: s.artist, artwork: s.artwork, secret: s.secret || '' });
       if (!ok || !roomState || roomState.trackId !== s.trackId) return;
     }
-    const target = expectedPos(roomState);
-    if (Math.abs(player.currentTime - target) > 1) player.currentTime = target;
     setMusicVol();
+    const wait = roomState.playing && roomState.startAt ? roomState.startAt - serverNow() : 0;
+    if (wait > 0) {
+      // せーのの時刻まで、頭で止めて待つ
+      player.pause();
+      if (Math.abs(player.currentTime - roomState.position) > 0.3) player.currentTime = roomState.position;
+      const mine = roomState;
+      startTimer = setTimeout(() => {
+        if (roomState !== mine) return;
+        player.play().catch(() => {});
+      }, wait);
+      return;
+    }
+    const target = expectedPos(roomState);
+    if (Math.abs(player.currentTime - target) > 0.5) player.currentTime = target; // 遅れて読み込めた時は、今の位置から合流
     if (roomState.playing) await player.play(); else player.pause();
   } catch (e) {
     if (e.name === 'NotAllowedError') toast('Tap anywhere to start playback');
@@ -3392,7 +3426,7 @@ setInterval(() => {
 }, 2000);
 // iPhoneで自動再生が止められたとき、どこかタップで追いつく
 document.addEventListener('pointerdown', () => {
-  if (call.state === 'live' && roomState && roomState.playing && player.paused && loadedId === roomState.trackId) {
+  if (call.state === 'live' && roomState && roomState.playing && player.paused && loadedId === roomState.trackId && !(roomState.startAt > serverNow())) {
     player.currentTime = expectedPos(roomState);
     player.play().catch(() => {});
   }
