@@ -63,7 +63,8 @@ function mapTrack(t) {
     duration: t.duration,
     access: t.access,
     permalink_url: t.permalink_url,
-    secret: t.sharing === 'private' ? (t.secret_token || '') : '',
+    // 非公開曲の秘密の鍵（secret_token が無い時は secret_uri の中から取り出す）
+    secret: t.sharing === 'private' ? (t.secret_token || (String(t.secret_uri || '').match(/secret_token=([A-Za-z0-9-]+)/) || [])[1] || '') : '',
   };
 }
 const listOf = (d) => (Array.isArray(d) ? d : d?.collection || []);
