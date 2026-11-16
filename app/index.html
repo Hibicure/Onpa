@@ -1721,6 +1721,14 @@ async function loadTrack(meta, autoplay = false) {
     preloadTimer = setTimeout(() => { if (my === loadToken) player.preload(peekNext()); }, 2500);
     return true;
   } catch (e) {
+    // 鍵つき（非公開）の曲で鍵を知らなかった時は、SoundCloudに鍵を聞いてもう一度だけ試す
+    if (my === loadToken && !meta.secret && sc && !meta._retried) {
+      try {
+        const r = await fetch(`${WORKER}/t/${meta.trackId}`, { headers: await scHeaders() });
+        const d = r.ok ? await r.json() : null;
+        if (d && d.secret && my === loadToken) { loading = false; return loadTrack({ ...meta, secret: d.secret, _retried: true }, autoplay); }
+      } catch { /* 無視 */ }
+    }
     if (my === loadToken) { toast("This track can't be played"); setPP('play'); }
     return false;
   } finally {

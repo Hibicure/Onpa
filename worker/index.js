@@ -352,6 +352,8 @@ async function trackInfo(id, env, userToken = '', st = '') {
     const t = mapTrack(await scGet('/tracks/' + id + (st ? '?secret_token=' + st : ''), env, userToken));
     if (st) t.secret = st;
     if (t.artwork) t.artwork = t.artwork.replace('-large.', '-t500x500.');
+    // 持ち主の鍵で取った非公開曲の鍵は、他の人に配らない（キャッシュしない）
+    if (t.secret && !st) return t;
     await cache.put(key, new Response(JSON.stringify(t), { headers: { 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'application/json' } }));
     return t;
   } catch { return null; }
