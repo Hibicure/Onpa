@@ -1012,6 +1012,8 @@ function startApp() {
   });
   watchFriends();
   watchIncoming();
+  // 友だち検索の名簿（名前・@ハンドル・アイコンだけ）
+  db.ref('dir/' + me.uid).set({ name: me.name || '', handle: me.handle || '', avatar: safeImg(me.avatar) || '' }).catch(() => {});
   if (sc) loadLikes().catch(() => {});
   openSharedTrack().then((opened) => { if (!opened) restoreLast(); });
 }
@@ -2076,7 +2078,7 @@ $('fq').addEventListener('input', (e) => {
 async function loadUserDir() {
   if (userDir && Date.now() - userDirAt < 60000) return userDir;
   try {
-    const v = (await db.ref('users').get()).val() || {};
+    const v = (await db.ref('dir').get()).val() || {};
     userDir = Object.entries(v).filter(([, u]) => u && u.handle).map(([uid, u]) => ({ uid, ...u }));
     userDirAt = Date.now();
   } catch { userDir = null; } // 読めない時は@ハンドルだけで探す
