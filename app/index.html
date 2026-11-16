@@ -2417,8 +2417,10 @@ function setEndMode(on) {
   clearTimeout(endModeTimer);
   np.classList.toggle('endmode', !!on);
   $('npPP').setAttribute('aria-label', on ? 'End call' : 'Play or pause');
-  if (on) { $('npPP').innerHTML = ICON.end; endModeTimer = setTimeout(() => setEndMode(false), 4000); }
-  else setPP(loading ? 'load' : (player.paused ? 'play' : 'pause'));
+  if (on) { $('npPP').innerHTML = ICON.end; return; }
+  setPP(loading ? 'load' : (player.paused ? 'play' : 'pause'));
+  // 通話中は「終了ボタン」がふつうの状態。相手のアイコンをタップすると少しの間だけ再生/停止になって、また終了ボタンに戻る
+  if (call.state === 'live') endModeTimer = setTimeout(() => { if (call.state === 'live') setEndMode(true); }, 6000);
 }
 $('discPeer').addEventListener('click', (e) => {
   if (call.state !== 'live') return;
@@ -3316,6 +3318,8 @@ function endCall(msg) {
 
 function showCallbar() {
   $('np').classList.toggle('oncall', call.state === 'live');
+  if (call.state === 'live' && !call.endInit) { call.endInit = true; setEndMode(true); } // つながったら、まん中のボタンは「通話を終える」から
+  if (call.state !== 'live') call.endInit = false;
   if (call.state === 'live') { $('np').classList.remove('square'); if ($('np').classList.contains('full')) setFull(false); } // 電話中はCDの表示に固定
   if (call.state === 'idle') return;
   $('callbar').hidden = $('np').classList.contains('outgoing');
@@ -3384,8 +3388,8 @@ const shouldPlay = () => !!(roomState && roomState.playing);
 setInterval(() => {
   if (call.state !== 'live' || !roomState || applying || loadedId !== roomState.trackId || !roomState.playing || player.paused) return;
   const diff = player.currentTime - expectedPos(roomState);
-  if (Math.abs(diff) > 1.2) player.currentTime = expectedPos(roomState);
-}, 4000);
+  if (Math.abs(diff) > 0.5) player.currentTime = expectedPos(roomState);
+}, 2000);
 // iPhoneで自動再生が止められたとき、どこかタップで追いつく
 document.addEventListener('pointerdown', () => {
   if (call.state === 'live' && roomState && roomState.playing && player.paused && loadedId === roomState.trackId) {
