@@ -570,6 +570,18 @@
   .callbar .round.off { opacity: .5; }
   .mini .pp { color: var(--ink); }
   .round:active, .ringbtn:active, .pp:active { transform: scale(.9); opacity: .7; }
+  /* 全画面のジャケット */
+  .np .fullart { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity .5s ease; background: #000; }
+  .np.full .fullart { opacity: 1; }
+  .np .fullart .img { position: absolute; inset: -12%; background-size: cover; background-position: center; animation: fullpan 38s ease-in-out infinite alternate; animation-play-state: paused; }
+  .np.full .fullart .img { animation-play-state: running; }
+  @keyframes fullpan { from { transform: scale(1.05) translate(-4%, -3%); } to { transform: scale(1.22) translate(4%, 3%); } }
+  .np .fullart .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.72) 100%); }
+  .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
+  .np.full .amb { display: none; }
+  .np.full #disc, .np.full #discPeek { visibility: hidden; }
+  .np.full .in { position: relative; z-index: 1; }
+  @media (prefers-reduced-motion: reduce) { .np .fullart .img { animation: none; } }
 </style>
 </head>
 <body>
@@ -741,6 +753,7 @@
 
 <section class="np" id="np" aria-hidden="true">
   <!-- 背景：ジャケットの色がゆっくり渦を巻いて広がる（オン／オフできる） -->
+  <div class="fullart" id="fullArt" aria-hidden="true"><div class="img" id="fullImg"></div><div class="shade"></div></div>
   <div class="amb" id="amb" aria-hidden="true">
     <div class="spin s1"><div class="blob"></div></div>
     <div class="spin s2"><div class="blob"></div></div>
@@ -1483,7 +1496,12 @@ function neighborMeta(dir) {
     }
     if (!horizontal) {
       // ほとんど動かさずに離した＝タップ：CDと四角いジャケットを切り替え
-      if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer')) $('np').classList.toggle('square');
+      if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer')) {
+        // タップするたびに：CD → 四角いジャケット → 全画面 → CD
+        const np = $('np');
+        if (np.classList.contains('square')) { np.classList.remove('square'); setFull(true); }
+        else np.classList.add('square');
+      }
       return;
     }
     const go = !!track && Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
@@ -1960,6 +1978,7 @@ function renderTrack() {
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').removeAttribute('src'); $('npArt').removeAttribute('src'); }
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
+  if ($('np').classList.contains('full')) { if (track.artwork) setFull(true); else setFull(false); }
   paintHeart();
   markNow();
 }
@@ -2030,7 +2049,7 @@ function drawWave(frac) {
   if (!W) return;
   if (c.width !== Math.round(W * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
   const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const cs = getComputedStyle(document.documentElement);
+  const cs = getComputedStyle($('np'));
   const on = cs.getPropertyValue('--ink').trim() || '#151517', off = cs.getPropertyValue('--line').trim() || '#C2C4C8';
   const n = waveBars.length, gap = 1.2, bw = Math.max(1, (W - gap * (n - 1)) / n);
   for (let i = 0; i < n; i++) {
@@ -2068,6 +2087,13 @@ $('npPP').addEventListener('click', () => {
   unlockAudio(); togglePlay();
 });
 $('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
+// 全画面：ジャケットが画面いっぱいに、ゆっくり流れる（SoundCloudの再生画面みたいに）
+function setFull(on) {
+  const np = $('np');
+  if (on && track && track.artwork) $('fullImg').style.backgroundImage = `url("${track.artwork.replace('-large.', '-t500x500.')}")`;
+  np.classList.toggle('full', !!on);
+  drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
+}
 function closeNp() { const n = $('np'); n.classList.remove('open', 'dragging'); n.style.transform = ''; n.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
 $('npClose').addEventListener('click', closeNp);
 // 上の部分（ディスクより上）をつまんで下に引くと、引き出しのように閉じる
@@ -2091,6 +2117,8 @@ $('npClose').addEventListener('click', closeNp);
     const fast = dy / Math.max(1, performance.now() - t0) > 0.6;
     if (dy > 110 || (fast && dy > 30)) closeNp();
     else np.style.transform = '';
+    // 全画面の時は、画面をタップするとCDに戻る
+    if (dy < 4 && np.classList.contains('full') && performance.now() - t0 < 400) setFull(false);
   };
   np.addEventListener('pointerup', end);
   np.addEventListener('pointercancel', end);
