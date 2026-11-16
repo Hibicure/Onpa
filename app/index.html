@@ -611,7 +611,7 @@
     </div>
     <div class="field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="fq" type="search" placeholder="Find friends by handle" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="search">
+      <input id="fq" type="search" placeholder="Find friends by name or @handle" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="search">
     </div>
     <div class="list" id="found"></div>
     <div class="section" id="friendsTitle">Friends</div>
@@ -2065,26 +2065,55 @@ $('friends').addEventListener('click', (e) => {
   if (b && !b.disabled) startCall(b.dataset.call);
 });
 
-let findTimer = null;
+let findTimer = null, userDir = null, userDirAt = 0;
+// 名前（表示名）でも、@ハンドルでも探せる。日本語の名前もそのまま打てる
 $('fq').addEventListener('input', (e) => {
-  e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
   clearTimeout(findTimer);
-  const h = e.target.value;
-  if (h.length < 3) { $('found').innerHTML = ''; return; }
-  findTimer = setTimeout(() => findFriend(h), 300);
+  const q = e.target.value.trim();
+  if (q.replace(/^@/, '').length < 2) { $('found').innerHTML = ''; return; }
+  findTimer = setTimeout(() => findFriend(q), 300);
 });
-async function findFriend(h) {
-  const uid = (await db.ref('handles/' + h).get()).val();
-  if ($('fq').value !== h) return;
-  if (!uid) { $('found').innerHTML = `<div class="empty">No one with @${esc(h)}</div>`; return; }
-  const u = (await db.ref('users/' + uid).get()).val() || {};
+async function loadUserDir() {
+  if (userDir && Date.now() - userDirAt < 60000) return userDir;
+  try {
+    const v = (await db.ref('users').get()).val() || {};
+    userDir = Object.entries(v).filter(([, u]) => u && u.handle).map(([uid, u]) => ({ uid, ...u }));
+    userDirAt = Date.now();
+  } catch { userDir = null; } // 読めない時は@ハンドルだけで探す
+  return userDir;
+}
+function foundRow(uid, u) {
   const self = uid === me.uid, added = friends.has(uid);
-  $('found').innerHTML = `
+  return `
     <div class="row">
       <div class="avatar">${face(u)}<span class="dot ${u.online ? 'on' : ''}"></span></div>
       <div class="txt"><div class="t">${esc(u.name)}</div><div class="s">@${esc(u.handle)}</div></div>
       ${self ? '<span class="tag">You</span>' : added ? '<button class="btn ghost" disabled>Added</button>' : `<button class="btn primary" data-add="${uid}">Add</button>`}
     </div>`;
+}
+async function findFriend(q) {
+  const onlyHandle = q.startsWith('@');
+  const h = q.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const n = q.replace(/^@/, '').toLowerCase();
+  const hits = new Map();
+  // ぴったりの@ハンドル
+  if (h.length >= 2) {
+    const uid = (await db.ref('handles/' + h).get()).val();
+    if (uid) hits.set(uid, (await db.ref('users/' + uid).get()).val() || {});
+  }
+  // 名前・ハンドルの一部が合う人
+  const dir = await loadUserDir();
+  if (dir) {
+    dir.forEach((u) => {
+      if (hits.size >= 12 || hits.has(u.uid)) return;
+      const inHandle = h && String(u.handle).toLowerCase().includes(h);
+      const inName = !onlyHandle && String(u.name || '').toLowerCase().includes(n);
+      if (inHandle || inName) hits.set(u.uid, u);
+    });
+  }
+  if ($('fq').value.trim() !== q) return;
+  if (!hits.size) { $('found').innerHTML = `<div class="empty">No one found for “${esc(q)}”</div>`; return; }
+  $('found').innerHTML = [...hits].map(([uid, u]) => foundRow(uid, u)).join('');
 }
 $('found').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-add]');
