@@ -2030,6 +2030,26 @@ $('inNo').addEventListener('click', () => {
   db.ref('calls/' + me.uid).remove();
 });
 
+// iPhoneアプリの中では、通話をアプリ本体（ネイティブ）でつなぐ。
+// 喋っても音楽が小さくならない・音楽が電話っぽい音にならないように。
+const NATIVE_CALL = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall);
+class NativeRoom {
+  constructor() {
+    this.h = {}; this.p = {}; const self = this;
+    this.localParticipant = { setMicrophoneEnabled: (on) => self.send({ op: 'mic', on: !!on }) };
+    this.remoteParticipants = { forEach(fn) { fn({ setVolume: (v) => self.send({ op: 'vol', v: Number(v) }).catch(() => {}) }); } };
+    window.__otoNative = (e) => {
+      if (e.id && this.p[e.id]) { const q = this.p[e.id]; delete this.p[e.id]; if (e.error) { const er = new Error(e.error); er.name = e.name || 'Error'; q.rej(er); } else q.res(e); return; }
+      (this.h[e.type] || []).forEach((f) => f(e));
+    };
+  }
+  send(m) { return new Promise((res, rej) => { const id = Math.random().toString(36).slice(2); this.p[id] = { res, rej }; window.webkit.messageHandlers.otoCall.postMessage({ ...m, id }); }); }
+  on(t, f) { (this.h[t] = this.h[t] || []).push(f); }
+  connect(url, token) { return this.send({ op: 'connect', url, token }); }
+  startAudio() { return Promise.resolve(); }
+  disconnect() { this.send({ op: 'disconnect' }).catch(() => {}); }
+}
+
 async function joinCall() {
   if (call.state === 'joining' || call.state === 'live') return;
   call.state = 'joining';
@@ -2040,6 +2060,14 @@ async function joinCall() {
     const r = await fetch(`${WORKER}/livekit-token?room=${call.room}&name=${encodeURIComponent(me.name)}`, { headers: { Authorization: 'Bearer ' + idToken } });
     const { token, error } = await r.json();
     if (!token) throw new Error(error || 'token');
+    if (NATIVE_CALL) {
+      const room = new NativeRoom();
+      call.lk = room;
+      room.on('participantDisconnected', () => { if (call.state === 'live') { db.ref(`rooms/${call.room}/call/status`).set('ended'); endCall('They hung up'); } });
+      room.on('disconnected', () => { if (call.state !== 'idle') endCall('Call dropped'); });
+      await room.connect(LIVEKIT_URL, token);
+      applyVoiceVolume();
+    } else {
     const LK = LivekitClient;
     unlockAudio();
     const room = new LK.Room({ webAudioMix: audioCtx ? { audioContext: audioCtx } : true, audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
@@ -2054,12 +2082,14 @@ async function joinCall() {
     await room.localParticipant.setMicrophoneEnabled(true);
     await room.startAudio().catch(() => {});
     if (audioCtx && audioCtx.state !== 'running') toast('Tap anywhere to hear your friend');
+    }
     call.state = 'live';
     call.startedAt = Date.now();
     call.timer = setInterval(showCallbar, 1000);
     showCallbar();
     $('volVoice').disabled = false;
     $('mixNote').textContent = isIOS ? 'Voice volume here, music with the side buttons' : 'Balance voice and music';
+    $('volVoice').max = NATIVE_CALL ? 200 : 100;
     // 一緒に聴く：ルームの再生状態を見る
     stateRef = db.ref(`rooms/${call.room}/state`);
     stateRef.on('value', (s) => applyRoomState(s.val()));

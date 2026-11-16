@@ -1,4 +1,5 @@
 import AVFoundation
+import LiveKit
 import SwiftUI
 import WebKit
 
@@ -34,6 +35,8 @@ struct WebShell: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = [] // 曲を選んだらすぐ鳴らせる
         config.websiteDataStore = .default()                 // ログイン状態や設定を覚えておく
+        // 通話はアプリ本体（ネイティブ）でつなぐ。ページからは window.webkit.messageHandlers.otoCall で頼む
+        config.userContentController.add(context.coordinator.nativeCall, name: "otoCall")
 
         let web = WKWebView(frame: .zero, configuration: config)
         web.uiDelegate = context.coordinator
@@ -53,6 +56,7 @@ struct WebShell: UIViewRepresentable {
         // 毎回いちばん新しいサイトを読む（古い画面が残らないように）
         web.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
         context.coordinator.webView = web
+        context.coordinator.nativeCall.webView = web
         // アプリに戻ってきた時、しばらく経っていたら新しいサイトを読み直す
         NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.didBecomeActive),
                                                name: UIApplication.didBecomeActiveNotification, object: nil)
@@ -65,6 +69,7 @@ struct WebShell: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate, UIScrollViewDelegate {
         weak var webView: WKWebView?
+        let nativeCall = NativeCall()
         private var leftAt = Date()
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { nil }
@@ -74,6 +79,7 @@ struct WebShell: UIViewRepresentable {
         @objc func didBecomeActive() {
             // 10分以上たっていて、通話中でなければ読み直す（通話中に切れないように）
             guard Date().timeIntervalSince(leftAt) > 600, let web = webView else { return }
+            guard !nativeCall.inCall else { return }
             web.evaluateJavaScript("typeof call !== 'undefined' && call.state !== 'idle'") { result, _ in
                 if (result as? Bool) != true { web.reload() }
             }
@@ -102,5 +108,153 @@ struct WebShell: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { webView.reload() }
         }
+    }
+}
+
+// MARK: - 通話（ネイティブ）
+
+/// ページの代わりに、アプリ本体で LiveKit の通話をつなぐ。
+/// ねらい：喋っても音楽が小さくならない／音楽が電話っぽい音にならない／声をきれいに送る。
+@MainActor
+final class NativeCall: NSObject, WKScriptMessageHandler {
+    weak var webView: WKWebView?
+    private var room: Room?
+    private var timer: Timer?
+    private var voiceVolume: Double = 1
+    private var hadPeer = false
+    private var wasConnected = false
+    var inCall: Bool { room != nil }
+
+    override init() {
+        super.init()
+        NotificationCenter.default.addObserver(self, selector: #selector(routeChanged),
+                                               name: AVAudioSession.routeChangeNotification, object: nil)
+    }
+
+    // ページからのお願い
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any], let op = body["op"] as? String else { return }
+        let id = body["id"] as? String
+        Task { @MainActor in
+            do {
+                switch op {
+                case "connect":
+                    try await connect(url: body["url"] as? String ?? "", token: body["token"] as? String ?? "")
+                case "mic":
+                    let on = body["on"] as? Bool ?? true
+                    _ = try await room?.localParticipant.setMicrophone(enabled: on,
+                                                                       captureOptions: Self.capture,
+                                                                       publishOptions: Self.publish)
+                    applyProcessing()
+                case "vol":
+                    voiceVolume = max(0, min(2, (body["v"] as? Double) ?? 1))
+                    applyVoiceVolume()
+                case "disconnect":
+                    await hangUp()
+                default: break
+                }
+                reply(id, ["ok": true])
+            } catch {
+                let denied = AVAudioApplication.shared.recordPermission == .denied
+                reply(id, ["error": error.localizedDescription, "name": denied ? "NotAllowedError" : "Error"])
+            }
+        }
+    }
+
+    // 声の送り方：ふつうの通話（24kbps）より高い音質で、無音の間も途切れさせない
+    static let capture = AudioCaptureOptions(echoCancellation: true, autoGainControl: true, noiseSuppression: true)
+    static let publish = AudioPublishOptions(encoding: AudioEncoding(maxBitrate: 64000), dtx: false, red: true)
+
+    private func connect(url: String, token: String) async throws {
+        await hangUp()
+        configureSession()
+        // 喋っても音楽をできるだけ下げない
+        AudioManager.shared.duckingLevel = .min
+        AudioManager.shared.isAdvancedDuckingEnabled = false
+        let room = Room()
+        self.room = room
+        hadPeer = false
+        wasConnected = false
+        do {
+            try await room.connect(url: url, token: token)
+            wasConnected = true
+            try await room.localParticipant.setMicrophone(enabled: true, captureOptions: Self.capture, publishOptions: Self.publish)
+        } catch {
+            await hangUp()
+            throw error
+        }
+        applyProcessing()
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tick() }
+        }
+    }
+
+    /// 音の出し方を自分で決める。
+    /// - 電話モード（voiceChat）にしない＝音楽が電話っぽい音・小さい音にならない
+    /// - AirPods などは高音質のまま（マイクは iPhone 本体のものを使う）
+    /// - アプリの音楽（サンクラ）と混ぜて鳴らす
+    private func configureSession() {
+        AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+        let s = AVAudioSession.sharedInstance()
+        try? s.setCategory(.playAndRecord, mode: .default,
+                           options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers])
+        try? s.setActive(true)
+    }
+
+    /// イヤホンの時は、エコー消しの処理を止める（声も音楽もそのままの音質で、音楽も一切下がらない）。
+    /// スピーカーの時は、相手に音が返らないようにエコー消しを使う。
+    private func applyProcessing() {
+        guard room != nil else { return }
+        let outs = AVAudioSession.sharedInstance().currentRoute.outputs.map(\.portType)
+        let headphones = outs.contains { [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio].contains($0) }
+        AudioManager.shared.isVoiceProcessingBypassed = headphones
+    }
+
+    @objc private func routeChanged() {
+        Task { @MainActor in self.applyProcessing() }
+    }
+
+    private func applyVoiceVolume() {
+        guard let room else { return }
+        for p in room.remoteParticipants.values {
+            for pub in p.audioTracks { (pub.track as? RemoteAudioTrack)?.volume = voiceVolume }
+        }
+    }
+
+    private func tick() {
+        guard let room else { return }
+        applyVoiceVolume()
+        let peers = room.remoteParticipants.count
+        if peers > 0 { hadPeer = true }
+        if hadPeer && peers == 0 { hadPeer = false; send(["type": "participantDisconnected"]) }
+        if wasConnected && room.connectionState == .disconnected {
+            Task { await hangUp() }
+            send(["type": "disconnected"])
+        }
+    }
+
+    private func hangUp() async {
+        timer?.invalidate(); timer = nil
+        guard let r = room else { return }
+        room = nil
+        wasConnected = false
+        await r.disconnect()
+        // 通話が終わっても音楽は止めない
+        let s = AVAudioSession.sharedInstance()
+        try? s.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        try? s.setActive(true)
+    }
+
+    private func reply(_ id: String?, _ data: [String: Any]) {
+        guard let id else { return }
+        var d = data; d["id"] = id
+        send(d)
+    }
+
+    private func send(_ data: [String: Any]) {
+        guard let json = try? JSONSerialization.data(withJSONObject: data),
+              let str = String(data: json, encoding: .utf8) else { return }
+        webView?.evaluateJavaScript("window.__otoNative && window.__otoNative(\(str))", completionHandler: nil)
     }
 }
