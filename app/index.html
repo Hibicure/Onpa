@@ -376,6 +376,10 @@
   .np .sharefab svg { width: 26px; height: 26px; }
   .np .sharefab:active { transform: scale(.9); opacity: .7; }
   .np.ringing .sharefab { display: none; }
+  /* 曲の出どころ（SoundCloud）とリンク：左下に小さく */
+  .np .scsrc { position: absolute; left: 22px; bottom: calc(31px + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--mute); z-index: 5; }
+  .np .scsrc svg { width: 13px; height: 13px; }
+  .np.ringing .scsrc, .np .scsrc[hidden] { display: none; }
   .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--body); font-weight: 600; font-size: 13px; color: var(--mute); margin-bottom: 2px; } /* 控えめに */
   .uphead .who { font-family: var(--body); font-weight: 600; font-size: 12px; color: var(--mute); }
   .uprow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -926,6 +930,7 @@
       <div id="upList"></div>
     </div>
     <!-- 共有：いちばん下の右。曲のリンクを送る（開くとその場で再生できるページ） -->
+    <button class="scsrc" id="scSrc" aria-label="Open in SoundCloud">on SoundCloud <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>
     <button class="sharefab" id="shareBtn" aria-label="Share this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
   </div>
 </section>
@@ -934,6 +939,7 @@
 <section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
+    <button class="as-item" id="asSC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in SoundCloud</button>
     <button class="as-item" id="asArtist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Go to artist</button>
     <button class="eg-no" id="asClose">Cancel</button>
   </div>
@@ -1432,7 +1438,7 @@ $('tabFriends').addEventListener('click', () => showTab('friends'));
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -2304,6 +2310,7 @@ function setPP(s) {
   if (!$('np').classList.contains('endmode')) $('npPP').innerHTML = html;
 }
 function renderTrack() {
+  $('scSrc').hidden = !track;
   if (!track) return;
   $('mini').hidden = false;
   $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
@@ -2806,6 +2813,25 @@ $('setRbReset').addEventListener('click', async () => {
   try { await db.ref(`users/${me.uid}/ringback`).remove(); } catch { /* 無視 */ }
   paintRingback();
 });
+
+// SoundCloudの曲のページを開く（アプリでは外のアプリで開く。アプリの画面がSoundCloudに切り替わらないように）
+async function openInSC() {
+  if (!track) return;
+  let url = track.permalink || '';
+  if (!url) {
+    try { const r = await fetch(`${WORKER}/t/${track.trackId}` + (track.secret ? '?st=' + encodeURIComponent(track.secret) : '')); const d = r.ok ? await r.json() : null; url = d && d.permalink_url ? String(d.permalink_url).split('?')[0] : ''; } catch { /* 無視 */ }
+  }
+  if (!url) { toast("Couldn't find this song on SoundCloud"); return; }
+  if (track.secret && !/\/s-/.test(url)) url += '/' + track.secret; // 鍵つきの曲は鍵つきのリンクで
+  if (NATIVE_CALL) {
+    const r = await nat('open', { url }).catch(() => null);
+    if (!r || !r.opened) toast('Update the app to open SoundCloud');
+    return;
+  }
+  window.open(url, '_blank', 'noopener');
+}
+$('scSrc').addEventListener('click', openInSC);
+$('asSC').addEventListener('click', () => { $('moreSheet').hidden = true; openInSC(); });
 
 // ---- 「…」メニューと、着信の時に流す範囲を選ぶ画面
 $('npMore').addEventListener('click', () => { if (!track) return; $('moreSheet').hidden = false; });
