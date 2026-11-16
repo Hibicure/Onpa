@@ -347,7 +347,7 @@ async function scRefresh(request, env, cors) {
 async function trackInfo(id, env, userToken = '', st = '') {
   if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
   const cache = caches.default;
-  const key = new Request('https://cache.otocloud/track/' + id + (st ? '/' + st : ''));
+  const key = new Request('https://cache.otocloud/track2/' + id + (st ? '/' + st : ''));
   const hit = await cache.match(key);
   if (hit) return hit.json();
   try {
