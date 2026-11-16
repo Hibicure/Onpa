@@ -601,17 +601,20 @@
   .mini .bar { left: 0 !important; right: 0 !important; top: auto; bottom: -1px !important; border-radius: 0 !important; z-index: 1; } /* 再生の進みは、ミニプレーヤーと下のメニューの境目に */
   .nav { border-top: 0; }
   /* 丸い部分は全部、iPhoneのキーボードの上のバーみたいな「線なしのカプセル・うっすら透けるグレー」にそろえる */
-  .field input { border: 0 !important; border-radius: 999px !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; }
+  /* 両はしは半円ではなく、新幹線の先っぽみたいに横に長くのびた流線形（楕円の角） */
+  :root { --nose: 34px / 50%; }
+  .field input { border: 0 !important; border-radius: var(--nose) !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; }
   .field input:focus { background: color-mix(in srgb, var(--ink) 11%, transparent) !important; }
-  .seg { border-radius: 999px !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; }
-  .seg button { border-radius: 999px !important; }
+  .seg { border-radius: var(--nose) !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; }
+  .seg button { border-radius: var(--nose) !important; }
   .seg button[aria-selected="true"] { background: color-mix(in srgb, var(--ink) 12%, transparent) !important; box-shadow: none !important; }
-  .row .tag { border: 0 !important; background: color-mix(in srgb, var(--ink) 7%, transparent); padding: 2px 9px !important; }
+  .row .tag { border-radius: 14px / 50% !important; border: 0 !important; background: color-mix(in srgb, var(--ink) 7%, transparent); padding: 2px 9px !important; }
   .row .add { border: 0 !important; background: none !important; }
   .row .add svg { width: 20px !important; height: 20px !important; }
+  .btn { border-radius: var(--nose) !important; }
   .btn.ghost { border: 0 !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; color: var(--ink) !important; }
-  .btn.call.liquid { border-radius: 999px; }
-  .recbtn { border-radius: 999px !important; background: color-mix(in srgb, var(--ink) 9%, transparent) !important; }
+  .btn.call.liquid { border-radius: var(--nose); }
+  .recbtn { border-radius: var(--nose) !important; background: color-mix(in srgb, var(--ink) 9%, transparent) !important; }
 </style>
 </head>
 <body>
