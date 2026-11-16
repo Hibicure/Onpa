@@ -313,7 +313,7 @@
   .seek.waved + .times { margin-top: 20px; } /* 波形と時間の数字が重ならないように */
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
-  .np.square #disc, .np.square #disc .platter { border-radius: 3px; }
+  .np.square #disc, .np.square #disc .platter { border-radius: 0; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
   .np.square #disc .hub, .np.square #disc .hole, .np.square #disc .shine, .np.square #disc .edge { display: none; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
@@ -587,7 +587,7 @@
   .np .fullart.paging .shade { opacity: .6; }
   .np .fullart.swiping .img { transition: none; }
   /* 四角いジャケットの時は、となりのCDも四角で */
-  .np.square #discPeek, .np.square #discPeek .platter { border-radius: 3px; }
+  .np.square #discPeek, .np.square #discPeek .platter { border-radius: 0; }
   .np.square #discPeek .platter { -webkit-mask-image: none; mask-image: none; }
   .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine, .np.square #discPeek .edge { display: none; }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
