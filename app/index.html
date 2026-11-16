@@ -198,7 +198,10 @@
   .row.radio .round svg { width: 16px; height: 16px; }
   .np .grab i { display: none; } /* バーは見せない（上の部分やCDを下に引けば閉じる） */
   .np.dragging { transition: none; }
-  .np .in > .upnext { flex: 1 1 0; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+  .np .in > .upnext { flex: 1 1 0; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
+    padding-bottom: 72px; /* 一番下の曲も右下の共有ボタンにかぶらず、最後までスクロールで出せる */
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 36px), transparent 100%); }
+  .np .in > .upnext:not(:has(#upList .row)) { display: none; } /* 何も入っていない時は見出しごと出さない */
   .np input[type=range], .np .seek { touch-action: none; }
   /* iOSのガラス風ボタン */
   .glass { background: linear-gradient(180deg, var(--glass-a) 0%, var(--glass-b) 100%); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
@@ -341,7 +344,7 @@
   .np .sharefab svg { width: 26px; height: 26px; }
   .np .sharefab:active { transform: scale(.9); opacity: .7; }
   .np.ringing .sharefab { display: none; }
-  .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--body); font-weight: 600; font-size: 13px; color: var(--mute); margin-bottom: 2px; } /* 控えめに */
   .uphead .who { font-family: var(--body); font-weight: 600; font-size: 12px; color: var(--mute); }
   .uprow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .uprow:last-child { border-bottom: none; }
