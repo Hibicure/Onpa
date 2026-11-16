@@ -72,6 +72,9 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
   body { min-height: 100dvh; overflow-x: hidden; touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+  /* アプリらしく：長押しで画面全体が青く選択されないようにする。曲名・アーティスト名と入力欄だけはコピーできる */
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea, #npT, #npS { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   .shell, main { min-width: 0; max-width: 100%; }
   button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
   input { font: inherit; color: inherit; }
@@ -356,7 +359,7 @@
   .boot .disc { width: min(46vw, 180px); }
 
   /* ---------- お知らせ ---------- */
-  .toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
+  .toast { pointer-events: none; position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
   .toast.show { transform: translate(-50%, 0); visibility: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
 
   @media (prefers-reduced-motion: reduce) {
