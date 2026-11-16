@@ -154,6 +154,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         let reason = (n.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap { AVAudioSession.RouteChangeReason(rawValue: $0) }
         Task { @MainActor in
             self.log("route changed reason=\(reason.map { String($0.rawValue) } ?? "?")")
+            self.send(self.earphones()) // イヤホンをつけた・外したを画面に知らせる（通話前の「イヤホンをつけて」画面用）
             guard self.room != nil, self.wantHeadphones, !self.usingHFP else { return }
             if !self.headphonesConnected() && self.bluetoothAvailable() {
                 self.usingHFP = true
@@ -191,6 +192,8 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     applyVoiceVolume()
                 case "disconnect":
                     await hangUp()
+                case "route":
+                    result = earphones()
                 // ---- ラジオ（声だけ録音＋曲の記録）
                 case "recStart":
                     result = try radio.start()
@@ -270,6 +273,13 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                            options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers])
         try? s.setActive(true)
         log("session set")
+    }
+
+    /// 今イヤホン（有線・AirPodsなど）から音が出ているか、と、その名前
+    private func earphones() -> [String: Any] {
+        let wired: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio]
+        let out = AVAudioSession.sharedInstance().currentRoute.outputs.first { wired.contains($0.portType) }
+        return ["type": "route", "ok": true, "hp": out != nil, "name": out?.portName ?? ""]
     }
 
     private func headphonesConnected() -> Bool {

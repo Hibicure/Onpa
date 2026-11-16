@@ -411,6 +411,22 @@
   .mix .note { font-size: 12px; color: var(--mute); }
 
   /* ---------- 着信 ---------- */
+  /* 通話の前の「イヤホンをつけて」画面。アプリではイヤホンがつながるまで押せない */
+  .eargate { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.42); animation: egfade .22s ease; }
+  .eargate[hidden] { display: none; }
+  .eg-card { width: 100%; max-width: 480px; background: var(--paper); color: var(--ink); border-radius: 28px 28px 0 0; padding: 30px 24px calc(22px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; text-align: center; animation: egup .36s cubic-bezier(.2,.85,.25,1); }
+  .eg-ico { width: 72px; height: 72px; margin-bottom: 14px; }
+  .eargate.hp .eg-ico { animation: egnod .5s ease; }
+  .eg-card h3 { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -0.02em; }
+  .eg-card p { margin-top: 8px; color: color-mix(in srgb, var(--ink) 62%, var(--mute)); font-size: 15px; line-height: 1.45; max-width: 30ch; }
+  .eg-st { margin-top: 18px; min-height: 20px; font-size: 13px; font-weight: 700; color: var(--mute); }
+  .eargate.hp .eg-st { color: var(--ink); }
+  .eg-go { margin-top: 18px; width: 100%; height: 54px; border-radius: 999px; background: var(--ink); color: var(--paper); font-weight: 700; font-size: 17px; transition: opacity .2s; }
+  .eg-go:disabled { opacity: .28; }
+  .eg-no { margin-top: 6px; height: 44px; padding: 0 20px; color: var(--mute); font-weight: 600; font-size: 15px; }
+  @keyframes egfade { from { opacity: 0; } }
+  @keyframes egup { from { transform: translateY(100%); } }
+  @keyframes egnod { 40% { transform: translateY(-5px); } }
   .incoming { position: fixed; inset: 0; z-index: 60; background: rgba(20,20,24,.96); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
   .incoming .avatar { width: 112px; height: 112px; font-size: 40px; margin-bottom: 10px; animation: ring 1.4s ease-in-out infinite; }
   @keyframes ring { 50% { transform: scale(1.06); } }
@@ -880,6 +896,19 @@
 </section>
 
 <!-- 着信 -->
+<section class="eargate" id="earGate" hidden aria-modal="true" role="dialog" aria-labelledby="egT">
+  <div class="eg-card">
+    <svg class="eg-ico" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M17 10c-5.5 0-9 4.4-9 10.2 0 5 3 8.6 7.2 9.6l1.6 21.6c.2 2.4 2 4.2 4.4 4.2s4.2-1.9 4.2-4.3V18.6C25.4 13.6 22 10 17 10z"/>
+      <path d="M47 10c5.5 0 9 4.4 9 10.2 0 5-3 8.6-7.2 9.6l-1.6 21.6c-.2 2.4-2 4.2-4.4 4.2s-4.2-1.9-4.2-4.3V18.6C38.6 13.6 42 10 47 10z"/>
+    </svg>
+    <h3 id="egT">Earphones on</h3>
+    <p>Otocloud calls are made for earphones. Your voice and the music stay clear, with no echo.</p>
+    <div class="eg-st" id="egSt"></div>
+    <button class="eg-go" id="egGo">Call</button>
+    <button class="eg-no" id="egNo">Not now</button>
+  </div>
+</section>
 <section class="incoming" id="incoming" hidden>
   <div class="avatar" id="inAvatar"></div>
   <h3 id="inName"></h3>
@@ -2698,6 +2727,40 @@ $('found').addEventListener('click', async (e) => {
 });
 
 // ===================== 通話 =====================
+// ---- 通話の前に「イヤホンをつけて」。iPhoneアプリでは、イヤホンがつながるまで通話できない（音の良さを守るため）
+let earOkWeb = false;
+function earGate(kind) {
+  return new Promise(async (resolve) => {
+    let sense = false; // イヤホンがついているか、こちらで分かるか（新しいアプリだけ分かる）
+    if (NATIVE_CALL) {
+      const r = await nat('route').catch(() => null);
+      sense = !!r && 'hp' in r;
+      if (r && r.hp) { resolve(true); return; } // もうつけている：そのまま
+    }
+    if (!sense && earOkWeb) { resolve(true); return; } // 見分けられない時（ブラウザ・古いアプリ）は、1回確認したら次からは聞かない
+    const g = $('earGate'), go = $('egGo'), st = $('egSt');
+    go.textContent = kind === 'answer' ? 'Answer' : 'Call';
+    const paint = (hp, name) => {
+      g.classList.toggle('hp', !!hp);
+      if (sense) { go.disabled = !hp; st.textContent = hp ? `✓ ${name || 'Earphones'} connected` : 'Connect earphones to continue'; }
+      else { go.disabled = false; st.textContent = ''; go.textContent = kind === 'answer' ? "I'm wearing them — Answer" : "I'm wearing them — Call"; }
+    };
+    paint(false, '');
+    const onRoute = (e) => paint(e.hp, e.name);
+    if (NATIVE_CALL) (natH.route = natH.route || []).push(onRoute);
+    const done = (ok) => {
+      g.hidden = true; go.onclick = null; $('egNo').onclick = null; earGateClose = null;
+      if (natH.route) natH.route = natH.route.filter((f) => f !== onRoute);
+      if (ok && !sense) earOkWeb = true;
+      resolve(ok);
+    };
+    earGateClose = () => done(false);
+    go.onclick = () => done(true);
+    $('egNo').onclick = () => done(false);
+    g.hidden = false;
+  });
+}
+let earGateClose = null;
 const call = { state: 'idle', room: null, peer: null, lk: null, startedAt: 0, timer: null, ringTimer: null, statusRef: null, muted: false };
 let roomState = null, stateRef = null;
 
@@ -2706,6 +2769,7 @@ function newRoomId() { return 'r' + Date.now().toString(36) + Math.random().toSt
 async function startCall(peerUid) {
   if (call.state !== 'idle') return;
   unlockAudio();
+  if (!(await earGate('call')) || call.state !== 'idle') return;
   const f = friends.get(peerUid);
   call.state = 'ringing'; call.caller = true; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) };
   showOutgoing();
@@ -2766,7 +2830,7 @@ $('ringNo').addEventListener('click', () => { if ($('np').classList.contains('ou
 function watchIncoming() {
   db.ref('calls/' + me.uid).on('value', (s) => {
     const c = s.val();
-    if (!c) { if (incomingData) { incomingData = null; hideRinging(); } return; }
+    if (!c) { if (incomingData) { incomingData = null; hideRinging(); if (earGateClose) earGateClose(); } return; }
     if (serverNow() - (c.at || 0) > 40000) { s.ref.remove(); return; } // 古い呼び出しは無視
     if (call.state !== 'idle') { db.ref(`rooms/${c.room}/call/status`).set('declined'); s.ref.remove(); return; }
     incomingData = c;
@@ -2777,8 +2841,10 @@ function watchIncoming() {
   });
 }
 $('inYes').addEventListener('click', async () => {
-  const c = incomingData; if (!c) return;
+  if (!incomingData) return;
   unlockAudio();
+  if (!(await earGate('answer'))) return; // 呼び出しは鳴ったまま（あとから出られる）
+  const c = incomingData; if (!c) return;
   incomingData = null; ringWasOpen = true; hideRinging();
   db.ref('calls/' + me.uid).remove();
   call.state = 'ringing'; call.caller = false; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
