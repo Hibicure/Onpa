@@ -119,6 +119,7 @@ struct WebShell: UIViewRepresentable {
 @MainActor
 final class NativeCall: NSObject, WKScriptMessageHandler {
     weak var webView: WKWebView?
+    let radio = Radio()
     private var room: Room?
     private var timer: Timer?
     private var voiceVolume: Double = 1
@@ -174,6 +175,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         let id = body["id"] as? String
         Task { @MainActor in
             do {
+                var result: [String: Any] = ["ok": true]
                 switch op {
                 case "connect":
                     try await connect(url: body["url"] as? String ?? "", token: body["token"] as? String ?? "")
@@ -187,9 +189,28 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     applyVoiceVolume()
                 case "disconnect":
                     await hangUp()
+                // ---- ラジオ（声だけ録音＋曲の記録）
+                case "recStart":
+                    result = try radio.start()
+                case "recStop":
+                    result = try await radio.stop(cues: body["cues"] ?? [Any](), title: body["title"] as? String ?? "Radio")
+                case "recList":
+                    result = ["items": radio.list()]
+                case "recPlay":
+                    result = try radio.play(id: body["rid"] as? String ?? "") { [weak self] t, playing in
+                        self?.send(["type": "radioTime", "t": t, "playing": playing])
+                    }
+                case "recPause": radio.pause()
+                case "recResume": radio.resume()
+                case "recSeek": radio.seek(to: body["t"] as? Double ?? 0)
+                case "recEnd": radio.endPlayback()
+                case "recShare":
+                    radio.share(id: body["rid"] as? String ?? "", from: webView)
+                case "recDelete":
+                    radio.delete(id: body["rid"] as? String ?? "")
                 default: break
                 }
-                reply(id, ["ok": true])
+                reply(id, result)
             } catch {
                 let denied = AVAudioApplication.shared.recordPermission == .denied
                 reply(id, ["error": error.localizedDescription, "name": denied ? "NotAllowedError" : "Error"])
@@ -296,5 +317,136 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         guard let json = try? JSONSerialization.data(withJSONObject: data),
               let str = String(data: json, encoding: .utf8) else { return }
         webView?.evaluateJavaScript("window.__otoNative && window.__otoNative(\(str))", completionHandler: nil)
+    }
+}
+
+// MARK: - ラジオ（通話の声だけを録音して、どの曲を流したかの記録と一緒に、このiPhoneに保存する）
+// 曲そのものは録らない（再生する時にSoundCloudからもう一度流す）。サーバーには何も置かない。
+
+/// LiveKit から届く音を、そのままファイルに書く係
+final class PCMWriter: NSObject, AudioRenderer, @unchecked Sendable {
+    let url: URL
+    private var file: AVAudioFile?
+    private let lock = NSLock()
+    private(set) var firstAt: Date?
+    init(url: URL) { self.url = url }
+    func render(pcmBuffer: AVAudioPCMBuffer) {
+        lock.lock(); defer { lock.unlock() }
+        if file == nil {
+            let f = pcmBuffer.format
+            file = try? AVAudioFile(forWriting: url, settings: f.settings, commonFormat: f.commonFormat, interleaved: f.isInterleaved)
+            firstAt = Date()
+        }
+        try? file?.write(from: pcmBuffer)
+    }
+    func close() { lock.lock(); file = nil; lock.unlock() }
+}
+
+@MainActor
+final class Radio {
+    private var dir: URL?
+    private var mine: PCMWriter?
+    private var theirs: PCMWriter?
+    private var startAt = Date()
+    private var player: AVAudioPlayer?
+    private var timer: Timer?
+
+    private var root: URL {
+        let u = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Radio", isDirectory: true)
+        try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
+        return u
+    }
+
+    func start() throws -> [String: Any] {
+        if dir != nil { return ["startedAt": startAt.timeIntervalSince1970 * 1000] }
+        let f = DateFormatter(); f.dateFormat = "yyyyMMdd-HHmmss"
+        let d = root.appendingPathComponent(f.string(from: Date()), isDirectory: true)
+        try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        dir = d
+        startAt = Date()
+        let m = PCMWriter(url: d.appendingPathComponent("me.caf"))
+        let t = PCMWriter(url: d.appendingPathComponent("them.caf"))
+        mine = m; theirs = t
+        AudioManager.shared.add(localAudioRenderer: m)
+        AudioManager.shared.add(remoteAudioRenderer: t)
+        NSLog("[oto] radio start %@", d.lastPathComponent)
+        return ["startedAt": startAt.timeIntervalSince1970 * 1000, "rid": d.lastPathComponent]
+    }
+
+    func stop(cues: Any, title: String) async throws -> [String: Any] {
+        guard let d = dir, let m = mine, let t = theirs else { return ["ok": false] }
+        AudioManager.shared.remove(localAudioRenderer: m)
+        AudioManager.shared.remove(remoteAudioRenderer: t)
+        m.close(); t.close()
+        dir = nil; mine = nil; theirs = nil
+        // 2人の声を1つの音声ファイルにまとめる（始まった時間のずれも合わせる）
+        let comp = AVMutableComposition()
+        for w in [m, t] {
+            guard let first = w.firstAt, FileManager.default.fileExists(atPath: w.url.path) else { continue }
+            let asset = AVURLAsset(url: w.url)
+            guard let src = (try await asset.loadTracks(withMediaType: .audio)).first else { continue }
+            let dur = try await asset.load(.duration)
+            let tr = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            let at = CMTime(seconds: max(0, first.timeIntervalSince(startAt)), preferredTimescale: 600)
+            try tr?.insertTimeRange(CMTimeRange(start: .zero, duration: dur), of: src, at: at)
+        }
+        let out = d.appendingPathComponent("voice.m4a")
+        if let ex = AVAssetExportSession(asset: comp, presetName: AVAssetExportPresetAppleM4A) {
+            try? FileManager.default.removeItem(at: out)
+            ex.outputURL = out
+            ex.outputFileType = .m4a
+            await ex.export()
+        }
+        let duration = Date().timeIntervalSince(startAt)
+        let info: [String: Any] = ["title": title, "date": startAt.timeIntervalSince1970 * 1000, "duration": duration, "cues": cues]
+        let data = try JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted])
+        try data.write(to: d.appendingPathComponent("radio.json"))
+        try? FileManager.default.removeItem(at: m.url); try? FileManager.default.removeItem(at: t.url)
+        NSLog("[oto] radio saved %@ %.0fs", d.lastPathComponent, duration)
+        return ["rid": d.lastPathComponent, "duration": duration]
+    }
+
+    func list() -> [[String: Any]] {
+        let items = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        return items.compactMap { u -> [String: Any]? in
+            guard let d = try? Data(contentsOf: u.appendingPathComponent("radio.json")),
+                  var j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return nil }
+            j["cues"] = nil; j["rid"] = u.lastPathComponent
+            return j
+        }.sorted { (($0["date"] as? Double) ?? 0) > (($1["date"] as? Double) ?? 0) }
+    }
+
+    func play(id: String, onTime: @escaping (Double, Bool) -> Void) throws -> [String: Any] {
+        endPlayback()
+        let d = root.appendingPathComponent(id, isDirectory: true)
+        let j = (try JSONSerialization.jsonObject(with: Data(contentsOf: d.appendingPathComponent("radio.json"))) as? [String: Any]) ?? [:]
+        let p = try AVAudioPlayer(contentsOf: d.appendingPathComponent("voice.m4a"))
+        p.prepareToPlay(); p.play()
+        player = p
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let p = self?.player else { return }
+                onTime(p.currentTime, p.isPlaying)
+            }
+        }
+        return ["cues": j["cues"] ?? [], "title": j["title"] ?? "", "duration": p.duration]
+    }
+    func pause() { player?.pause() }
+    func resume() { player?.play() }
+    func seek(to t: Double) { player?.currentTime = max(0, t) }
+    func endPlayback() { timer?.invalidate(); timer = nil; player?.stop(); player = nil }
+
+    func share(id: String, from web: WKWebView?) {
+        let d = root.appendingPathComponent(id, isDirectory: true)
+        let files = [d.appendingPathComponent("voice.m4a"), d.appendingPathComponent("radio.json")].filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard !files.isEmpty, let vc = web?.window?.rootViewController else { return }
+        let a = UIActivityViewController(activityItems: files, applicationActivities: nil)
+        a.popoverPresentationController?.sourceView = web
+        var top = vc; while let p = top.presentedViewController { top = p }
+        top.present(a, animated: true)
+    }
+    func delete(id: String) {
+        guard !id.isEmpty, !id.contains("/") else { return }
+        try? FileManager.default.removeItem(at: root.appendingPathComponent(id, isDirectory: true))
     }
 }

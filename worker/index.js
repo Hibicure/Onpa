@@ -63,6 +63,7 @@ function mapTrack(t) {
     duration: t.duration,
     access: t.access,
     permalink_url: t.permalink_url,
+    waveform: t.waveform_url || '',
     // 非公開曲の秘密の鍵（secret_token が無い時は secret_uri の中から取り出す）
     secret: t.sharing === 'private' ? (t.secret_token || (String(t.secret_uri || '').match(/secret_token=([A-Za-z0-9-]+)/) || [])[1] || '') : '',
   };
@@ -427,6 +428,29 @@ export default {
       if (m) {
         const t = await trackInfo(m[1], env, userToken, url.searchParams.get('st') || '');
         return t ? json(t, 200, cors) : json({ error: 'not found' }, 404, cors);
+      }
+      // ---- 波形: /wave/123（シークバーを波形にする。100本の高さ 0〜1）
+      m = p.match(/^\/wave\/(\d{1,20})$/);
+      if (m) {
+        const st = url.searchParams.get('st') || '';
+        const cache = caches.default;
+        const key = new Request('https://cache.otocloud/wave/' + m[1]);
+        const hit = await cache.match(key);
+        if (hit) return json(await hit.json(), 200, cors);
+        const t = await trackInfo(m[1], env, userToken, st);
+        const wu = t && t.waveform ? t.waveform.replace(/\.png(\?.*)?$/, '.json') : '';
+        if (!/^https:\/\/wave[0-9]*\.sndcdn\.com\//.test(wu)) return json({ error: 'no waveform' }, 404, cors);
+        const r = await fetch(wu);
+        if (!r.ok) return json({ error: 'wave ' + r.status }, 502, cors);
+        const d = await r.json();
+        const s = d.samples || [], n = 100, h = d.height || 140, bars = [];
+        for (let i = 0; i < n; i++) {
+          const a = Math.floor(i * s.length / n), b = Math.max(a + 1, Math.floor((i + 1) * s.length / n));
+          let mx = 0; for (let k = a; k < b; k++) mx = Math.max(mx, s[k] || 0);
+          bars.push(Math.round(mx / h * 100) / 100);
+        }
+        await cache.put(key, new Response(JSON.stringify(bars), { headers: { 'Cache-Control': 'public, max-age=604800', 'Content-Type': 'application/json' } }));
+        return json(bars, 200, cors);
       }
       // ---- 共有ページ: /s/123（インスタ・LINEなどで、ジャケット付きのカードになって、その場で再生できる）
       m = p.match(/^\/s\/(\d{1,20})$/);

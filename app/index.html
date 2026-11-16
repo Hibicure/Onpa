@@ -185,8 +185,15 @@
   .np .in > * { flex-shrink: 0; }
   /* 画面は動かさない（スクロールさせない）。上をつまんで下に引くと閉じる */
   .np { overscroll-behavior: none; touch-action: none; }
-  .np .top { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 34px; padding-top: 6px; touch-action: none; cursor: grab; }
+  .np .top { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 34px; padding-top: 6px; touch-action: none; cursor: grab; }
   .np .grab { width: 100%; height: 22px; display: grid; place-items: center; }
+  .np .recbtn { position: absolute; right: 14px; top: 4px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 7px; z-index: 6; }
+  .np .recbtn i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; }
+  .np .recbtn.on i { background: currentColor; animation: recblink 1.2s ease-in-out infinite; }
+  @keyframes recblink { 50% { opacity: .25; } }
+  .row.radio .pp { width: 40px; height: 40px; }
+  .row.radio .round { width: 36px; height: 36px; }
+  .row.radio .round svg { width: 16px; height: 16px; }
   .np .grab i { display: none; } /* バーは見せない（上の部分やCDを下に引けば閉じる） */
   .np.dragging { transition: none; }
   .np .in > .upnext { flex: 1 1 0; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
@@ -276,6 +283,15 @@
   .seek .fill { height: 100%; width: 0; background: var(--ink); }
   .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
+  /* 波形のシークバー（波形が取れた時だけ。取れない時は普通のバー） */
+  .seek .wave { position: absolute; left: 0; right: 0; top: -6px; width: 100%; height: 40px; display: none; }
+  .seek.waved .wave { display: block; }
+  .seek.waved .track, .seek.waved .knob { display: none; }
+  /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
+  #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
+  .np.square #disc, .np.square #disc .platter { border-radius: 14px; }
+  .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
+  .np.square #disc .hub, .np.square #disc .hole, .np.square #disc .shine, .np.square #disc .edge { display: none; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
   .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 16px 0 6px; }
   .modes { display: flex; justify-content: flex-start; }
@@ -573,6 +589,10 @@
       <div class="hhead"><div class="htitle">Friends listening</div></div>
       <div class="hrow" id="hFriends"></div>
     </section>
+    <section class="hsec" id="hRadioSec" hidden>
+      <div class="hhead"><div class="htitle">Your radio</div></div>
+      <div id="hRadio"></div>
+    </section>
     <section class="hsec" id="hRecentSec" hidden>
       <div class="hhead"><div class="htitle">Recently played</div></div>
       <div class="hrow" id="hRecent"></div>
@@ -679,6 +699,7 @@
     <div class="top">
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
+      <button class="recbtn glass" id="recBtn" hidden></button>
     </div>
     <div class="stage">
       <button class="ambbtn glass" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></button>
@@ -689,7 +710,7 @@
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
       <button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>
     </div>
-    <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
+    <div class="seek" id="seek"><canvas class="wave" id="wave"></canvas><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
     <div class="controls"><div class="modes"><button class="mode glass" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip glass" id="npPrev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3.9v16.2a1.2 1.2 0 0 1-1.86 1L4.6 12.98a1.2 1.2 0 0 1 0-1.96L17.14 2.9A1.2 1.2 0 0 1 19 3.9z"/></svg></button><button class="pp liquid" id="npPP" aria-label="Play or pause"></button><button class="skip glass" id="npNext" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 3.9v16.2a1.2 1.2 0 0 0 1.86 1l12.54-8.12a1.2 1.2 0 0 0 0-1.96L6.86 2.9A1.2 1.2 0 0 0 5 3.9z"/></svg></button><div class="volwrap"><button class="mode glass" id="npVol" aria-label="Volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
       <div class="volpop glass" id="volPop" hidden>
@@ -1025,6 +1046,7 @@ function startApp() {
   db.ref('dir/' + me.uid).set({ name: me.name || '', handle: me.handle || '', avatar: safeImg(me.avatar) || '' }).catch(() => {});
   if (sc) loadLikes().catch(() => {});
   openSharedTrack().then((opened) => { if (!opened) restoreLast(); });
+  loadRadio();
 }
 async function openSharedTrack() {
   let id = null;
@@ -1398,7 +1420,11 @@ function neighborMeta(dir) {
       if (dy > 110 || (fast && dy > 30)) closeNp(); else np.style.transform = '';
       return;
     }
-    if (!horizontal) return;
+    if (!horizontal) {
+      // ほとんど動かさずに離した＝タップ：CDと四角いジャケットを切り替え
+      if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer')) $('np').classList.toggle('square');
+      return;
+    }
     const go = !!track && Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
     el.classList.remove('dragging'); pk.classList.remove('dragging');
     if (!go) { place(0); setTimeout(reset, 290); return; }
@@ -1770,6 +1796,8 @@ async function loadTrack(meta, autoplay = false) {
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     rememberPlayed(meta);
+    loadWave(meta);
+    addCue();
     clearTimeout(preloadTimer);
     preloadTimer = setTimeout(() => { if (my === loadToken) player.preload(peekNext()); }, 2500);
     return true;
@@ -1792,6 +1820,7 @@ async function loadTrack(meta, autoplay = false) {
 // 一覧から曲を選んだとき
 async function pick(meta, auto = false) {
   if (!auto) unlockAudio();
+  if (!auto) endRadio();
   if (call.state === 'live') {
     pushRoomState({ ...meta, playing: true, position: 0 });
     return;
@@ -1860,14 +1889,44 @@ player.addEventListener('ended', () => {
 // 前回の続き：止まった位置から再開・今の曲と位置を覚えておく
 player.addEventListener('playing', () => { if (resumeAt) { const t = resumeAt; resumeAt = 0; player.currentTime = t; } });
 player.addEventListener('timeupdate', () => saveLast(false));
-player.addEventListener('pause', () => saveLast(true));
+player.addEventListener('pause', () => { saveLast(true); addCue(); });
+player.addEventListener('playing', () => addCue());
 let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
+let waveBars = null, waveFor = null;
+async function loadWave(meta) {
+  waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
+  try {
+    const r = await fetch(`${WORKER}/wave/${meta.trackId}` + (meta.secret ? '?st=' + encodeURIComponent(meta.secret) : ''));
+    if (!r.ok || waveFor !== meta.trackId) return;
+    const bars = await r.json();
+    if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
+    waveBars = bars; $('seek').classList.add('waved');
+    drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
+  } catch { /* 普通のバーのまま */ }
+}
+function drawWave(frac) {
+  if (!waveBars) return;
+  const c = $('wave'), dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
+  if (!W) return;
+  if (c.width !== Math.round(W * dpr)) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const cs = getComputedStyle(document.documentElement);
+  const on = cs.getPropertyValue('--ink').trim() || '#151517', off = cs.getPropertyValue('--line').trim() || '#C2C4C8';
+  const n = waveBars.length, gap = 2, bw = Math.max(1.5, (W - gap * (n - 1)) / n);
+  for (let i = 0; i < n; i++) {
+    const h = Math.max(3, waveBars[i] * (H - 4));
+    const x = i * (bw + gap), y = (H - h) / 2;
+    g.fillStyle = (i + 0.5) / n <= frac ? on : off;
+    g.beginPath(); g.roundRect ? g.roundRect(x, y, bw, h, bw / 2) : g.rect(x, y, bw, h); g.fill();
+  }
+}
 function drawProgress(t) {
   const d = player.duration;
   if (!isFinite(d) || !d) return;
   const pct = Math.min(100, t / d * 100) + '%';
   $('fill').style.width = pct; $('knob').style.left = pct; $('miniBar').style.width = pct;
+  drawWave(t / d);
   $('cur').textContent = fmt(t); $('dur').textContent = fmt(d);
 }
 $('miniPP').addEventListener('click', () => { unlockAudio(); togglePlay(); });
@@ -1896,7 +1955,7 @@ $('npClose').addEventListener('click', closeNp);
 (() => {
   const np = $('np');
   let y0 = 0, t0 = 0, dy = 0, id = null;
-  const startOk = (e) => e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc'));
+  const startOk = (e) => !e.target.closest('#recBtn, #ambBtn') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
   np.addEventListener('pointerdown', (e) => {
     if (!np.classList.contains('open') || !startOk(e)) return;
     id = e.pointerId; y0 = e.clientY; t0 = performance.now(); dy = 0;
@@ -2290,22 +2349,130 @@ $('inNo').addEventListener('click', () => {
 // iPhoneアプリの中では、通話をアプリ本体（ネイティブ）でつなぐ。
 // 喋っても音楽が小さくならない・音楽が電話っぽい音にならないように。
 const NATIVE_CALL = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall);
+// アプリ本体とのやりとり（通話・ラジオ）
+const natP = {}, natH = {};
+function nat(op, data = {}) {
+  return new Promise((res, rej) => {
+    const id = 'n' + Math.random().toString(36).slice(2);
+    natP[id] = { res, rej };
+    window.webkit.messageHandlers.otoCall.postMessage({ ...data, op, id });
+  });
+}
+if (NATIVE_CALL) window.__otoNative = (e) => {
+  if (e.id && natP[e.id]) { const q = natP[e.id]; delete natP[e.id]; if (e.error) { const er = new Error(e.error); er.name = e.name || 'Error'; q.rej(er); } else q.res(e); return; }
+  (natH[e.type] || []).forEach((f) => f(e));
+};
 class NativeRoom {
   constructor() {
-    this.h = {}; this.p = {}; const self = this;
-    this.localParticipant = { setMicrophoneEnabled: (on) => self.send({ op: 'mic', on: !!on }) };
-    this.remoteParticipants = { forEach(fn) { fn({ setVolume: (v) => self.send({ op: 'vol', v: Number(v) }).catch(() => {}) }); } };
-    window.__otoNative = (e) => {
-      if (e.id && this.p[e.id]) { const q = this.p[e.id]; delete this.p[e.id]; if (e.error) { const er = new Error(e.error); er.name = e.name || 'Error'; q.rej(er); } else q.res(e); return; }
-      (this.h[e.type] || []).forEach((f) => f(e));
-    };
+    natH.participantDisconnected = []; natH.disconnected = [];
+    this.localParticipant = { setMicrophoneEnabled: (on) => nat('mic', { on: !!on }) };
+    this.remoteParticipants = { forEach(fn) { fn({ setVolume: (v) => nat('vol', { v: Number(v) }).catch(() => {}) }); } };
   }
-  send(m) { return new Promise((res, rej) => { const id = Math.random().toString(36).slice(2); this.p[id] = { res, rej }; window.webkit.messageHandlers.otoCall.postMessage({ ...m, id }); }); }
-  on(t, f) { (this.h[t] = this.h[t] || []).push(f); }
-  connect(url, token) { return this.send({ op: 'connect', url, token }); }
+  on(t, f) { (natH[t] = natH[t] || []).push(f); }
+  connect(url, token) { return nat('connect', { url, token }); }
   startAudio() { return Promise.resolve(); }
-  disconnect() { this.send({ op: 'disconnect' }).catch(() => {}); }
+  disconnect() { nat('disconnect').catch(() => {}); }
 }
+
+// ===================== ラジオ（通話の声だけを録音＋どの曲を流したかを記録） =====================
+// 曲そのものは録らない。聴き返す時は、声に合わせてSoundCloudからその曲を流し直す。
+// 保存先は録音した2人それぞれのiPhone（サーバーには置かない）。
+let recRef = null, recording = null, recTimer = null;
+function paintRec() {
+  const b = $('recBtn');
+  b.hidden = !(NATIVE_CALL && call.state === 'live');
+  b.classList.toggle('on', !!recording);
+  b.innerHTML = recording ? `<i></i>REC ${fmt((Date.now() - recording.startedAt) / 1000)}` : '<i></i>Record radio';
+}
+function addCue() {
+  if (!recording || !track) return;
+  recording.cues.push({ t: (Date.now() - recording.startedAt) / 1000, trackId: track.trackId, title: track.title, artist: track.artist,
+    artwork: track.artwork || '', secret: track.secret || '', pos: player.currentTime || 0, playing: !player.paused });
+}
+function watchRec() {
+  recRef = db.ref(`rooms/${call.room}/rec`);
+  recRef.on('value', (s) => { const v = s.val(); if (v && v.on && !recording) startRec(); else if ((!v || !v.on) && recording) stopRec(); });
+}
+async function startRec() {
+  try {
+    const r = await nat('recStart');
+    recording = { startedAt: r.startedAt || Date.now(), cues: [], title: `Radio with ${call.peer ? call.peer.name : ''}`.trim() };
+    addCue();
+    clearInterval(recTimer); recTimer = setInterval(paintRec, 1000);
+    paintRec(); toast('Recording your voices · songs are saved as a list');
+  } catch (e) { toast("Couldn't start recording"); }
+}
+async function stopRec() {
+  if (!recording) return;
+  addCue(); // 最後の状態も記録
+  const rec = recording;
+  recording = null; clearInterval(recTimer); paintRec();
+  try { await nat('recStop', { cues: rec.cues, title: rec.title }); toast('Saved to Your radio'); loadRadio(); }
+  catch { toast("Couldn't save the recording"); }
+}
+$('recBtn').addEventListener('click', () => {
+  if (!recRef) return;
+  recRef.set({ on: !recording, by: me.uid, at: TS });
+});
+
+// 聴き返す
+let radioItems = [], radioPlay = null;
+async function loadRadio() {
+  if (!NATIVE_CALL) return;
+  try { radioItems = (await nat('recList')).items || []; } catch { radioItems = []; }
+  renderRadio();
+}
+function renderRadio() {
+  const sec = $('hRadioSec'); if (!sec) return;
+  sec.hidden = !radioItems.length;
+  $('hRadio').innerHTML = radioItems.map((r) => `
+    <div class="row radio" data-rid="${esc(r.rid)}">
+      <button class="pp" data-rplay="${esc(r.rid)}" aria-label="Play">${ICON.play}</button>
+      <div class="txt"><div class="t">${esc(r.title || 'Radio')}</div><div class="s">${esc(new Date(r.date).toLocaleString())} · ${fmt(r.duration)}</div></div>
+      <button class="round glass" data-rshare="${esc(r.rid)}" aria-label="Save or share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
+      <button class="round glass" data-rdel="${esc(r.rid)}" aria-label="Delete">${X_ICON}</button>
+    </div>`).join('');
+}
+document.addEventListener('click', async (e) => {
+  const p = e.target.closest('[data-rplay]'), sh = e.target.closest('[data-rshare]'), dl = e.target.closest('[data-rdel]');
+  if (p) playRadio(p.dataset.rplay);
+  if (sh) nat('recShare', { rid: sh.dataset.rshare }).catch(() => {});
+  if (dl) {
+    if (dl.dataset.sure !== '1') { dl.dataset.sure = '1'; toast('Tap again to delete'); setTimeout(() => { dl.dataset.sure = ''; }, 3000); return; }
+    await nat('recDelete', { rid: dl.dataset.rdel }).catch(() => {}); loadRadio();
+  }
+});
+async function playRadio(rid) {
+  if (call.state === 'live') { toast('Finish the call first'); return; }
+  try {
+    const r = await nat('recPlay', { rid });
+    radioPlay = { rid, cues: r.cues || [], idx: -1, title: r.title };
+    $('miniOpen').click();
+    toast('Playing ' + (r.title || 'radio'));
+  } catch { toast("Couldn't play this radio"); }
+}
+// 声の再生位置に合わせて、その時に流していた曲を流す
+natH.radioTime = [async (e) => {
+  const R = radioPlay; if (!R) return;
+  const t = e.t || 0;
+  let i = -1; for (let k = 0; k < R.cues.length; k++) if (R.cues[k].t <= t + 0.05) i = k;
+  if (i < 0) return;
+  const c = R.cues[i];
+  const want = c.pos + (c.playing ? (t - c.t) : 0);
+  if (i !== R.idx) {
+    R.idx = i;
+    if (!track || track.trackId !== c.trackId) {
+      if (!(await loadTrack({ trackId: c.trackId, title: c.title, artist: c.artist, artwork: c.artwork, secret: c.secret }, false))) return;
+    }
+    player.currentTime = want;
+    if (c.playing && e.playing) player.play().catch(() => {}); else player.pause();
+    return;
+  }
+  if (!e.playing && !player.paused) player.pause();
+  if (e.playing && c.playing && player.paused && !loading) player.play().catch(() => {});
+  if (c.playing && e.playing && Math.abs((player.currentTime || 0) - want) > 2.5) player.currentTime = want;
+}];
+function endRadio() { if (!radioPlay) return; radioPlay = null; nat('recEnd').catch(() => {}); }
 
 async function joinCall() {
   if (call.state === 'joining' || call.state === 'live') return;
@@ -2342,6 +2509,7 @@ async function joinCall() {
     }
     call.state = 'live';
     call.startedAt = Date.now();
+    if (NATIVE_CALL) { watchRec(); paintRec(); }
     if ($('np').classList.contains('outgoing')) { ringWasOpen = true; hideRinging(); }
     call.timer = setInterval(showCallbar, 1000);
     showCallbar();
@@ -2385,7 +2553,10 @@ function endCall(msg) {
   if (call.lk) { call.lk.disconnect(); call.lk = null; }
   document.querySelectorAll('body > audio').forEach((el) => el.remove());
   if (wasLive && call.room) db.ref(`rooms/${call.room}/call/status`).get().then((s) => { if (s.val() === 'accepted') s.ref.set('ended'); });
+  if (recRef) { recRef.off(); recRef = null; }
+  if (recording) stopRec();
   call.room = null; call.peer = null; call.muted = false;
+  paintRec();
   if ($('np').classList.contains('outgoing')) hideRinging();
   setEndMode(false);
   $('callbar').hidden = true; $('npTogether').hidden = true;
