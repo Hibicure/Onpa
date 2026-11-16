@@ -2298,7 +2298,7 @@ async function storyImage(t) {
   const title = t.title || '';
   fit(title.length > 40 ? title.slice(0, 39) + '…' : title, 72, W - 160);
   g.fillText(title.length > 40 ? title.slice(0, 39) + '…' : title, cx, 1390);
-  g.font = '600 44px "Instrument Sans", "Zen Kaku Gothic New", sans-serif'; g.fillStyle = 'rgba(255,255,255,.82)';
+  g.font = '600 44px "Instrument Sans", "Hiragino Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.82)';
   const artist = t.artist || ''; g.fillText(artist.length > 46 ? artist.slice(0, 45) + '…' : artist, cx, 1460);
   g.font = '700 40px Unbounded, sans-serif'; g.fillStyle = '#FFFFFF'; g.fillText('Otocloud', cx, H - 170);
   g.font = '500 30px "Instrument Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('listen together · on-pa.net', cx, H - 120);
