@@ -615,6 +615,15 @@
   .btn.ghost { border: 0 !important; background: color-mix(in srgb, var(--ink) 7%, transparent) !important; color: var(--ink) !important; }
   .btn.call.liquid { border-radius: var(--nose); }
   .recbtn { border-radius: var(--nose) !important; background: color-mix(in srgb, var(--ink) 9%, transparent) !important; }
+  /* 曲の一覧（検索・いいね・プレイリスト・アーティスト）：四角いジャケットを、少しすき間をあけて縦に */
+  #results .row { gap: 12px; padding: 5px 0; border-bottom: 0; }
+  #results .row .art { width: 46px; height: 46px; border-radius: 0; }
+  #results .row .tag { display: none; }
+  #results .row .s .dur { margin-left: 8px; font-size: 11px; color: var(--mute); font-variant-numeric: tabular-nums; }
+  #results .row .add, #results .row .rheart { width: 36px; height: 36px; display: grid; place-items: center; color: var(--ink); flex-shrink: 0; background: none; }
+  #results .row .rheart svg { width: 20px; height: 20px; fill: none; }
+  #results .row .rheart[aria-pressed="true"] svg { fill: currentColor; }
+  #results .row .add { margin-right: -6px; }
 </style>
 </head>
 <body>
@@ -1308,12 +1317,15 @@ $('q').addEventListener('input', (e) => {
 });
 
 function rowHTML(t, i) {
+  // 四角いジャケット・アーティスト名の横に小さく長さ・右に「＋」とハート（いいねの一覧とプレイリストではハートなし）
+  const heart = mode === 'search' || mode === 'artist';
+  const liked = likedIds.has(String(t.id));
   return `
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
-      <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}</div></div>
-      <span class="tag">${fmt(t.duration / 1000)}</span>
+      <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}<span class="dur">${t.duration ? fmt(t.duration / 1000) : ''}</span></div></div>
       <button class="add" data-q="${i}" aria-label="Add to Up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      ${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}
     </div>`;
 }
 function renderTracks(list, emptyHTML) {
@@ -1348,6 +1360,8 @@ $('results').addEventListener('click', (e) => {
   if (e.target.closest('.sc-connect')) { connectSC(); return; }
   const pl = e.target.closest('[data-pl]');
   if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
+  const lk = e.target.closest('[data-like]');
+  if (lk) { toggleRowLike(lk); return; }
   const add = e.target.closest('[data-q]');
   if (add) { addToUpNext(lastResults[Number(add.dataset.q)]); return; }
   const sq = e.target.closest('.sq');
@@ -1695,7 +1709,6 @@ async function openArtist(userId, name) {
     if (mode === 'artist') {
       // 縦に並べて、ジャケットは角なしの正方形をすき間なく積む
       renderTracks(d, msg('No tracks yet'));
-      $('results').classList.add('stack');
     }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
 }
@@ -1779,6 +1792,15 @@ async function loadLikes() {
 }
 function paintHeart() {
   $('heart').setAttribute('aria-pressed', String(!!track && likedIds.has(String(track.trackId))));
+}
+async function toggleRowLike(btn) {
+  const t = lastResults[Number(btn.dataset.like)]; if (!t) return;
+  if (!sc) { toast('Connect SoundCloud to like tracks'); return; }
+  const id = String(t.id), like = !likedIds.has(id);
+  if (like) likedIds.add(id); else likedIds.delete(id);
+  btn.setAttribute('aria-pressed', String(like)); paintHeart();
+  try { await scApi('/sc/like?id=' + id, like ? 'POST' : 'DELETE'); likesList = null; }
+  catch { if (like) likedIds.delete(id); else likedIds.add(id); btn.setAttribute('aria-pressed', String(!like)); paintHeart(); toast("Couldn't update your like"); }
 }
 $('heart').addEventListener('click', async () => {
   if (!track) return;
