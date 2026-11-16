@@ -1589,7 +1589,7 @@ $('npMode').addEventListener('click', () => {
   toast(MODE_INFO[next].label);
 });
 function replayCurrent() {
-  if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, playing: true, position: 0, startIn: START_LEAD }); return; }
+  if (call.state === 'live' && roomState) { pushRoomState({ ...roomState, playing: true, position: 0, startIn: 400 }); return; }
   player.currentTime = 0; player.play().catch(() => {});
 }
 function hasNext() { return upNext.length > 0 || (qi >= 0 && qi + 1 < queue.length); }
@@ -2167,6 +2167,8 @@ class WidgetMedia extends EventTarget {
       sp.w.getDuration((d) => { if (d > 0) sp.d = d / 1000; });
     } });
   }
+  // その曲が裏のプレーヤーに読み込み済みか（読み込み済みなら、すぐ鳴らせる）
+  isPreloaded(trackId) { const sp = this.slots.length > 1 ? this.slots[1 - this.a] : null; return !!(sp && sp.id === trackId && sp.loaded); }
   // autoplay: 読み込みが終わった瞬間にプレーヤー自身が鳴らし始める（待ち時間を最小にする）
   async load(trackId, autoplay = false, secret = '') {
     await this.ready;
@@ -2269,7 +2271,7 @@ async function pick(meta, auto = false) {
   if (!auto) unlockAudio();
   if (!auto) endRadio();
   if (call.state === 'live') {
-    pushRoomState({ ...meta, playing: true, position: 0, startIn: START_LEAD });
+    pushRoomState({ ...meta, playing: true, position: 0, startIn: startLead(meta.trackId) });
     return;
   }
   if (!auto && track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
@@ -3358,7 +3360,8 @@ function applyVoiceVolume() {
 // ===================== 一緒に聴く（同期） =====================
 // せーの：曲を変える時は「今から少し先の時刻」を2人で決めて、その時刻に同時に鳴らし始める。
 // 合図が届くまでの遅れや、プレーヤーの読み込みの速さの差は、この待ち時間の中で吸収される
-const START_LEAD = 1300; // ms
+// 待ち時間：次の曲が2人とも先読み済みなら0.45秒（ほぼすぐ）。新しく読み込む曲だけ1.1秒
+const startLead = (id) => player.isPreloaded(id) ? 450 : 1100;
 const expectedPos = (s) => {
   if (!s) return 0;
   if (!s.playing) return s.position;
