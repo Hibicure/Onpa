@@ -126,8 +126,46 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
     private var wasConnected = false
     var inCall: Bool { room != nil }
 
+    private var wantHeadphones = false
+    private var usingHFP = false
+
     override init() {
         super.init()
+        // LiveKit に音の設定を勝手に変えさせない（アプリ起動時に一度だけ）
+        AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+        AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
+        NotificationCenter.default.addObserver(self, selector: #selector(routeChanged(_:)),
+                                               name: AVAudioSession.routeChangeNotification, object: nil)
+    }
+
+    static func routeText() -> String {
+        let s = AVAudioSession.sharedInstance()
+        let o = s.currentRoute.outputs.map { "\($0.portType.rawValue)(\($0.portName))" }.joined(separator: ",")
+        let i = s.currentRoute.inputs.map { "\($0.portType.rawValue)" }.joined(separator: ",")
+        return "cat=\(s.category.rawValue) mode=\(s.mode.rawValue) opts=\(s.categoryOptions.rawValue) out=[\(o)] in=[\(i)]"
+    }
+    private func log(_ m: String) { NSLog("[oto] %@ | %@", m, Self.routeText()) }
+
+    /// 通話中に、イヤホンがあるのに音が本体に移ってしまったら、AirPodsのマイクも使う形に切り替えて、AirPodsに戻す
+    @objc private func routeChanged(_ n: Notification) {
+        let reason = (n.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap { AVAudioSession.RouteChangeReason(rawValue: $0) }
+        Task { @MainActor in
+            self.log("route changed reason=\(reason.map { String($0.rawValue) } ?? "?")")
+            guard self.room != nil, self.wantHeadphones, !self.usingHFP else { return }
+            if !self.headphonesConnected() && self.bluetoothAvailable() {
+                self.usingHFP = true
+                let s = AVAudioSession.sharedInstance()
+                try? s.setCategory(.playAndRecord, mode: .default,
+                                   options: [.allowBluetoothHFP, .allowBluetoothA2DP, .mixWithOthers])
+                if let bt = s.availableInputs?.first(where: { [.bluetoothHFP, .bluetoothLE].contains($0.portType) }) {
+                    try? s.setPreferredInput(bt)
+                }
+                self.log("fallback to bluetooth HFP")
+            }
+        }
+    }
+    private func bluetoothAvailable() -> Bool {
+        (AVAudioSession.sharedInstance().availableInputs ?? []).contains { [.bluetoothHFP, .bluetoothLE].contains($0.portType) }
     }
 
     // ページからのお願い
@@ -169,7 +207,9 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         // それを使うと、iPhoneが音をAirPodsから本体のスピーカーに勝手に切り替えてしまうため。
         // （イヤホンなら音が相手に返らないので、その処理はいらない）
         let hp = headphonesConnected()
-        try? AudioManager.shared.setPlatformVoiceProcessingAllowed(!hp)
+        wantHeadphones = hp; usingHFP = false
+        log("connect start headphones=\(hp)")
+        do { try AudioManager.shared.setPlatformVoiceProcessingAllowed(!hp) } catch { log("vp allow failed: \(error)") }
         capture = AudioCaptureOptions(echoCancellation: !hp, autoGainControl: true, noiseSuppression: true)
         configureSession()
         // 喋っても音楽をできるだけ下げない
@@ -182,8 +222,11 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         do {
             try await room.connect(url: url, token: token)
             wasConnected = true
+            log("connected")
             try await room.localParticipant.setMicrophone(enabled: true, captureOptions: capture, publishOptions: Self.publish)
+            log("mic on")
         } catch {
+            log("connect error \(error)")
             await hangUp()
             throw error
         }
@@ -203,6 +246,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         try? s.setCategory(.playAndRecord, mode: .default,
                            options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers])
         try? s.setActive(true)
+        log("session set")
     }
 
     private func headphonesConnected() -> Bool {
@@ -235,6 +279,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         room = nil
         wasConnected = false
         await r.disconnect()
+        log("hang up")
         // 通話が終わっても音楽は止めない
         let s = AVAudioSession.sharedInstance()
         try? s.setCategory(.playback, mode: .default, options: [.mixWithOthers])
