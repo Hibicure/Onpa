@@ -441,6 +441,28 @@
   .topsearch .field { flex: 1; margin: 0; }
   .topsearch input { font-size: 16px; }
   .topsearch .cancel { font-weight: 600; font-size: 15px; color: var(--ink); padding: 0 4px; height: 44px; }
+  /* ---------- 再生画面の背景（ジャケットの色が広がる） ---------- */
+  .np .in { position: relative; z-index: 1; }
+  .np .stage { position: relative; }
+  .amb { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
+  .np.amb-on .amb.ready { opacity: 1; }
+  .amb .spin { position: absolute; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; will-change: transform; animation: ambspin 48s linear infinite; }
+  .amb .s2 { animation-duration: 66s; animation-direction: reverse; }
+  .amb .s2 .blob { transform: scale(.7) translate(12%, -8%); opacity: .75; mix-blend-mode: screen; }
+  .amb .s3 { animation: ambpulse 14s ease-in-out infinite; }
+  .amb .s3 .blob { transform: scale(.42); opacity: .8; border-radius: 50%;
+    -webkit-mask-image: radial-gradient(circle, #000 0 30%, transparent 70%); mask-image: radial-gradient(circle, #000 0 30%, transparent 70%); }
+  /* ぼかしは一度だけ。動くのは回転と拡大だけ（軽い） */
+  .amb .blob { position: absolute; inset: 0; background-image: var(--amb-art); background-size: cover; background-position: center; filter: blur(60px) saturate(1.7); }
+  .amb .veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(217,218,221,.35) 0%, rgba(217,218,221,.55) 55%, rgba(217,218,221,.82) 100%); }
+  :root[data-theme="dark"] .amb .veil { background: linear-gradient(180deg, rgba(17,18,20,.3) 0%, rgba(17,18,20,.5) 55%, rgba(17,18,20,.85) 100%); }
+  .np:not(.open) .amb .spin, .np.paused-amb .amb .spin { animation-play-state: paused; }
+  @keyframes ambspin { to { transform: rotate(360deg); } }
+  @keyframes ambpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
+  @media (prefers-reduced-motion: reduce) { .amb .spin { animation: none !important; } }
+  .ambbtn { position: absolute; left: 0; bottom: 0; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--mute); z-index: 2; }
+  .ambbtn svg { width: 19px; height: 19px; }
+  .ambbtn[aria-pressed="true"] { color: var(--ink); }
 </style>
 </head>
 <body>
@@ -587,12 +609,20 @@
 
 <!-- 再生画面 -->
 <section class="np" id="np" aria-hidden="true">
+  <!-- 背景：ジャケットの色がゆっくり渦を巻いて広がる（オン／オフできる） -->
+  <div class="amb" id="amb" aria-hidden="true">
+    <div class="spin s1"><div class="blob"></div></div>
+    <div class="spin s2"><div class="blob"></div></div>
+    <div class="spin s3"><div class="blob"></div></div>
+    <div class="veil"></div>
+  </div>
   <div class="in">
     <div class="top">
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
     </div>
     <div class="stage">
+      <button class="ambbtn glass" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></button>
       <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
     </div>
     <div class="titlebar">
@@ -1549,6 +1579,7 @@ function renderTrack() {
   // 再生画面は大きい画像（SoundCloudは-large=100px、-t500x500=500px）
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').removeAttribute('src'); $('npArt').removeAttribute('src'); }
+  setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
   paintHeart();
   markNow();
 }
@@ -1556,8 +1587,8 @@ function markNow() {
   document.querySelectorAll('#results .row').forEach((r) => r.classList.toggle('now', !!track && String(track.trackId) === r.dataset.id && !player.paused));
 }
 const isReal = () => !!track;
-player.addEventListener('playing', () => { if (!isReal()) return; publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
-player.addEventListener('pause', () => { if (!isReal()) return; publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
+player.addEventListener('playing', () => { if (!isReal()) return; $('np').classList.remove('paused-amb'); publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
+player.addEventListener('pause', () => { if (!isReal()) return; $('np').classList.add('paused-amb'); publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
 player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
 player.addEventListener('ended', () => {
   if (!isReal()) return;
@@ -1625,6 +1656,29 @@ function paintRange(el) { el.style.setProperty('--v', el.value + '%'); }
 $('volMusic').addEventListener('input', (e) => { paintRange(e.target); setMusicVol(); });
 $('volVoice').addEventListener('input', (e) => { paintRange(e.target); applyVoiceVolume(); });
 paintRange($('volMusic')); paintRange($('volVoice'));
+
+// ===================== 再生画面の背景 =====================
+let ambOn = true;
+try { ambOn = localStorage.getItem('oto_amb') !== 'off'; } catch {}
+function paintAmbBtn() { $('ambBtn').setAttribute('aria-pressed', String(ambOn)); $('np').classList.toggle('amb-on', ambOn); }
+let ambArt = null;
+function setAmbient(src) {
+  const a = $('amb');
+  if (src === ambArt) return;
+  ambArt = src;
+  a.classList.remove('ready');
+  if (!src) return;
+  const img = new Image();
+  img.onload = () => { if (ambArt !== src) return; setTimeout(() => { a.style.setProperty('--amb-art', `url("${src}")`); a.classList.add('ready'); }, a.classList.contains('ready') ? 0 : 250); };
+  img.src = src;
+}
+$('ambBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  ambOn = !ambOn;
+  try { localStorage.setItem('oto_amb', ambOn ? 'on' : 'off'); } catch {}
+  paintAmbBtn();
+});
+paintAmbBtn();
 
 // ===================== インスタのストーリーにシェア =====================
 const loadImg = (src) => new Promise((ok, ng) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = ng; i.src = src; });
