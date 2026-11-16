@@ -279,8 +279,8 @@
   .titlebar .tt, .titlebar .tbtns { display: contents; }
   .titlebar #npT { grid-column: 1; grid-row: 1; }
   .titlebar #npS { grid-column: 1; grid-row: 2; }
-  .titlebar #ambBtn { grid-column: 2; grid-row: 1; height: 30px; margin: -4px 0; } /* ボタンの高さで曲名とアーティスト名の間が空かないように */
-  .titlebar #heart { grid-column: 2; grid-row: 2; height: 30px; }
+  .titlebar #ambBtn { grid-column: 2; grid-row: 2; height: 30px; }
+  .titlebar #heart { grid-column: 2; grid-row: 1; height: 30px; margin: -4px 0; } /* 上：ハート（曲名の段）、下：三原色（アーティスト名の段） */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
   .heart.ambt svg { width: 27px; height: 27px; }
