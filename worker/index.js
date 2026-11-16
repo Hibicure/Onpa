@@ -337,6 +337,66 @@ async function scRefresh(request, env, cors) {
   return json({ at: t.access_token, rt: t.refresh_token || rt, exp: Date.now() + (t.expires_in || 3600) * 1000 }, 200, cors);
 }
 
+
+// ===================== 共有 =====================
+// 曲の情報は1日キャッシュする（入場券の回数を使いすぎないように）
+async function trackInfo(id, env, userToken = '') {
+  const cache = caches.default;
+  const key = new Request('https://cache.otocloud/track/' + id);
+  const hit = await cache.match(key);
+  if (hit) return hit.json();
+  try {
+    const t = mapTrack(await scGet('/tracks/' + id, env, userToken));
+    if (t.artwork) t.artwork = t.artwork.replace('-large.', '-t500x500.');
+    await cache.put(key, new Response(JSON.stringify(t), { headers: { 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'application/json' } }));
+    return t;
+  } catch { return null; }
+}
+const escH = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+async function sharePage(id, env) {
+  const t = (await trackInfo(id, env)) || { id, title: 'A song on Otocloud', artist: '', artwork: '' };
+  const app = 'https://on-pa.net/app/?t=' + id;
+  const art = /^https:\/\/[a-z0-9.-]*sndcdn\.com\//.test(t.artwork || '') ? t.artwork : '';
+  const title = t.artist ? `${t.title} — ${t.artist}` : t.title;
+  const embed = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent('https://api.soundcloud.com/tracks/' + id) + '&color=%23151517&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false';
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${escH(title)} · Otocloud</title>
+<meta property="og:type" content="music.song"><meta property="og:site_name" content="Otocloud">
+<meta property="og:title" content="${escH(title)}"><meta property="og:description" content="Listen together on Otocloud">
+${art ? `<meta property="og:image" content="${escH(art)}"><meta name="twitter:image" content="${escH(art)}">` : ''}
+<meta name="twitter:card" content="${art ? 'summary_large_image' : 'summary'}"><meta name="twitter:title" content="${escH(title)}">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Instrument+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#0e0f11;--ink:#f2f2f3;--mute:#9a9ca2}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100dvh;background:var(--paper);color:var(--ink);font-family:'Instrument Sans',-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;padding:max(28px,env(safe-area-inset-top)) 22px max(28px,env(safe-area-inset-bottom));overflow-x:hidden}
+.bg{position:fixed;inset:-20%;background:${art ? `url('${escH(art)}') center/cover` : '#222'};filter:blur(60px) saturate(1.3);opacity:.45;z-index:-1}
+.brand{font:700 15px Unbounded,sans-serif;letter-spacing:-.01em;opacity:.9}
+.disc{width:min(78vw,340px);aspect-ratio:1;border-radius:50%;margin:30px 0 26px;position:relative;box-shadow:0 30px 60px -24px rgba(0,0,0,.7),0 0 0 .5px rgba(255,255,255,.2);
+ background:${art ? `url('${escH(art)}') center/cover` : 'radial-gradient(circle,#E9EBEE 0 33%,#C9CDD3 38%,#D3D6DB 70%,#B7BBC2 100%)'};animation:spin 9s linear infinite;animation-play-state:paused;
+ -webkit-mask:radial-gradient(circle closest-side,transparent 0 11%,#000 11.5%);mask:radial-gradient(circle closest-side,transparent 0 11%,#000 11.5%)}
+.disc.on{animation-play-state:running}
+@keyframes spin{to{transform:rotate(360deg)}}
+h1{font:700 clamp(22px,6.5vw,30px)/1.15 Unbounded,sans-serif;text-align:center;letter-spacing:-.02em;max-width:560px}
+.artist{color:var(--mute);font-weight:600;margin-top:8px;text-align:center}
+.player{width:100%;max-width:520px;margin-top:22px;border-radius:14px;overflow:hidden;height:120px}
+.player iframe{width:100%;height:120px;border:0}
+.open{margin-top:22px;display:inline-flex;align-items:center;justify-content:center;height:54px;padding:0 26px;border-radius:999px;background:var(--ink);color:#111;font-weight:700;font-size:16px;text-decoration:none}
+.note{color:var(--mute);font-size:13px;margin-top:12px;text-align:center}
+</style></head><body><div class="bg"></div>
+<div class="brand">Otocloud</div>
+<div class="disc" id="disc"></div>
+<h1>${escH(t.title)}</h1>${t.artist ? `<div class="artist">${escH(t.artist)}</div>` : ''}
+<div class="player"><iframe id="w" allow="autoplay" src="${embed}"></iframe></div>
+<a class="open" href="${app}">Listen together in Otocloud</a>
+<div class="note">Call a friend and hear this song at the same time.</div>
+<script src="https://w.soundcloud.com/player/api.js"></script>
+<script>try{const w=SC.Widget(document.getElementById('w')),d=document.getElementById('disc');w.bind(SC.Widget.Events.PLAY,()=>d.classList.add('on'));w.bind(SC.Widget.Events.PAUSE,()=>d.classList.remove('on'));w.bind(SC.Widget.Events.FINISH,()=>d.classList.remove('on'))}catch(e){}</script>
+</body></html>`;
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+}
+
 // ===================== 入り口 =====================
 export default {
   async fetch(request, env) {
@@ -354,6 +414,16 @@ export default {
         const d = await scGet(`/tracks?q=${encodeURIComponent(q)}&limit=20&access=playable`, env, userToken);
         return json(listOf(d).map(mapTrack), 200, cors);
       }
+
+      // ---- 1曲の情報: /t/123（共有リンクから開いた時に使う）
+      let m = p.match(/^\/t\/(\d{1,20})$/);
+      if (m) {
+        const t = await trackInfo(m[1], env, userToken);
+        return t ? json(t, 200, cors) : json({ error: 'not found' }, 404, cors);
+      }
+      // ---- 共有ページ: /s/123（インスタ・LINEなどで、ジャケット付きのカードになって、その場で再生できる）
+      m = p.match(/^\/s\/(\d{1,20})$/);
+      if (m) return sharePage(m[1], env);
 
       // ---- ジャケット画像の中継: /img?u=（SoundCloudの画像だけ）
       // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする

@@ -291,6 +291,9 @@
   .skip { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); transition: transform .12s; }
   .skip svg { width: 30px; height: 30px; }
   .upnext { margin-top: 18px; }
+  .np .sharefab { position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; z-index: 5; color: var(--ink); }
+  .np .sharefab svg { width: 22px; height: 22px; }
+  .np.ringing .sharefab { display: none; }
   .uphead { display: flex; align-items: baseline; justify-content: space-between; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; margin-bottom: 4px; }
   .uphead .who { font-family: var(--body); font-weight: 600; font-size: 12px; color: var(--mute); }
   .uprow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -670,7 +673,6 @@
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
-      <button class="heart" id="shareBtn" aria-label="Share to Instagram Stories"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
       <button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>
     </div>
     <div class="seek" id="seek"><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
@@ -689,6 +691,8 @@
       <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
       <div id="upList"></div>
     </div>
+    <!-- 共有：いちばん下の右。曲のリンクを送る（開くとその場で再生できるページ） -->
+    <button class="sharefab glass" id="shareBtn" aria-label="Share this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
   </div>
 </section>
 
@@ -731,6 +735,8 @@ function applyTheme(t) {
 })();
 // ===================== 設定 =====================
 const WORKER = 'https://geocloud.icchasong.workers.dev';
+// 共有リンクから開いた曲（ログインやSoundCloud連携をはさんでも覚えておく）
+try { const t0 = new URLSearchParams(location.search).get('t'); if (t0 && /^\d{1,20}$/.test(t0)) sessionStorage.setItem('oto_t', t0); } catch {}
 const LIVEKIT_URL = 'wss://otocloud-wygn7mrs.livekit.cloud';
 firebase.initializeApp({
   apiKey: 'AIzaSyB_bITavjyZJ86Ky9BHjYJb9IcXbieHA0g',
@@ -1002,6 +1008,19 @@ function startApp() {
   watchFriends();
   watchIncoming();
   if (sc) loadLikes().catch(() => {});
+  openSharedTrack();
+}
+async function openSharedTrack() {
+  let id = null;
+  try { id = sessionStorage.getItem('oto_t'); sessionStorage.removeItem('oto_t'); } catch {}
+  if (!id) return;
+  try { const u = new URL(location.href); if (u.searchParams.has('t')) { u.searchParams.delete('t'); history.replaceState(null, '', u.pathname + u.search + u.hash); } } catch {}
+  try {
+    const r = await fetch(`${WORKER}/t/${id}`, { headers: await scHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const t = await r.json();
+    $('miniOpen').click(); pick(toMeta(t), true);
+  } catch { toast("Couldn't open that song"); }
 }
 
 // ===================== タブ =====================
@@ -1818,21 +1837,19 @@ async function storyImage(t) {
   g.font = '500 30px "Instrument Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('listen together · on-pa.net', cx, H - 120);
   return new Promise((ok) => c.toBlob(ok, 'image/png'));
 }
+// 共有：曲のリンク。インスタやLINEではジャケット付きのカードになり、開くとその場で再生できる。
+// 「Listen together in Otocloud」からアプリ（サイト）でも開ける
+const shareUrl = (t) => `${WORKER}/s/${t.trackId}`;
 $('shareBtn').addEventListener('click', async () => {
   if (!track) return;
-  const btn = $('shareBtn'); btn.disabled = true;
+  const url = shareUrl(track);
+  const text = `${track.title}${track.artist ? ' — ' + track.artist : ''}`;
   try {
-    const blob = await storyImage(track);
-    const file = new File([blob], 'otocloud.png', { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
-    } else {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'otocloud.png'; a.click();
-      toast('Saved the image. Share it from your photos.');
-    }
+    if (navigator.share) await navigator.share({ title: text, text: text + ' · listen together on Otocloud', url });
+    else { await navigator.clipboard.writeText(url); toast('Link copied'); }
   } catch (e) {
-    if (e && e.name !== 'AbortError') toast("Couldn't make the image (" + (e.message || e) + ')');
-  } finally { btn.disabled = false; }
+    if (e && e.name !== 'AbortError') { try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { toast("Couldn't share"); } }
+  }
 });
 
 // ===================== ホーム =====================
