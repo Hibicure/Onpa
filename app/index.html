@@ -1502,34 +1502,41 @@ function neighborMeta(dir) {
 (() => {
   const el = $('disc'), pk = $('discPeek'), pkArt = $('peekArt');
   let sx = 0, sy = 0, dx = 0, id = null, horizontal = null, side = 0, pulling = false, dy = 0, t0 = 0;
-  const span = () => el.offsetWidth + 28;
+  let busy = false, timer = null, hist = [];
+  const GAP = 26, EASE = 'transform .36s cubic-bezier(.2,.85,.25,1)';
+  const span = () => el.offsetWidth + GAP;
+  const anim = (on) => { el.style.transition = on ? EASE : 'none'; pk.style.transition = on ? EASE : 'none'; };
   const setPeek = (dir) => {
     if (side === dir) return;
     side = dir;
     const m = neighborMeta(dir);
     const art = m && m.artwork ? m.artwork.replace('-large.', '-t500x500.') : '';
     if (art) pkArt.src = art; else pkArt.removeAttribute('src');
-    pk.style.transform = `translateX(${dx + dir * span()}px)`;
     pk.classList.add('show');
   };
+  // 2枚は常に同じ間隔のまま、まっすぐ横に動く（iPodみたいに）
   const place = (x) => {
-    const r = $('np').classList.contains('square') ? 0 : 1 / 6; // 四角いジャケットの時は回さずに、まっすぐ横へ
-    el.style.transform = `translateX(${x}px) rotate(${x * r}deg)`;
-    if (side) pk.style.transform = `translateX(${x + side * span()}px) rotate(${(x + side * span()) * r}deg)`; // 次は右から、前は左から
+    el.style.transform = `translateX(${x}px)`;
+    if (side) pk.style.transform = `translateX(${x + side * span()}px)`;
   };
-  const reset = () => { side = 0; pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; };
-  el.addEventListener('pointerdown', (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; });
+  const reset = () => { clearTimeout(timer); timer = null; side = 0; anim(false); pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; requestAnimationFrame(() => { el.style.transition = ''; pk.style.transition = ''; }); };
+  el.addEventListener('pointerdown', (e) => {
+    if (busy || loading) { id = null; return; } // 曲が切り替わる途中は次のスライドを受け付けない（ジャケットがダブらないように）
+    if (timer) reset(); // 戻る途中なら、すぐ元の位置にしてから
+    id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; hist = [[performance.now(), 0]];
+  });
   el.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
     const mx = e.clientX - sx, my = e.clientY - sy;
     if (horizontal === null && Math.hypot(mx, my) > 8) {
       horizontal = Math.abs(mx) > Math.abs(my);
-      if (horizontal) { el.setPointerCapture(id); el.classList.add('dragging'); pk.classList.add('dragging'); }
+      if (horizontal) { el.setPointerCapture(id); anim(false); }
       else if (my > 0) { el.setPointerCapture(id); pulling = true; t0 = performance.now(); $('np').classList.add('dragging'); }
     }
     if (pulling) { dy = Math.max(0, my); $('np').style.transform = `translateY(${dy}px)`; return; }
     if (!horizontal) return;
     dx = mx;
+    hist.push([performance.now(), dx]); if (hist.length > 6) hist.shift();
     if (track && dx !== 0) setPeek(dx < 0 ? 1 : -1);
     place(dx);
   });
@@ -1544,32 +1551,34 @@ function neighborMeta(dir) {
       return;
     }
     if (!horizontal) {
-      // ほとんど動かさずに離した＝タップ：CDと四角いジャケットを切り替え
+      // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
       if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer')) {
-        // タップするたびに：CD → 四角いジャケット → 全画面 → CD
         const np = $('np');
         if (np.classList.contains('square')) { np.classList.remove('square'); setFull(true); }
         else np.classList.add('square');
       }
       return;
     }
-    const go = !!track && Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
-    el.classList.remove('dragging'); pk.classList.remove('dragging');
-    if (!go) { place(0); setTimeout(reset, 290); return; }
-    // 今のCDが出ていき、となりのCDが真ん中に来る
+    // 指の速さも見る：さっと払えば少しの距離でも次へ
+    const h0 = hist[0], h1 = hist[hist.length - 1];
+    const v = (h1[1] - h0[1]) / Math.max(1, h1[0] - h0[0]);
+    const go = !!track && side !== 0 && (Math.abs(dx) > span() * 0.33 || (Math.abs(v) > 0.45 && Math.sign(v) === Math.sign(dx)));
+    anim(true);
+    if (!go) { place(0); timer = setTimeout(reset, 380); return; }
+    // 今のCDが出ていき、となりのCDがちょうど真ん中に来る
+    busy = true;
     const dir = dx < 0 ? -1 : 1;
     place(dir * span());
-    setTimeout(() => {
+    timer = setTimeout(() => {
       const src = pkArt.getAttribute('src');
-      el.classList.add('dragging');
       if (src) $('npArt').src = src; else $('npArt').removeAttribute('src');
       reset();
-      requestAnimationFrame(() => el.classList.remove('dragging'));
       if (dir < 0) $('npNext').click(); else $('npPrev').click();
-    }, 290);
+      setTimeout(() => { busy = false; }, 120);
+    }, 370);
   };
   el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; if (pulling) { pulling = false; $('np').classList.remove('dragging'); $('np').style.transform = ''; } el.classList.remove('dragging'); pk.classList.remove('dragging'); reset(); });
+  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; if (pulling) { pulling = false; $('np').classList.remove('dragging'); $('np').style.transform = ''; } reset(); });
 })();
 
 // ===================== Up next（次に流す曲。通話中は2人で共有） =====================
