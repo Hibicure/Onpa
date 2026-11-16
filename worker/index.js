@@ -434,7 +434,7 @@ export default {
       if (m) {
         const st = url.searchParams.get('st') || '';
         const cache = caches.default;
-        const key = new Request('https://cache.otocloud/wave/' + m[1]);
+        const key = new Request('https://cache.otocloud/wave/' + m[1] + '/' + (url.searchParams.get('n') || '100'));
         const hit = await cache.match(key);
         if (hit) return json(await hit.json(), 200, cors);
         const t = await trackInfo(m[1], env, userToken, st);
@@ -443,7 +443,7 @@ export default {
         const r = await fetch(wu);
         if (!r.ok) return json({ error: 'wave ' + r.status }, 502, cors);
         const d = await r.json();
-        const s = d.samples || [], n = 100, h = d.height || 140, bars = [];
+        const s = d.samples || [], n = Math.min(240, Math.max(40, Number(url.searchParams.get('n')) || 100)), h = d.height || 140, bars = [];
         for (let i = 0; i < n; i++) {
           const a = Math.floor(i * s.length / n), b = Math.max(a + 1, Math.floor((i + 1) * s.length / n));
           let mx = 0; for (let k = a; k < b; k++) mx = Math.max(mx, s[k] || 0);
