@@ -2737,7 +2737,7 @@ $('found').addEventListener('click', async (e) => {
 
 // ===================== 呼出音 =====================
 // 電話をかけてから相手が出るまで、相手が決めた曲（決めていなければデフォルトの曲）が、かけた側に流れる。
-// 決めた曲は users/{uid}/ringback に { trackId, title, artist, artwork, secret, duration, at(秒：ここから流す) }
+// 決めた曲は users/{uid}/ringback に { trackId, title, artist, artwork, secret, duration, at(秒：ここから), end(秒：ここまで。来たら at に戻ってくり返す) }
 const DEFAULT_RINGBACK = null; // デフォルトの曲が決まったらここに入れる
 let myRingback = null;
 async function paintRingback() {
@@ -2761,13 +2761,17 @@ $('setRbReset').addEventListener('click', async () => {
   try { await db.ref(`users/${me.uid}/ringback`).remove(); } catch { /* 無視 */ }
   paintRingback();
 });
-var rb = null; // 呼出音を流している間：{ pre: 呼び出す前に流れていた曲 }
+var rb = null; // 呼出音を流している間：{ pre: 呼び出す前に流れていた曲, at, end }
+// 呼出音は「ここから〜ここまで」をくり返す（LINEの着信音みたいに）
+player.addEventListener('timeupdate', () => {
+  if (rb && rb.end && !loading && player.currentTime >= rb.end) player.currentTime = rb.at;
+});
 async function startRingback(peerUid) {
   let song = null;
   try { song = (await db.ref(`users/${peerUid}/ringback`).get()).val(); } catch { /* 無視 */ }
   if (!song || !song.trackId) song = DEFAULT_RINGBACK;
   if (!song || call.state !== 'ringing' || !call.caller) return;
-  rb = { pre: track && loadedId ? { meta: track, pos: player.currentTime || 0, playing: !player.paused } : null };
+  rb = { pre: track && loadedId ? { meta: track, pos: player.currentTime || 0, playing: !player.paused } : null, at: song.at || 0, end: song.end > (song.at || 0) ? song.end : 0 };
   const meta = { trackId: song.trackId, title: song.title, artist: song.artist, artwork: song.artwork || '', secret: song.secret || '', duration: song.duration || 0 };
   goingBack = true; // 呼出音は「前の曲」の履歴に入れない
   const ok = await loadTrack(meta, true);
