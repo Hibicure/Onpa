@@ -201,7 +201,7 @@
   .np .in > .upnext { flex: 1 1 0; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
     padding-bottom: 72px; /* 一番下の曲も右下の共有ボタンにかぶらず、最後までスクロールで出せる */
     -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 36px), transparent 100%); }
-  .np .in > .upnext:not(:has(#upList .row)) { display: none; } /* 何も入っていない時は見出しごと出さない */
+  .np .in > .upnext:not(:has(#upList .uprow)) { visibility: hidden; } /* 何も入っていない時は見出しごと出さない */
   .np input[type=range], .np .seek { touch-action: none; }
   /* iOSのガラス風ボタン */
   .glass { background: linear-gradient(180deg, var(--glass-a) 0%, var(--glass-b) 100%); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
