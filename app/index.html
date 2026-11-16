@@ -1642,7 +1642,7 @@ $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-mo
   };
   seg.addEventListener('pointerdown', (e) => { id = e.pointerId; moved = false; seg.setPointerCapture(id); });
   seg.addEventListener('pointermove', (e) => { if (e.pointerId !== id) return; moved = true; pick(e.clientX); });
-  const end = (e) => { if (e.pointerId !== id) return; id = null; if (!moved) return; const b = pick(e.clientX); if (b.dataset.mode !== mode) setMode(b.dataset.mode); };
+  const end = (e) => { if (e.pointerId !== id) return; id = null; const b = pick(e.clientX); if (b.dataset.mode !== mode) setMode(b.dataset.mode); else if (!moved) setMode(b.dataset.mode); };
   seg.addEventListener('pointerup', end); seg.addEventListener('pointercancel', end);
 })();
 function setMode(m) {
