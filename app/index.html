@@ -573,15 +573,14 @@
   /* 全画面のジャケット */
   .np .fullart { position: absolute; inset: 0; z-index: 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity .5s ease; background: #000; }
   .np.full .fullart { opacity: 1; }
-  .np .fullart .img { position: absolute; inset: -12%; background-size: cover; background-position: center; animation: fullpan 38s ease-in-out infinite alternate; animation-play-state: paused; }
-  .np.full .fullart .img { animation-play-state: running; }
-  @keyframes fullpan { from { transform: scale(1.05) translate(-4%, -3%); } to { transform: scale(1.22) translate(4%, 3%); } }
+  /* 画面の高さいっぱいの正方形。曲の進みに合わせて、左はしから右はしまで横に動く（シークすると一緒に動く） */
+  .np .fullart .img { position: absolute; top: 0; bottom: 0; left: 0; height: 100%; aspect-ratio: 1; background-size: cover; background-position: center; will-change: transform; transition: transform .35s linear; }
   .np .fullart .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,.15) 55%, rgba(0,0,0,.72) 100%); }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
   .np.full .amb { display: none; }
   .np.full #disc, .np.full #discPeek { visibility: hidden; }
   .np.full .in { position: relative; z-index: 1; }
-  @media (prefers-reduced-motion: reduce) { .np .fullart .img { animation: none; } }
+
 </style>
 </head>
 <body>
@@ -2065,6 +2064,7 @@ function drawProgress(t) {
   const pct = Math.min(100, t / d * 100) + '%';
   $('fill').style.width = pct; $('knob').style.left = pct; $('miniBar').style.width = pct;
   drawWave(t / d);
+  panFull(t / d);
   $('cur').textContent = fmt(t); $('dur').textContent = fmt(d);
 }
 $('miniPP').addEventListener('click', () => { unlockAudio(); togglePlay(); });
@@ -2088,10 +2088,16 @@ $('npPP').addEventListener('click', () => {
 });
 $('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
 // 全画面：ジャケットが画面いっぱいに、ゆっくり流れる（SoundCloudの再生画面みたいに）
+function panFull(frac) {
+  if (!$('np').classList.contains('full')) return;
+  const img = $('fullImg'), over = Math.max(0, img.offsetWidth - $('np').clientWidth);
+  img.style.transform = `translateX(${-over * Math.min(1, Math.max(0, frac || 0))}px)`;
+}
 function setFull(on) {
   const np = $('np');
   if (on && track && track.artwork) $('fullImg').style.backgroundImage = `url("${track.artwork.replace('-large.', '-t500x500.')}")`;
   np.classList.toggle('full', !!on);
+  panFull(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
 }
 function closeNp() { const n = $('np'); n.classList.remove('open', 'dragging'); n.style.transform = ''; n.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
