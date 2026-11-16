@@ -454,7 +454,10 @@
   .jk .t { font-size: 13px; font-weight: 600; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .jk .s { font-size: 12px; font-weight: 500; color: color-mix(in srgb, var(--ink) 55%, var(--mute)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .jgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 0 20px; }
-  /* アーティストのページ：ジャケットを四角で隙間なく */
+  /* アーティストのページ：縦の一覧。ジャケットは角なしの正方形で、上下のすき間なし */
+  #results.stack .row { padding: 0 4px 0 0; gap: 14px; border-bottom: 0; }
+  #results.stack .row .art { width: 68px; height: 68px; border-radius: 0; display: block; }
+  #results.stack .row + .row { border-top: 0; }
   .sqgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 6px 0 0; }
   .sq { aspect-ratio: 1; background: var(--chip); overflow: hidden; display: block; }
   .sq img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1266,6 +1269,7 @@ function rowHTML(t, i) {
 }
 function renderTracks(list, emptyHTML) {
   lastResults = list;
+  $('results').classList.remove('stack');
   $('results').innerHTML = list.length ? list.map(rowHTML).join('') : emptyHTML;
   markNow();
 }
@@ -1635,9 +1639,9 @@ async function openArtist(userId, name) {
     if (!r.ok) throw new Error(r.status);
     const d = (await r.json()).map(splitArtist);
     if (mode === 'artist') {
-      lastResults = d;
-      // ジャケットだけを四角でぎっしり並べる
-      $('results').innerHTML = d.length ? `<div class="sqgrid">${d.map((t, i) => `<button class="sq" data-i="${i}" aria-label="${esc(t.title)}"><img src="${esc(big(t.artwork))}" alt="" loading="lazy" onerror="this.removeAttribute('src')"></button>`).join('')}</div>` : msg('No tracks yet');
+      // 縦に並べて、ジャケットは角なしの正方形をすき間なく積む
+      renderTracks(d, msg('No tracks yet'));
+      $('results').classList.add('stack');
     }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
 }
