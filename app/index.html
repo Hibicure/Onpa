@@ -184,7 +184,7 @@
   .np { overscroll-behavior: none; touch-action: none; }
   .np .top { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 34px; padding-top: 6px; touch-action: none; cursor: grab; }
   .np .grab { width: 100%; height: 22px; display: grid; place-items: center; }
-  .np .grab i { width: 40px; height: 5px; border-radius: 3px; background: var(--line); }
+  .np .grab i { display: none; } /* バーは見せない（上の部分やCDを下に引けば閉じる） */
   .np.dragging { transition: none; }
   .np .in > .upnext { flex: 1 1 0; min-height: 0; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
   .np input[type=range], .np .seek { touch-action: none; }
@@ -1341,7 +1341,7 @@ function neighborMeta(dir) {
 }
 (() => {
   const el = $('disc'), pk = $('discPeek'), pkArt = $('peekArt');
-  let sx = 0, sy = 0, dx = 0, id = null, horizontal = null, side = 0;
+  let sx = 0, sy = 0, dx = 0, id = null, horizontal = null, side = 0, pulling = false, dy = 0, t0 = 0;
   const span = () => el.offsetWidth + 28;
   const setPeek = (dir) => {
     if (side === dir) return;
@@ -1356,14 +1356,16 @@ function neighborMeta(dir) {
     if (side) pk.style.transform = `translateX(${x - side * span()}px) rotate(${(x - side * span()) / 6}deg)`;
   };
   const reset = () => { side = 0; pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; };
-  el.addEventListener('pointerdown', (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; horizontal = null; });
+  el.addEventListener('pointerdown', (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; });
   el.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
     const mx = e.clientX - sx, my = e.clientY - sy;
     if (horizontal === null && Math.hypot(mx, my) > 8) {
       horizontal = Math.abs(mx) > Math.abs(my);
       if (horizontal) { el.setPointerCapture(id); el.classList.add('dragging'); pk.classList.add('dragging'); }
+      else if (my > 0) { el.setPointerCapture(id); pulling = true; t0 = performance.now(); $('np').classList.add('dragging'); }
     }
+    if (pulling) { dy = Math.max(0, my); $('np').style.transform = `translateY(${dy}px)`; return; }
     if (!horizontal) return;
     dx = mx;
     if (track && dx !== 0) setPeek(dx < 0 ? 1 : -1);
@@ -1372,6 +1374,13 @@ function neighborMeta(dir) {
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
+    if (pulling) {
+      pulling = false;
+      const np = $('np'); np.classList.remove('dragging');
+      const fast = dy / Math.max(1, performance.now() - t0) > 0.6;
+      if (dy > 110 || (fast && dy > 30)) closeNp(); else np.style.transform = '';
+      return;
+    }
     if (!horizontal) return;
     const go = !!track && Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
     el.classList.remove('dragging'); pk.classList.remove('dragging');
@@ -1389,7 +1398,7 @@ function neighborMeta(dir) {
     }, 290);
   };
   el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; el.classList.remove('dragging'); pk.classList.remove('dragging'); reset(); });
+  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; if (pulling) { pulling = false; $('np').classList.remove('dragging'); $('np').style.transform = ''; } el.classList.remove('dragging'); pk.classList.remove('dragging'); reset(); });
 })();
 
 // ===================== Up next（次に流す曲。通話中は2人で共有） =====================
