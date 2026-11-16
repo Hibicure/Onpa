@@ -598,7 +598,7 @@
   .mini .disc-s { border-radius: 0 !important; background: var(--chip) !important; }
   .mini .disc-s img { border-radius: 0 !important; }
   .mini .disc-s::after { display: none !important; }
-  .mini .bar { left: 0 !important; right: 0 !important; top: -1px; bottom: auto !important; border-radius: 0 !important; }
+  .mini .bar { left: 0 !important; right: 0 !important; top: auto; bottom: -1px !important; border-radius: 0 !important; z-index: 1; } /* 再生の進みは、ミニプレーヤーと下のメニューの境目に */
   .nav { border-top: 0; }
 </style>
 </head>
