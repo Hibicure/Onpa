@@ -464,6 +464,9 @@ extension WKWebView {
         if cls == nil, let c = objc_allocateClassPair(base, name, 0) {
             let block: @convention(block) (AnyObject) -> UIView? = { _ in nil }
             class_addMethod(c, #selector(getter: UIResponder.inputAccessoryView), imp_implementationWithBlock(block), "@@:")
+            // 新しいiOSでは、バーが別の入り口（inputAccessoryViewController）から出てくるので、そっちも空にする
+            let vcBlock: @convention(block) (AnyObject) -> UIInputViewController? = { _ in nil }
+            class_addMethod(c, #selector(getter: UIResponder.inputAccessoryViewController), imp_implementationWithBlock(vcBlock), "@@:")
             objc_registerClassPair(c)
             cls = c
         }
