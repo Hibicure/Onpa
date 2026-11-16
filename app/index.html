@@ -422,6 +422,29 @@
   @keyframes egfade { from { opacity: 0; } }
   @keyframes egup { from { transform: translateY(100%); } }
   @keyframes egnod { 40% { transform: translateY(-5px); } }
+  /* 「…」のメニュー */
+  .as-card { align-items: stretch; text-align: left; padding-top: 12px; }
+  .as-item { display: flex; align-items: center; gap: 14px; height: 56px; font-size: 17px; font-weight: 600; color: var(--ink); border-bottom: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
+  .as-item svg { width: 24px; height: 24px; flex-shrink: 0; }
+  .as-card .eg-no { align-self: center; margin-top: 10px; }
+  /* 着信のとき相手に流れる曲：範囲を選ぶ */
+  .cs-card { align-items: stretch; text-align: left; }
+  .cs-card h3, .cs-card > p { text-align: left; max-width: none; }
+  .cs-song { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+  .cs-song img { width: 46px; height: 46px; object-fit: cover; flex-shrink: 0; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .cs-song .txt { min-width: 0; }
+  .cs-song .t { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cs-song .s { font-size: 13px; color: var(--mute); }
+  .cs-wave { position: relative; height: 64px; margin-top: 18px; touch-action: none; }
+  .cs-wave canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cs-h { position: absolute; top: -4px; bottom: -4px; width: 22px; margin-left: -11px; cursor: ew-resize; }
+  .cs-h::after { content: ''; position: absolute; left: 9px; top: 0; bottom: 0; width: 4px; border-radius: 2px; background: var(--ink); }
+  .cs-times { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums; }
+  .cs-times #csLen { color: var(--ink); font-weight: 700; }
+  .cs-acts { display: flex; gap: 10px; margin-top: 18px; }
+  .cs-acts .eg-go { margin-top: 0; flex: 1; }
+  .cs-prev { height: 54px; padding: 0 22px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); font-weight: 700; font-size: 17px; }
+  .cs-card .eg-no { align-self: center; }
   .incoming { position: fixed; inset: 0; z-index: 60; background: rgba(20,20,24,.96); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }
   .incoming .avatar { width: 112px; height: 112px; font-size: 40px; margin-bottom: 10px; animation: ring 1.4s ease-in-out infinite; }
   @keyframes ring { 50% { transform: scale(1.06); } }
@@ -617,7 +640,9 @@
   .np.endmode .controls .pp { color: var(--ink); }
   .np.endmode .controls .pp svg { width: 44px; height: 44px; }
   /* 声の音量（マイクのボタン）は通話中だけ */
-  .np:not(.oncall) #npVol { visibility: hidden; pointer-events: none; }
+  .np:not(.oncall) #npVol { display: none; }
+  .np.oncall #npMore { display: none; }
+  #npMore svg { width: 24px; height: 24px; }
   .ios [data-ios-hide] { display: none; }
   /* ボタンの丸い囲いはなくす：アイコンだけ */
   .round, .ringbtn, .ringbtn.yes, .mini .pp, .pp, .btn.call.liquid, .recbtn, .callbar .round, .callbar .round.end { background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
@@ -841,10 +866,10 @@
     </div>
 
     <div class="set-group">
-      <div class="set-label">Ringback</div>
-      <p class="set-hint">When friends call you, this song plays for them until you pick up.</p>
+      <div class="set-label">Call song</div>
+      <p class="set-hint">When friends call you, they hear this while your phone rings.</p>
       <div class="set-rb"><img id="setRbArt" alt=""><div class="txt"><div class="t" id="setRbT"></div><div class="s" id="setRbS"></div></div></div>
-      <div class="set-row" style="margin-top:10px"><button class="btn ghost" id="setRbUse">Use the song playing now</button><button class="btn ghost" id="setRbReset" hidden>Default</button></div>
+      <div class="set-row" style="margin-top:10px"><button class="btn ghost" id="setRbUse">Choose from the playing song</button><button class="btn ghost" id="setRbReset" hidden>Default</button></div>
       <p class="set-hint" id="setRbNote" style="margin-top:8px"></p>
     </div>
 
@@ -886,7 +911,7 @@
     </div>
     <div class="seek" id="seek"><canvas class="wave" id="wave"></canvas><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><div class="modes"><button class="mode" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M15 4.6v14.8a1.1 1.1 0 0 1-1.7.9L2.6 13a1.2 1.2 0 0 1 0-2L13.3 3.7a1.1 1.1 0 0 1 1.7.9zM29.6 4.6v14.8a1.1 1.1 0 0 1-1.7.9L17.2 13a1.2 1.2 0 0 1 0-2l10.7-7.3a1.1 1.1 0 0 1 1.7.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M17 4.6v14.8a1.1 1.1 0 0 0 1.7.9L29.4 13a1.2 1.2 0 0 0 0-2L18.7 3.7a1.1 1.1 0 0 0-1.7.9zM2.4 4.6v14.8a1.1 1.1 0 0 0 1.7.9L14.8 13a1.2 1.2 0 0 0 0-2L4.1 3.7a1.1 1.1 0 0 0-1.7.9z"/></svg></button><div class="volwrap"><button class="mode" id="npVol" aria-label="Voice volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="8.6" y="2.8" width="6.8" height="11.4" rx="3.4" fill="currentColor"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0M12 17.8v3.4"/></svg></button>
+    <div class="controls"><div class="modes"><button class="mode" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M15 4.6v14.8a1.1 1.1 0 0 1-1.7.9L2.6 13a1.2 1.2 0 0 1 0-2L13.3 3.7a1.1 1.1 0 0 1 1.7.9zM29.6 4.6v14.8a1.1 1.1 0 0 1-1.7.9L17.2 13a1.2 1.2 0 0 1 0-2l10.7-7.3a1.1 1.1 0 0 1 1.7.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M17 4.6v14.8a1.1 1.1 0 0 0 1.7.9L29.4 13a1.2 1.2 0 0 0 0-2L18.7 3.7a1.1 1.1 0 0 0-1.7.9zM2.4 4.6v14.8a1.1 1.1 0 0 0 1.7.9L14.8 13a1.2 1.2 0 0 0 0-2L4.1 3.7a1.1 1.1 0 0 0-1.7.9z"/></svg></button><div class="volwrap"><button class="mode" id="npMore" aria-label="More"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><button class="mode" id="npVol" aria-label="Voice volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="8.6" y="2.8" width="6.8" height="11.4" rx="3.4" fill="currentColor"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0M12 17.8v3.4"/></svg></button>
       <div class="volpop glass" id="volPop" hidden>
         <div class="vcol" id="colMusic" data-ios-hide><div class="vslot"><input type="range" id="volMusic" min="0" max="100" value="80"></div><span class="vi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5V6.2l10-2v10.3a2.6 2.6 0 1 1-1.8-2.5V8.1L10.8 9.4v8.1A2.6 2.6 0 1 1 9 15z"/></svg></span></div>
         <div class="vcol" id="colVoice"><div class="vslot"><input type="range" id="volVoice" min="0" max="100" value="100" disabled></div><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div>
@@ -906,6 +931,24 @@
 </section>
 
 <!-- 着信 -->
+<section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
+  <div class="eg-card as-card">
+    <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
+    <button class="as-item" id="asArtist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Go to artist</button>
+    <button class="eg-no" id="asClose">Cancel</button>
+  </div>
+</section>
+<section class="eargate" id="csSheet" hidden role="dialog" aria-labelledby="csT">
+  <div class="eg-card cs-card">
+    <h3 id="csT">Call song</h3>
+    <p>Friends hear this part while your phone rings. It repeats until you pick up.</p>
+    <div class="cs-song"><img id="csArt" alt=""><div class="txt"><div class="t" id="csTitle"></div><div class="s" id="csArtist"></div></div></div>
+    <div class="cs-wave" id="csWave"><canvas id="csCanvas"></canvas><i class="cs-h" id="csH0"></i><i class="cs-h" id="csH1"></i></div>
+    <div class="cs-times"><span id="csFrom"></span><span id="csLen"></span><span id="csTo"></span></div>
+    <div class="cs-acts"><button class="cs-prev" id="csPlay">Preview</button><button class="eg-go" id="csSave">Save</button></div>
+    <button class="eg-no" id="csCancel">Cancel</button>
+  </div>
+</section>
 <section class="eargate" id="earGate" hidden aria-modal="true" role="dialog" aria-labelledby="egT">
   <div class="eg-card">
     <svg class="eg-ico" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2751,21 +2794,99 @@ async function paintRingback() {
   const art = r && r.artwork ? r.artwork : '';
   if (art) $('setRbArt').src = art; else $('setRbArt').removeAttribute('src');
   $('setRbT').textContent = r ? r.title : 'No song yet';
-  $('setRbS').textContent = r ? (r.artist || '') + (r.at > 0 ? `  ·  from ${fmt(r.at)}` : '') + (myRingback && myRingback.trackId ? '' : '  ·  default') : 'Play a song and set it here';
+  $('setRbS').textContent = r ? `${r.artist || ''}  ·  ${fmt(r.at || 0)}–${fmt(r.end || ((r.at || 0) + 20))}` + (myRingback && myRingback.trackId ? '' : '  ·  default') : 'Play a song and set it here';
   $('setRbReset').hidden = !(myRingback && myRingback.trackId);
-  $('setRbNote').textContent = 'Tip: move to the part you like first — it starts from there.';
+  $('setRbNote').textContent = 'Or tap ••• on any song you are playing.';
 }
-$('setRbUse').addEventListener('click', async () => {
+$('setRbUse').addEventListener('click', () => {
   if (!track || !loadedId || rb) { toast('Play a song first'); return; }
-  const at = Math.max(0, Math.floor(player.currentTime || 0));
-  const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', secret: track.secret || '', duration: track.duration || 0, at };
-  try { await db.ref(`users/${me.uid}/ringback`).set(v); toast('Ringback set'); } catch { toast("Couldn't save"); }
-  paintRingback();
+  closeSettings(); openCallSong();
 });
 $('setRbReset').addEventListener('click', async () => {
   try { await db.ref(`users/${me.uid}/ringback`).remove(); } catch { /* 無視 */ }
   paintRingback();
 });
+
+// ---- 「…」メニューと、着信の時に流す範囲を選ぶ画面
+$('npMore').addEventListener('click', () => { if (!track) return; $('moreSheet').hidden = false; });
+$('asClose').addEventListener('click', () => { $('moreSheet').hidden = true; });
+$('moreSheet').addEventListener('click', (e) => { if (e.target.id === 'moreSheet') $('moreSheet').hidden = true; });
+$('asArtist').addEventListener('click', () => { $('moreSheet').hidden = true; openTrackArtist(); });
+$('asCall').addEventListener('click', () => { $('moreSheet').hidden = true; openCallSong(); });
+const cs = { a: 0, b: 15, d: 0, previewing: false };
+const CS_MAX = 30, CS_MIN = 3;
+function openCallSong() {
+  if (!track || !loadedId) { toast('Play a song first'); return; }
+  const d = durNow(); if (!(d > 0)) { toast('Play a song first'); return; }
+  cs.d = d;
+  const mine = myRingback && String(myRingback.trackId) === String(track.trackId) ? myRingback : null;
+  cs.a = mine ? mine.at || 0 : Math.max(0, Math.min(d - CS_MIN, Math.floor(player.currentTime || 0)));
+  cs.b = mine && mine.end ? mine.end : Math.min(d, cs.a + 15);
+  const art = track.artwork || ''; if (art) $('csArt').src = art; else $('csArt').removeAttribute('src');
+  $('csTitle').textContent = track.title || ''; $('csArtist').textContent = track.artist || '';
+  $('csSheet').hidden = false;
+  requestAnimationFrame(paintCs);
+}
+function paintCs() {
+  const c = $('csCanvas'), W = c.clientWidth, H = c.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (!W) return;
+  c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const ink = getComputedStyle($('csSheet')).getPropertyValue('--ink').trim() || '#151517';
+  const bars = waveBars || Array.from({ length: 135 }, () => 0.5);
+  const n = bars.length, step = W / n, bw = Math.max(0.8, step * 0.56);
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n * cs.d, h = Math.max(2, bars[i] * (H - 4));
+    g.globalAlpha = t >= cs.a && t <= cs.b ? 1 : 0.22;
+    g.fillStyle = ink; g.fillRect(i * step, H - h, bw, h);
+  }
+  g.globalAlpha = 1;
+  $('csH0').style.left = (cs.a / cs.d * 100) + '%';
+  $('csH1').style.left = (cs.b / cs.d * 100) + '%';
+  $('csFrom').textContent = fmt(cs.a); $('csTo').textContent = fmt(cs.b);
+  $('csLen').textContent = Math.round(cs.b - cs.a) + ' sec';
+}
+// つまみを指で動かす（範囲の中をつまむと、範囲ごと動く）
+(() => {
+  const box = $('csWave'); let mode = null, id = null, x0 = 0, a0 = 0, b0 = 0;
+  const toT = (x) => { const r = box.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * cs.d; };
+  box.addEventListener('pointerdown', (e) => {
+    const t = toT(e.clientX), r = box.getBoundingClientRect(), px = (v) => v / cs.d * r.width;
+    const da = Math.abs(px(t) - px(cs.a)), db = Math.abs(px(t) - px(cs.b));
+    mode = da < 24 && da <= db ? 'a' : db < 24 ? 'b' : (t > cs.a && t < cs.b ? 'move' : (t < cs.a ? 'a' : 'b'));
+    id = e.pointerId; x0 = t; a0 = cs.a; b0 = cs.b; box.setPointerCapture(id);
+    if (mode !== 'move') move(e);
+  });
+  const move = (e) => {
+    if (e.pointerId !== id) return;
+    const t = toT(e.clientX);
+    if (mode === 'a') cs.a = Math.max(0, Math.min(t, cs.b - CS_MIN, cs.b)), cs.a = Math.max(cs.a, cs.b - CS_MAX);
+    else if (mode === 'b') cs.b = Math.min(cs.d, Math.max(t, cs.a + CS_MIN)), cs.b = Math.min(cs.b, cs.a + CS_MAX);
+    else { const len = b0 - a0; let na = Math.max(0, Math.min(cs.d - len, a0 + (t - x0))); cs.a = na; cs.b = na + len; }
+    paintCs();
+  };
+  box.addEventListener('pointermove', move);
+  const end = (e) => { if (e.pointerId !== id) return; id = null; if (cs.previewing) { player.currentTime = cs.a; } };
+  box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
+})();
+// 試し聴き：選んだ所をくり返す
+$('csPlay').addEventListener('click', () => {
+  cs.previewing = !cs.previewing;
+  $('csPlay').textContent = cs.previewing ? 'Stop' : 'Preview';
+  if (cs.previewing) { player.currentTime = cs.a; if (player.paused) player.play().catch(() => {}); }
+});
+player.addEventListener('timeupdate', () => {
+  if (cs.previewing && !loading && (player.currentTime >= cs.b || player.currentTime < cs.a - 1)) player.currentTime = cs.a;
+});
+function closeCs() { cs.previewing = false; $('csPlay').textContent = 'Preview'; $('csSheet').hidden = true; }
+$('csCancel').addEventListener('click', closeCs);
+$('csSave').addEventListener('click', async () => {
+  if (!track) return;
+  const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', secret: track.secret || '', duration: track.duration || Math.round(cs.d * 1000), at: Math.round(cs.a * 10) / 10, end: Math.round(cs.b * 10) / 10 };
+  try { await db.ref(`users/${me.uid}/ringback`).set(v); myRingback = v; toast('Call song saved'); } catch { toast("Couldn't save"); return; }
+  closeCs();
+});
+
 var rb = null; // 呼出音を流している間：{ pre: 呼び出す前に流れていた曲, at, end }
 // 呼出音は「ここから〜ここまで」をくり返す（LINEの着信音みたいに）
 player.addEventListener('timeupdate', () => {
