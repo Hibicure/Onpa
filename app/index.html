@@ -1432,11 +1432,12 @@ function neighborMeta(dir) {
     const m = neighborMeta(dir);
     const art = m && m.artwork ? m.artwork.replace('-large.', '-t500x500.') : '';
     if (art) pkArt.src = art; else pkArt.removeAttribute('src');
+    pk.style.transform = `translateX(${dx + dir * span()}px)`;
     pk.classList.add('show');
   };
   const place = (x) => {
     el.style.transform = `translateX(${x}px) rotate(${x / 6}deg)`;
-    if (side) pk.style.transform = `translateX(${x - side * span()}px) rotate(${(x - side * span()) / 6}deg)`;
+    if (side) pk.style.transform = `translateX(${x + side * span()}px) rotate(${(x + side * span()) / 6}deg)`; // 次は右から、前は左から
   };
   const reset = () => { side = 0; pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; };
   el.addEventListener('pointerdown', (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; });
