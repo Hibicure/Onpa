@@ -256,6 +256,9 @@
   /* ジャケットを左右にスワイプして曲送り */
   .np .disc { touch-action: none; cursor: grab; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np .disc.dragging { transition: none; cursor: grabbing; }
+  /* 横にスライドした分だけ、となりの曲のCDが出てくる */
+  .np .disc.peek { position: absolute; pointer-events: none; visibility: hidden; }
+  .np .disc.peek.show { visibility: visible; }
   .titlebar { display: flex; align-items: flex-start; gap: 12px; }
   .titlebar .tt { flex: 1; min-width: 0; }
   .heart { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); flex-shrink: 0; transition: transform .12s; }
@@ -675,6 +678,7 @@
     <div class="stage">
       <button class="ambbtn glass" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></button>
       <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
+      <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
     <div class="titlebar">
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
@@ -1323,46 +1327,69 @@ async function playRelated(auto = true) {
 }
 $('npPrev').addEventListener('click', () => { unlockAudio(); playPrev(); });
 
-// ジャケット（CD）を左右にスワイプ：左で次の曲、右で前の曲
+// ジャケット（CD）を左右にスワイプ：左で次の曲、右で前の曲。
+// 指を動かした分だけ、となりの曲のCDが横から出てくる
+function neighborMeta(dir) {
+  if (dir < 0) {
+    if (repeatMode === 'one') return track;
+    if (upNext.length) return upNext[0];
+    if (qi >= 0 && qi + 1 < queue.length) return toMeta(queue[qi + 1]);
+    return null; // まだ決まっていない（おすすめから選ぶ）
+  }
+  if ((player.currentTime || 0) > 3 || !playHistory.length) return track; // 頭に戻る
+  return playHistory[playHistory.length - 1];
+}
 (() => {
-  const el = $('disc');
-  let sx = 0, sy = 0, dx = 0, id = null, horizontal = null;
+  const el = $('disc'), pk = $('discPeek'), pkArt = $('peekArt');
+  let sx = 0, sy = 0, dx = 0, id = null, horizontal = null, side = 0;
+  const span = () => el.offsetWidth + 28;
+  const setPeek = (dir) => {
+    if (side === dir) return;
+    side = dir;
+    const m = neighborMeta(dir);
+    const art = m && m.artwork ? m.artwork.replace('-large.', '-t500x500.') : '';
+    if (art) pkArt.src = art; else pkArt.removeAttribute('src');
+    pk.classList.add('show');
+  };
+  const place = (x) => {
+    el.style.transform = `translateX(${x}px) rotate(${x / 6}deg)`;
+    if (side) pk.style.transform = `translateX(${x - side * span()}px) rotate(${(x - side * span()) / 6}deg)`;
+  };
+  const reset = () => { side = 0; pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; };
   el.addEventListener('pointerdown', (e) => { id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; horizontal = null; });
   el.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
     const mx = e.clientX - sx, my = e.clientY - sy;
     if (horizontal === null && Math.hypot(mx, my) > 8) {
       horizontal = Math.abs(mx) > Math.abs(my);
-      if (horizontal) { el.setPointerCapture(id); el.classList.add('dragging'); }
+      if (horizontal) { el.setPointerCapture(id); el.classList.add('dragging'); pk.classList.add('dragging'); }
     }
     if (!horizontal) return;
     dx = mx;
-    el.style.transform = `translateX(${dx}px) rotate(${dx / 8}deg)`;
-    el.style.opacity = String(1 - Math.min(Math.abs(dx) / 400, 0.5));
+    if (track && dx !== 0) setPeek(dx < 0 ? 1 : -1);
+    place(dx);
   });
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
-    el.classList.remove('dragging');
     if (!horizontal) return;
-    const go = Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
-    if (!go || !track) { el.style.transform = ''; el.style.opacity = ''; return; }
+    const go = !!track && Math.abs(dx) > Math.min(90, el.offsetWidth * 0.28);
+    el.classList.remove('dragging'); pk.classList.remove('dragging');
+    if (!go) { place(0); setTimeout(reset, 290); return; }
+    // 今のCDが出ていき、となりのCDが真ん中に来る
     const dir = dx < 0 ? -1 : 1;
-    // 飛んでいって、反対側から次のCDが入ってくる
-    el.style.transform = `translateX(${dir * window.innerWidth}px) rotate(${dir * 40}deg)`;
-    el.style.opacity = '0';
+    place(dir * span());
     setTimeout(() => {
-      if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      const src = pkArt.getAttribute('src');
       el.classList.add('dragging');
-      el.style.transform = `translateX(${-dir * window.innerWidth * 0.6}px) rotate(${-dir * 30}deg)`;
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.classList.remove('dragging');
-        el.style.transform = ''; el.style.opacity = '';
-      }));
-    }, 220);
+      if (src) $('npArt').src = src; else $('npArt').removeAttribute('src');
+      reset();
+      requestAnimationFrame(() => el.classList.remove('dragging'));
+      if (dir < 0) $('npNext').click(); else $('npPrev').click();
+    }, 290);
   };
   el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; el.classList.remove('dragging'); el.style.transform = ''; el.style.opacity = ''; });
+  el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; el.classList.remove('dragging'); pk.classList.remove('dragging'); reset(); });
 })();
 
 // ===================== Up next（次に流す曲。通話中は2人で共有） =====================
