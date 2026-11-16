@@ -59,6 +59,7 @@ function mapTrack(t) {
     title: t.title,
     artist: t.metadata_artist || t.publisher_metadata?.artist || t.user?.username || 'Unknown',
     uploader: t.user?.username || '',
+    userId: t.user?.id || null,
     artwork: t.artwork_url || t.user?.avatar_url || '',
     duration: t.duration,
     access: t.access,
@@ -428,6 +429,12 @@ export default {
       if (m) {
         const t = await trackInfo(m[1], env, userToken, url.searchParams.get('st') || '');
         return t ? json(t, 200, cors) : json({ error: 'not found' }, 404, cors);
+      }
+      // ---- その人の曲: /user/123/tracks（アーティスト名や友だちの名前から開くページ）
+      m = p.match(/^\/user\/(\d{1,20})\/tracks$/);
+      if (m) {
+        const d = await scGet(`/users/${m[1]}/tracks?limit=50&linked_partitioning=true&access=playable`, env, userToken);
+        return json(listOf(d).map(mapTrack), 200, cors);
       }
       // ---- 波形: /wave/123（シークバーを波形にする。100本の高さ 0〜1）
       m = p.match(/^\/wave\/(\d{1,20})$/);

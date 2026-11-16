@@ -291,7 +291,7 @@
   .heart[aria-pressed="true"] svg { fill: currentColor; }
   .heart:active svg { transform: scale(.85); }
   .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-  .np .artist { color: color-mix(in srgb, var(--ink) 72%, var(--mute)); font-weight: 600; font-size: 16px; margin-top: 4px; }
+  .np .artist { color: color-mix(in srgb, var(--ink) 72%, var(--mute)); font-weight: 600; font-size: 16px; margin-top: 4px; cursor: pointer; }
   .seek { position: relative; height: 28px; margin-top: 18px; cursor: pointer; touch-action: none; }
   .seek .track { position: absolute; left: 0; right: 0; top: 11px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .seek .fill { height: 100%; width: 0; background: var(--ink); }
@@ -304,7 +304,7 @@
   .seek.waved + .times { margin-top: 8px; } /* 波形と時間の数字が重ならないように */
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
-  .np.square #disc, .np.square #disc .platter { border-radius: 6px; }
+  .np.square #disc, .np.square #disc .platter { border-radius: 3px; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
   .np.square #disc .hub, .np.square #disc .hole, .np.square #disc .shine, .np.square #disc .edge { display: none; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
@@ -548,6 +548,14 @@
   /* 声の音量（マイクのボタン）は通話中だけ */
   .np:not(.oncall) #npVol { visibility: hidden; pointer-events: none; }
   .ios [data-ios-hide] { display: none; }
+  /* ボタンの丸い囲いはなくす：アイコンだけ */
+  .round, .ringbtn, .ringbtn.yes, .mini .pp, .pp, .btn.call.liquid, .recbtn, .callbar .round, .callbar .round.end { background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .ringbtn svg { width: 40px; height: 40px; }
+  .btn.call.liquid { padding: 0 6px; font-weight: 700; }
+  .callbar .round, .callbar .round.off { color: var(--on-ink); }
+  .callbar .round.off { opacity: .5; }
+  .mini .pp { color: var(--ink); }
+  .round:active, .ringbtn:active, .pp:active { transform: scale(.9); opacity: .7; }
 </style>
 </head>
 <body>
@@ -1230,7 +1238,7 @@ $('tabFriends').addEventListener('click', () => showTab('friends'));
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, secret: t.secret || '' });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -1596,7 +1604,37 @@ async function openPlaylist(id, title) {
     if (mode === 'playlist') renderTracks(d, msg('This playlist is empty'));
   } catch (e) { $('results').innerHTML = msg("Couldn't load this playlist", esc(e.message)); }
 }
-$('libBack').addEventListener('click', () => setMode('playlists'));
+let libBackTo = 'playlists';
+$('libBack').addEventListener('click', () => setMode(libBackTo));
+
+// その人の曲のページ（アーティスト名・友だちの名前から）
+async function openArtist(userId, name) {
+  if (!userId) return;
+  closeNp();
+  showTab('listen');
+  libBackTo = mode === 'playlist' || mode === 'artist' ? 'search' : (mode || 'search');
+  mode = 'artist';
+  document.querySelectorAll('#seg [data-mode]').forEach((b) => b.setAttribute('aria-selected', 'false'));
+  $('searchField').hidden = true;
+  $('libbar').hidden = false; $('libBack').hidden = false; $('shuffle').hidden = false;
+  $('libTitle').textContent = name || 'Tracks';
+  $('results').innerHTML = msg('Loading…');
+  try {
+    const r = await fetch(`${WORKER}/user/${userId}/tracks`, { headers: await scHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const d = (await r.json()).map(splitArtist);
+    if (mode === 'artist') renderTracks(d, msg('No tracks yet'));
+  } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
+}
+async function openTrackArtist() {
+  if (!track) return;
+  let id = track.userId, name = track.uploader || track.artist;
+  if (!id) {
+    try { const d = await (await fetch(`${WORKER}/t/${track.trackId}` + (track.secret ? '?st=' + encodeURIComponent(track.secret) : ''), { headers: await scHeaders() })).json(); id = d.userId; name = d.uploader || name; } catch { /* 無視 */ }
+  }
+  if (id) openArtist(id, name); else toast("Couldn't open this artist");
+}
+$('npS').addEventListener('click', openTrackArtist);
 
 // ===================== SoundCloud連携 =====================
 const SC_KEY = 'onpa_sc';
@@ -1652,6 +1690,7 @@ async function syncScAvatar() {
   if (!me || !sc) return;
   try {
     const u = await scApi('/sc/me');
+    if (u.id && me.scId !== u.id) { me.scId = u.id; db.ref('users/' + me.uid + '/scId').set(u.id).catch(() => {}); }
     const pic = safeImg((u.avatar || '').replace('-large.', '-t500x500.'));
     if (!pic || pic === me.avatar) return;
     me.avatar = pic;
@@ -2129,7 +2168,7 @@ const RECENT_KEY = 'oto_recent';
 let recent = [];
 try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { recent = []; }
 function rememberPlayed(meta) {
-  const t = { id: meta.trackId, title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0, secret: meta.secret || '' };
+  const t = { id: meta.trackId, title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0, secret: meta.secret || '', userId: meta.userId || null, uploader: meta.uploader || '' };
   recent = [t, ...recent.filter((r) => String(r.id) !== String(t.id))].slice(0, 30);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch { /* 無視 */ }
   if (!$('viewHome').hidden) renderHome();
@@ -2218,11 +2257,13 @@ function renderFriends() {
   $('friends').innerHTML = list.map(([uid, f]) => `
     <div class="row">
       <div class="avatar">${face(f)}<span class="dot ${f.online ? 'on' : ''}"></span></div>
-      <div class="txt"><div class="t">${esc(f.name)}</div><div class="s">@${esc(f.handle)}${f.online ? ' <span class="on">online</span>' : ''}</div></div>
+      <div class="txt" ${f.scId ? `data-artist="${esc(f.scId)}" data-aname="${esc(f.name)}" style="cursor:pointer"` : ''}><div class="t">${esc(f.name)}</div><div class="s">@${esc(f.handle)}${f.online ? ' <span class="on">online</span>' : ''}</div></div>
       <button class="btn call liquid" data-call="${uid}" ${busy ? 'disabled' : ''}>${ICON.phone}Call</button>
     </div>`).join('');
 }
 $('friends').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-artist]');
+  if (a) { openArtist(a.dataset.artist, a.dataset.aname); return; }
   const b = e.target.closest('[data-call]');
   if (b && !b.disabled) startCall(b.dataset.call);
 });
