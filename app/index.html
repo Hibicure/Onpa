@@ -1521,9 +1521,10 @@ function neighborMeta(dir) {
   // 2枚は常に同じ間隔のまま横に動く（iPodみたいに）
   const place = (x) => {
     // CDの時は転がるように回す（楽しい）。四角いジャケットの時はまっすぐ横だけ
-    const r = $('np').classList.contains('square') ? 0 : 1 / 5;
-    el.style.transform = `translateX(${x}px) rotate(${x * r}deg)`;
-    if (side) { const px = x + side * span(); pk.style.transform = `translateX(${px}px) rotate(${px * r}deg)`; }
+    const sq = $('np').classList.contains('square');
+    const r = sq ? 0 : 1 / 6, lift = sq || x === 0 ? 1 : 1.04; // CDは少し浮いて、転がるようにくるっと回る
+    el.style.transform = `translateX(${x}px) rotate(${x * r}deg) scale(${lift})`;
+    if (side) { const px = x + side * span(); pk.style.transform = `translateX(${px}px) rotate(${px * r}deg) scale(${lift})`; }
   };
   const reset = () => { clearTimeout(timer); timer = null; side = 0; anim(false); pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; requestAnimationFrame(() => { el.style.transition = ''; pk.style.transition = ''; }); };
   el.addEventListener('pointerdown', (e) => {
