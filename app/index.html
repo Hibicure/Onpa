@@ -347,6 +347,9 @@
   .np.square #disc, .np.square #disc .platter { border-radius: 0; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
   .np.square #disc .hub, .np.square #disc .hole, .np.square #disc .shine, .np.square #disc .edge { display: none; }
+  /* 四角の時は、ふちの細い線を出さない（影だけ）。下地の銀色がふちからのぞかないように */
+  .np.square #disc, .np.square #discPeek { box-shadow: 0 28px 48px -22px rgba(0,0,0,.45), 0 10px 16px -10px rgba(0,0,0,.28); }
+  .np.square #disc .platter, .np.square #discPeek .platter { background: transparent; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
   .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 16px 0 6px; }
   .modes { display: flex; justify-content: flex-start; }
