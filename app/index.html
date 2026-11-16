@@ -629,14 +629,10 @@
   #results .row .rheart svg { width: 20px; height: 20px; fill: none; }
   #results .row .rheart[aria-pressed="true"] svg { fill: currentColor; }
   #results .row .add { margin-right: -6px; }
-  /* CDの時：ジャケットの色が、真ん中から放射状に広がっていく（再生中だけ動く） */
+  /* CDの時：ジャケットの色が、ディスクのまわりから水面の波みたいに、じわーっと外へ広がり続ける（点滅しない）。波の濃さは曲の波形に合わせる */
   .np .radiate { position: absolute; width: min(80vw, 340px, 43dvh); aspect-ratio: 1; border-radius: 50%; pointer-events: none; z-index: 0; }
-  .np .radiate i { position: absolute; inset: 0; border-radius: 50%; background: var(--rad-art, none) center / cover; filter: blur(22px) saturate(1.8); opacity: 0;
-    animation: radiate 3.9s cubic-bezier(.25,.6,.4,1) infinite; animation-play-state: paused; }
-  .np .radiate i:nth-child(2) { animation-delay: -1.3s; }
-  .np .radiate i:nth-child(3) { animation-delay: -2.6s; }
-  .np:has(#disc.spinning) .radiate i { animation-play-state: running; }
-  @keyframes radiate { 0% { transform: scale(.8); opacity: .75; } 100% { transform: scale(2.1); opacity: 0; } }
+  .np .radiate canvas { position: absolute; left: 50%; top: 50%; width: 240%; height: 240%; transform: translate(-50%, -50%); filter: blur(9px) saturate(1.7); opacity: 0; transition: opacity 1.2s ease; }
+  .np .radiate.on canvas { opacity: 1; }
   .np.square .radiate, .np.full .radiate, .np:not(.has-art) .radiate { display: none; }
   .np #disc { z-index: 1; }
   @media (prefers-reduced-motion: reduce) { .np .radiate { display: none; } }
@@ -825,7 +821,7 @@
       <button class="recbtn glass" id="recBtn" hidden></button>
     </div>
     <div class="stage">
-      <div class="radiate" id="radiate" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="radiate" id="radiate" aria-hidden="true"><canvas></canvas></div>
       <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
@@ -2086,6 +2082,7 @@ function renderTrack() {
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
   $('np').classList.toggle('has-art', !!track.artwork);
   $('np').style.setProperty('--rad-art', track.artwork ? `url("${track.artwork.replace('-large.', '-t300x300.')}")` : 'none');
+  window.radiateArt?.(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
   if ($('np').classList.contains('full')) { if (track.artwork) setFull(true); else setFull(false); }
   paintHeart();
   markNow();
@@ -2129,6 +2126,57 @@ player.addEventListener('playing', () => addCue());
 let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
 let waveBars = null, waveFor = null;
+// ── CDのまわりの波：一定の速さで外へ流れるさざ波。波の強さは「その時に鳴っていた音の大きさ」（波形）で決まる ──
+window.radiateArt = (() => {
+  const box = $('radiate'), cv = box.querySelector('canvas'), g = cv.getContext('2d');
+  const off = document.createElement('canvas'), og = off.getContext('2d');
+  let img = null, src = '', pat = null, patSize = 0, raf = 0, last = 0, phase = 0, stopAt = 0;
+  const SPEED = 24, LAMBDA = 46; // 波が外へ進む速さ(px/秒)・波と波の間隔(px)
+  function ampAt(t) {
+    const d = player.duration;
+    if (!waveBars || !isFinite(d) || !d) return 0.55; // 波形がない時は一定の波
+    const f = Math.min(1, Math.max(0, t / d)) * (waveBars.length - 1), i = Math.floor(f), q = f - i;
+    return waveBars[i] * (1 - q) + (waveBars[Math.min(waveBars.length - 1, i + 1)] || 0) * q;
+  }
+  function frame(now) {
+    const np = $('np'), playing = $('disc').classList.contains('spinning');
+    const show = playing && img && !np.classList.contains('square') && !np.classList.contains('full') && np.classList.contains('has-art');
+    box.classList.toggle('on', !!show);
+    if (!show && now > stopAt) { raf = 0; last = 0; return; }
+    raf = requestAnimationFrame(frame);
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0; last = now;
+    if (playing) phase += dt * SPEED / LAMBDA;
+    const S = Math.round(cv.clientWidth); if (!S || !img) return;
+    if (cv.width !== S) { cv.width = cv.height = S; pat = null; }
+    if (!pat || patSize !== S) { off.width = off.height = S; og.drawImage(img, 0, 0, S, S); pat = g.createPattern(off, 'no-repeat'); patSize = S; }
+    g.clearRect(0, 0, S, S);
+    const c = S / 2, R0 = S / 4.8 * 0.92, R1 = S / 2, t = player.currentTime || 0, step = 3;
+    g.strokeStyle = pat; g.lineWidth = step + 1.5;
+    for (let r = R0; r < R1; r += step) {
+      const x = (r - R0) / (R1 - R0);
+      const fade = Math.pow(1 - x, 1.5) * Math.min(1, x * 6);
+      const a = ampAt(t - (r - R0) / SPEED); // 外側ほど、少し前に鳴った音
+      const ripple = 0.5 + 0.5 * Math.cos(2 * Math.PI * ((r - R0) / LAMBDA - phase));
+      g.globalAlpha = fade * (0.2 + 0.8 * a) * (0.3 + 0.7 * ripple) * 0.9;
+      g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  function kick() { stopAt = performance.now() + 1300; if (!raf) raf = requestAnimationFrame(frame); }
+  player.addEventListener('playing', kick); player.addEventListener('pause', kick);
+  new MutationObserver(kick).observe($('np'), { attributes: true, attributeFilter: ['class'] });
+  const set = u => {
+    if (u === src) return; src = u; pat = null;
+    if (!u) { img = null; kick(); return; }
+    const im = new Image();
+    im.onload = () => { if (src === u) { img = im; pat = null; kick(); } };
+    im.src = u;
+  };
+  const m = /url\("(.+)"\)/.exec($('np').style.getPropertyValue('--rad-art') || ''); // もう曲が決まっていたら、そのジャケットで
+  if (m) set(m[1]);
+  return set;
+})();
+
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {
