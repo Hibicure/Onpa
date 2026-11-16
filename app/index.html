@@ -130,6 +130,16 @@
   .row .art { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--holo); flex-shrink: 0; }
   /* 再生中の行：回さずに、行全体をうっすら濃い帯にする */
   .row.now { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+  /* 再生中の曲：ジャケットの上で、細い棒がゆらゆら上下する（インスタのストーリーの曲のやつみたいに） */
+  .row .artw { position: relative; flex-shrink: 0; display: block; line-height: 0; }
+  .row .eq { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; gap: 3px; background: rgba(0,0,0,.38); }
+  .row.now .eq { display: flex; }
+  .row .eq b { width: 3px; height: 18px; border-radius: 1.5px; background: #fff; transform-origin: 50% 50%; animation: eqb 1.1s ease-in-out infinite alternate; }
+  .row .eq b:nth-child(2) { animation-duration: .8s; animation-delay: -.35s; }
+  .row .eq b:nth-child(3) { animation-duration: 1.25s; animation-delay: -.6s; }
+  .row .eq b:nth-child(4) { animation-duration: .95s; animation-delay: -.15s; }
+  @keyframes eqb { 0% { transform: scaleY(.25); } 50% { transform: scaleY(.85); } 100% { transform: scaleY(.45); } }
+  @media (prefers-reduced-motion: reduce) { .row .eq b { animation: none; transform: scaleY(.6); } }
   .row .txt { flex: 1; min-width: 0; }
   .row .t { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row.now .t { color: var(--cobalt); }
@@ -1328,7 +1338,7 @@ function rowHTML(t, i) {
   const liked = likedIds.has(String(t.id));
   return `
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
-      <img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
+      <span class="artw"><img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i></span>
       <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}<span class="dur">${t.duration ? fmt(t.duration / 1000) : ''}</span></div></div>
       <button class="add" data-q="${i}" aria-label="Add to Up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       ${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}
@@ -2130,7 +2140,7 @@ async function loadWave(meta) {
     const sorted = bars.slice().sort((x, y) => x - y);
     const lo = sorted[0], hi = sorted[Math.floor(sorted.length * 0.98)];
     // 始まり・終わりをすぼめる加工はしない（音の大きさそのまま）。少しだけメリハリを強めに
-    waveBars = bars.map(v => 0.06 + 0.94 * Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 2.0));
+    waveBars = bars.map(v => 0.14 + 0.86 * Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 1.35));
     $('seek').classList.add('waved');
     drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   } catch { /* 普通のバーのまま */ }
@@ -2146,7 +2156,7 @@ function drawWave(frac) {
   // 棒は必ず枠の幅ぴったりに収める（前は細すぎる時に最小幅で広がって、右はしの棒が枠からはみ出して消えていた）
   const n = waveBars.length, step = W / n, bw = Math.max(0.8, step * 0.56);
   for (let i = 0; i < n; i++) {
-    const h = Math.max(2, waveBars[i] * (H - 2));
+    const h = Math.max(2, waveBars[i] * (H - 2) * 0.75); // 高さは前の上下対称の1.5倍ぶん
     const x = i * step, y = H - h; // 真ん中で半分に割って、上半分だけ（下から上へ伸びる）
     g.globalAlpha = (i + 0.5) / n <= frac ? 1 : 0.28;
     g.fillStyle = on;
