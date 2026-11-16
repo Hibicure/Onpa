@@ -299,10 +299,10 @@
   .seek .knob { position: absolute; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); left: 0; transition: transform .12s; }
   .seek.drag .knob { transform: scale(1.35); }
   /* 波形のシークバー（波形が取れた時だけ。取れない時は普通のバー） */
-  .seek .wave { position: absolute; left: 0; right: 0; top: -20px; width: 100%; height: 46px; display: none; }
+  .seek .wave { position: absolute; left: 0; right: 0; top: -14px; width: 100%; height: 56px; display: none; }
   .seek.waved .wave { display: block; }
   .seek.waved .track, .seek.waved .knob { display: none; }
-  .seek.waved + .times { margin-top: 8px; } /* 波形と時間の数字が重ならないように */
+  .seek.waved + .times { margin-top: 20px; } /* 波形と時間の数字が重ならないように */
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np.square #disc, .np.square #disc .platter { border-radius: 3px; }
@@ -1976,8 +1976,14 @@ async function loadWave(meta) {
     if (!r.ok || waveFor !== meta.trackId) return;
     const bars = await r.json();
     if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
-    const mx = Math.max(...bars), mn = Math.min(...bars);
-    waveBars = bars.map((v) => 0.1 + 0.9 * Math.pow((v - mn) / Math.max(0.01, mx - mn), 1.35));
+    // 強弱をはっきり：まわりの平均との差を強調してから、高低を広げる
+    const k = 4, loc = bars.map((v, i) => {
+      let sum = 0, c = 0;
+      for (let j = Math.max(0, i - k); j <= Math.min(bars.length - 1, i + k); j++) { sum += bars[j]; c++; }
+      return v - 0.75 * (sum / c);
+    });
+    const mx = Math.max(...loc), mn = Math.min(...loc);
+    waveBars = loc.map((v) => 0.06 + 0.94 * Math.pow((v - mn) / Math.max(0.001, mx - mn), 1.7));
     $('seek').classList.add('waved');
     drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   } catch { /* 普通のバーのまま */ }
@@ -1993,7 +1999,7 @@ function drawWave(frac) {
   const n = waveBars.length, gap = 1.2, bw = Math.max(1, (W - gap * (n - 1)) / n);
   for (let i = 0; i < n; i++) {
     const h = Math.max(2, waveBars[i] * (H - 2));
-    const x = i * (bw + gap), y = H - h; // 下半分はなし：下の線から上に伸びる
+    const x = i * (bw + gap), y = (H - h) / 2; // 上下対称
     g.fillStyle = (i + 0.5) / n <= frac ? on : off;
     g.fillRect(x, y, bw, h);
   }
