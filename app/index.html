@@ -2707,7 +2707,7 @@ async function startCall(peerUid) {
   if (call.state !== 'idle') return;
   unlockAudio();
   const f = friends.get(peerUid);
-  call.state = 'ringing'; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) };
+  call.state = 'ringing'; call.caller = true; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) };
   showOutgoing();
   showCallbar();
   await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
@@ -2781,7 +2781,7 @@ $('inYes').addEventListener('click', async () => {
   unlockAudio();
   incomingData = null; ringWasOpen = true; hideRinging();
   db.ref('calls/' + me.uid).remove();
-  call.state = 'ringing'; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
+  call.state = 'ringing'; call.caller = false; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
   showCallbar();
   await db.ref(`rooms/${c.room}/call/status`).set('accepted');
   watchCallStatus();
@@ -2978,9 +2978,17 @@ async function joinCall() {
       renderUpNext();
     });
     mine.forEach((n) => queueRef.push({ trackId: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork || '', secret: n.secret || '', by: me.uid, byName: me.name, at: TS }));
-    // 自分が曲を流していたら、それをルームに持ち込む
-    const st = (await stateRef.get()).val();
-    if (!st && track && loadedId) pushRoomState({ ...track, playing: !player.paused, position: player.currentTime });
+    // 曲は「電話をかけた側」の曲にそろえる。かけた側が何も流していない時だけ、受けた側の曲を持ち込む
+    const bring = () => { if (track && loadedId) pushRoomState({ ...track, playing: !player.paused, position: player.currentTime }); };
+    if (call.caller) bring();
+    else {
+      const room = call.room;
+      setTimeout(async () => {
+        if (call.room !== room || call.state !== 'live') return;
+        const st = (await stateRef.get()).val();
+        if (!st) bring();
+      }, 2500);
+    }
     renderFriends();
   } catch (e) {
     console.error(e);
