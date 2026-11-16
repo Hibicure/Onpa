@@ -591,6 +591,15 @@
   .np.full #disc, .np.full #discPeek { visibility: hidden; }
   .np.full .in { position: relative; z-index: 1; }
 
+  /* ミニプレーヤー：下のメニューにぴったりくっつけて、画面の端から端まで。ジャケットは四角 */
+  .mini { left: 0 !important; right: 0; transform: none !important; width: 100% !important; max-width: none !important; bottom: calc(64px + var(--safe-b)) !important;
+    border-radius: 0 !important; box-shadow: none !important; background: var(--nav) !important; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line); padding: 8px 14px 8px 14px !important; }
+  .mini .disc-s { border-radius: 0 !important; background: var(--chip) !important; }
+  .mini .disc-s img { border-radius: 0 !important; }
+  .mini .disc-s::after { display: none !important; }
+  .mini .bar { left: 0 !important; right: 0 !important; top: -1px; bottom: auto !important; border-radius: 0 !important; }
+  .nav { border-top: 0; }
 </style>
 </head>
 <body>
