@@ -403,6 +403,15 @@
   :root.mist .disc .pick { box-shadow: none; }
   :root.mist .disc .pick .avatar, :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
   :root.mist .disc .pick-name { top: auto; bottom: 103%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; letter-spacing: -0.01em; max-width: 90%; }
+  .avatar .tex { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
+  .avatar .tex::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 6px 1px rgba(255,255,255,.7), inset 0 0 14px 3px rgba(255,255,255,.3); }
+  /* 自分の欄：白い箱はなし。トップ画をタップで変えられる */
+  .card-me { background: none; padding: 8px 4px; }
+  #myAvatar { cursor: pointer; }
+  .texgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 6px 0 14px; }
+  .texgrid button { aspect-ratio: 1; border-radius: 50%; position: relative; overflow: hidden; }
+  .texgrid button .tex { position: absolute; inset: 0; border-radius: 50%; }
+  .texgrid button.on { outline: 2.5px solid var(--ink); outline-offset: 2px; }
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np.square #disc, .np.square #disc .platter { border-radius: 0; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
@@ -1046,6 +1055,16 @@
   <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <div class="lyr-body" id="lyrBody"></div>
 </section>
+<section class="eargate actsheet" id="picSheet" hidden role="dialog" aria-label="Profile picture">
+  <div class="eg-card as-card">
+    <h3>Profile picture</h3>
+    <div class="texgrid" id="texGrid" style="width:100%"></div>
+    <button class="as-item" id="picPhoto">Choose a photo</button>
+    <button class="as-item" id="picRandom">Random</button>
+    <button class="eg-no" id="picClose">Cancel</button>
+    <input type="file" id="picFile" accept="image/*" hidden>
+  </div>
+</section>
 <section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
@@ -1152,8 +1171,14 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const initial = (n) => (n || '?').trim().slice(0, 1).toUpperCase();
 // SoundCloudと連携した人はそのアイコン、なければ名前の頭文字
-const safeImg = (u) => (typeof u === 'string' && /^https:\/\/[a-z0-9.-]*sndcdn\.com\//.test(u)) ? u : '';
-const face = (u) => safeImg(u && u.avatar) ? `<img class="pic" src="${esc(safeImg(u.avatar))}" alt="">` : esc(initial(u && u.name));
+const safeImg = (u) => (typeof u === 'string' && (/^https:\/\/[a-z0-9.-]*sndcdn\.com\//.test(u) || (/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(u) && u.length < 60000))) ? u : '';
+// トップ画のテクスチャ（光がにじむグラデーション）。写真がない人は名前から自動で1つ決まる（頭文字は出さない）
+const TEX = [['#FF4F9A','#FF8A3D','#B48CFF'],['#3FB6FF','#B48CFF','#FF7EC0'],['#FF6A3D','#FFD36A','#FF4F9A'],['#2FD3C4','#3F7BFF','#C9F27A'],
+  ['#8E6BFF','#FF5FB0','#5FA2FF'],['#FFB03D','#FF4F4F','#7A5CFF'],['#5FE0A0','#2FA8FF','#F2F0FF'],['#FF8FB1','#FFE08A','#9FC3FF'],
+  ['#1F2A80','#3FB6FF','#FF5FA0'],['#F25CF0','#FF6A2A','#FFD0F0'],['#2D9D6A','#C8F05A','#E8FFF2'],['#FF7348','#6A4BFF','#FFB8A0']];
+const texCss = (i) => { const c = TEX[((i % TEX.length) + TEX.length) % TEX.length]; return `radial-gradient(70% 70% at 30% 25%, ${c[1]} 0%, transparent 70%), radial-gradient(80% 80% at 75% 80%, ${c[2]} 0%, transparent 70%), ${c[0]}`; };
+const texOf = (u) => { const a = u && u.avatar; if (typeof a === 'string' && /^tex:\d{1,2}$/.test(a)) return +a.slice(4); let h = 0; for (const ch of String((u && (u.handle || u.name)) || '?')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % TEX.length; };
+const face = (u) => safeImg(u && u.avatar) ? `<img class="pic" src="${esc(safeImg(u.avatar))}" alt="">` : `<span class="tex" style="background:${texCss(texOf(u))}"></span>`;
 function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>',
@@ -1406,7 +1431,7 @@ function startApp() {
   watchFriends();
   watchIncoming();
   // 友だち検索の名簿（名前・@ハンドル・アイコンだけ）
-  db.ref('dir/' + me.uid).set({ name: me.name || '', handle: me.handle || '', avatar: safeImg(me.avatar) || '' }).catch(() => {});
+  db.ref('dir/' + me.uid).set({ name: me.name || '', handle: me.handle || '', avatar: safeImg(me.avatar) || (/^tex:\d{1,2}$/.test(me.avatar || '') ? me.avatar : '') }).catch(() => {});
   if (sc) loadLikes().catch(() => {});
   openSharedTrack().then((opened) => { if (!opened) restoreLast(); });
   loadRadio();
@@ -2964,6 +2989,38 @@ $('found').addEventListener('click', async (e) => {
 
 
 
+
+// ===================== トップ画（タップで変える） =====================
+async function savePic(v) {
+  if (!me) return;
+  me.avatar = v;
+  setFace($('myAvatar'), me);
+  try { await db.ref('users/' + me.uid).update({ avatar: v }); await db.ref('dir/' + me.uid).update({ avatar: v }); toast('Updated'); }
+  catch { toast('Could not save'); }
+}
+function openPic() {
+  const cur = me && /^tex:\d+$/.test(me.avatar || '') ? +me.avatar.slice(4) : -1;
+  $('texGrid').innerHTML = TEX.map((_, i) => `<button data-i="${i}" class="${i === cur ? 'on' : ''}" aria-label="Texture ${i + 1}"><span class="tex" style="background:${texCss(i)}"></span></button>`).join('');
+  $('picSheet').hidden = false;
+}
+$('myAvatar').addEventListener('click', openPic);
+$('texGrid').addEventListener('click', (e) => { const b = e.target.closest('button[data-i]'); if (!b) return; $('picSheet').hidden = true; savePic('tex:' + b.dataset.i); });
+$('picRandom').addEventListener('click', () => { $('picSheet').hidden = true; savePic('tex:' + Math.floor(Math.random() * TEX.length)); });
+$('picClose').addEventListener('click', () => { $('picSheet').hidden = true; });
+$('picPhoto').addEventListener('click', () => $('picFile').click());
+$('picFile').addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  $('picSheet').hidden = true;
+  try {
+    const bmp = await createImageBitmap(f);
+    const N = 160, c = document.createElement('canvas'); c.width = c.height = N;
+    const k = Math.min(bmp.width, bmp.height), sx = (bmp.width - k) / 2, sy = (bmp.height - k) / 2;
+    c.getContext('2d').drawImage(bmp, sx, sy, k, k, 0, 0, N, N);
+    let q = 0.82, url = c.toDataURL('image/jpeg', q);
+    while (url.length > 50000 && q > 0.4) { q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+    savePic(url);
+  } catch { toast('Could not read that photo'); }
+});
 // ===================== CDの真ん中：自分と友達 =====================
 // まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
 const pk = { list: [], i: 0, timer: 0 };
@@ -3336,7 +3393,7 @@ async function startCall(peerUid) {
   unlockAudio();
   if (!(await earGate('call')) || call.state !== 'idle') return;
   const f = friends.get(peerUid);
-  call.state = 'ringing'; call.caller = true; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) };
+  call.state = 'ringing'; call.caller = true; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) || f.avatar || '' };
   showOutgoing();
   showCallbar();
   await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
