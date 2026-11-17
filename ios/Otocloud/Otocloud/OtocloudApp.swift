@@ -7,7 +7,7 @@ import MusicKit
 import SpotifyiOS
 
 // Otocloud のアプリ本体。
-// 画面とふるまいは https://on-pa.net/app/ と同じものを、アプリの中でそのまま表示する。
+// 画面とふるまいは https://otocloud.app/app/ と同じものを、アプリの中でそのまま表示する。
 // サイトを更新すれば、アプリを作り直さなくても中身が新しくなる。
 
 @main
@@ -21,7 +21,7 @@ struct OtocloudApp: App {
 
     var body: some Scene {
         WindowGroup {
-            WebShell(url: URL(string: "https://on-pa.net/app/")!)
+            WebShell(url: URL(string: "https://otocloud.app/app/")!)
                 .ignoresSafeArea()
                 .onOpenURL { url in _ = SpotifyBridge.shared.handle(url) } // Spotify の許可から戻ってきた時
                 .background(Color(red: 0.851, green: 0.855, blue: 0.867)) // #D9DADD
@@ -98,7 +98,7 @@ struct WebShell: UIViewRepresentable {
                      initiatedByFrame frame: WKFrameInfo,
                      type: WKMediaCaptureType,
                      decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-            decisionHandler(origin.host == "on-pa.net" ? .grant : .prompt)
+            decisionHandler(origin.host == "on-pa.net" || origin.host == "otocloud.app" ? .grant : .prompt)
         }
 
         // 新しいタブで開こうとするリンクは、同じ画面で開く
@@ -107,7 +107,7 @@ struct WebShell: UIViewRepresentable {
                      for navigationAction: WKNavigationAction,
                      windowFeatures: WKWindowFeatures) -> WKWebView? {
             // Otocloud 以外（SoundCloud など）は、外のアプリ／Safari で開く。アプリの画面は Otocloud のまま
-            if let u = navigationAction.request.url, let h = u.host, !h.hasSuffix("on-pa.net") {
+            if let u = navigationAction.request.url, let h = u.host, !h.hasSuffix("on-pa.net") && !h.hasSuffix("otocloud.app") {
                 UIApplication.shared.open(u)
                 return nil
             }

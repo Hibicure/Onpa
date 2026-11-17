@@ -10,6 +10,7 @@ const API = 'https://api.soundcloud.com';
 // 使えるサイト（これ以外から呼ばれても許可しない）
 const ALLOWED_ORIGINS = [
   'https://on-pa.net',
+  'https://otocloud.app',
   'https://onpa-e7cc6.web.app',
   'https://onpa-e7cc6.firebaseapp.com',
   'http://localhost:8000',
@@ -407,7 +408,7 @@ const escH = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 async function sharePage(id, env, st = '') {
   if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
   const t = (await trackInfo(id, env, '', st)) || { id, title: 'A song on Otocloud', artist: '', artwork: '' };
-  const app = 'https://on-pa.net/app/?t=' + id + (st ? '&st=' + st : '');
+  const app = 'https://otocloud.app/app/?t=' + id + (st ? '&st=' + st : '');
   const art = /^https:\/\/[a-z0-9.-]*sndcdn\.com\//.test(t.artwork || '') ? t.artwork : '';
   const title = t.artist ? `${t.title} — ${t.artist}` : t.title;
   const embed = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent('https://api.soundcloud.com/tracks/' + id + (st ? '?secret_token=' + st : '')) + '&color=%23151517&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false';

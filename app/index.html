@@ -1479,8 +1479,8 @@ $('copyHandle').addEventListener('click', async () => {
 $('shareMe').addEventListener('click', async () => {
   const text = `Add me on Otocloud: @${me.handle}`;
   try {
-    if (navigator.share) await navigator.share({ title: 'Otocloud', text, url: 'https://on-pa.net/app/' });
-    else { await navigator.clipboard.writeText(text + ' https://on-pa.net/app/'); toast('Copied'); }
+    if (navigator.share) await navigator.share({ title: 'Otocloud', text, url: 'https://otocloud.app/app/' });
+    else { await navigator.clipboard.writeText(text + ' https://otocloud.app/app/'); toast('Copied'); }
   } catch { /* キャンセル */ }
 });
 
@@ -2780,7 +2780,7 @@ async function storyImage(t) {
   g.font = '600 44px "Instrument Sans", "Hiragino Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.82)';
   const artist = t.artist || ''; g.fillText(artist.length > 46 ? artist.slice(0, 45) + '…' : artist, cx, 1460);
   g.font = '700 40px Unbounded, sans-serif'; g.fillStyle = '#FFFFFF'; g.fillText('Otocloud', cx, H - 170);
-  g.font = '500 30px "Instrument Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('listen together · on-pa.net', cx, H - 120);
+  g.font = '500 30px "Instrument Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('listen together · otocloud.app', cx, H - 120);
   return new Promise((ok) => c.toBlob(ok, 'image/png'));
 }
 // 共有：曲のリンク。インスタやLINEではジャケット付きのカードになり、開くとその場で再生できる。
