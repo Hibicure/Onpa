@@ -3157,7 +3157,7 @@ function paintPick(drag, anim) {
     rail.dataset.i = String(pk.i); rail.dataset.n = String(n);
   }
   rail.style.transform = 'none';
-  placePick(drag / (h * 1.14), anim);
+  placePick(drag / (h * 1.32), anim);
   const cur = pickAt(pk.i);
   $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? '<small class="pk-on">online</small>' : '');
   $('pickName').classList.remove('fade'); clearTimeout(pk.nameT); pk.nameT = setTimeout(() => $('pickName').classList.add('fade'), 1800);
@@ -3167,9 +3167,9 @@ function placePick(off, anim) {
   const h = $('discPick').offsetHeight || 100;
   for (const el of $('pickRail').children) {
     const p = Number(el.dataset.o) + off;
-    const a = p * 0.78; // 1人ぶん ≒ 45°
-    const y = Math.sin(Math.max(-1.45, Math.min(1.45, a))) * h * 1.2;
-    const x = -(1 - Math.cos(Math.max(-1.45, Math.min(1.45, a)))) * h * 0.55;
+    // 縦にしっかり間をあけて（となりの顔が穴にはみ出さない）、離れるほど右へ逃げる半円
+    const y = p * h * 1.32;
+    const x = (1 - Math.cos(Math.max(-1.5, Math.min(1.5, p * 0.62)))) * h * 0.95;
     const sc = 1 - Math.min(0.35, Math.abs(p) * 0.16);
     el.style.transition = anim ? 'transform .46s cubic-bezier(.34,1.56,.64,1)' : 'none';
     el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc.toFixed(3)})`;
