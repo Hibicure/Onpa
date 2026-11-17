@@ -317,7 +317,7 @@
   .titlebar #heart { grid-column: 2; grid-row: 1; align-self: start; height: 34px; margin-top: -4px; position: relative; } /* 曲名の1行目にそろえる */
   /* いいねした時：ポンと弾んで、光の粒がパッと散る */
   #heart.pop svg { animation: heartpop .5s cubic-bezier(.3,1.6,.5,1); }
-  @keyframes heartpop { 0% { transform: scale(1); } 18% { transform: scale(.72); } 55% { transform: scale(1.32); } 100% { transform: scale(1); } }
+  @keyframes heartpop { 0% { transform: scale(1) rotate(0); } 18% { transform: scale(.72) rotate(-14deg); } 58% { transform: scale(1.26) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
   #heart .burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
   #heart .burst i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0;
     box-shadow: 0 0 8px currentColor; animation: heartspark .55s cubic-bezier(.2,.8,.3,1) forwards; }
@@ -707,7 +707,7 @@
   .np.amb-on .amb.ready { opacity: 1; }
   .amb .spin { position: absolute; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; will-change: transform; animation: ambspin 48s linear infinite; }
   .amb .s2 { animation-duration: 66s; animation-direction: reverse; }
-  .amb .s2 .blob { transform: scale(.7) translate(12%, -8%); opacity: .75; mix-blend-mode: screen; }
+  .amb .s2 .blob { transform: scale(.7) translate(12%, -8%); opacity: .75; mix-blend-mode: screen; -webkit-mask-image: radial-gradient(circle, #000 0 38%, transparent 66%); mask-image: radial-gradient(circle, #000 0 38%, transparent 66%); } /* ふちが回って線に見えないように */
   .amb .s3 { animation: ambpulse 14s ease-in-out infinite; }
   .amb .s3 .blob { transform: scale(.42); opacity: .8; border-radius: 50%;
     -webkit-mask-image: radial-gradient(circle, #000 0 30%, transparent 70%); mask-image: radial-gradient(circle, #000 0 30%, transparent 70%); }
@@ -836,6 +836,9 @@
   .controls .skip svg { width: 52px; height: 39px; }
   .controls .pp, .controls .skip { transition: transform .38s cubic-bezier(.3,1.7,.5,1); }
   .controls .pp:active, .controls .skip:active { opacity: 1; transform: scale(.84); transition: transform .08s ease-out; }
+  svg.spin { animation: spinarc .8s linear infinite; }
+  @keyframes spinarc { to { transform: rotate(360deg); } }
+  .controls .pp svg.spin { width: 46px; height: 46px; }
 </style>
 </head>
 <body>
@@ -1146,8 +1149,8 @@
 function hap(k) { try { window.webkit.messageHandlers.otoCall.postMessage({ op: 'haptic', k: k || 'tick', id: 'h' }); } catch { /* Web */ } }
 
 // ===================== 昼／夜の切り替え =====================
-const BULB_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z" fill="currentColor"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6M12.00 2.70L12.00 1.00M17.30 4.90L18.51 3.69M6.70 4.90L5.49 3.69M19.50 10.20L21.20 10.20M4.50 10.20L2.80 10.20"/></svg>';
-const BULB_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6"/></svg>';
+const BULB_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6M12.00 2.70L12.00 1.00M17.30 4.90L18.51 3.69M6.70 4.90L5.49 3.69M19.50 10.20L21.20 10.20M4.50 10.20L2.80 10.20"/></svg>';
+const BULB_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z" fill="currentColor"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6"/></svg>';
 const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>';
 const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>';
 function applyTheme(t) {
@@ -1223,7 +1226,7 @@ function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M8 5.6v12.8l10.6-6.4z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.6" y="4.4" width="4.6" height="15.2" rx="1.7"/><rect x="13.8" y="4.4" width="4.6" height="15.2" rx="1.7"/></svg>',
-  load: '<div class="spinner"></div>',
+  load: '<svg class="spin" viewBox="0 0 24 24"><path d="M12 4.2a7.8 7.8 0 1 1-7.8 7.8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>',
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   micOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.9 2.3M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.7 3M12 18v3M3 3l18 18"/></svg>',
   end: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width=".6" stroke-linejoin="round"><g transform="rotate(135 12 12) translate(0 1)"><path d="M7.2 3.6c-.9-.9-2.4-.9-3.2.1L3 4.9C2 6.2 1.9 8 2.6 9.5c2.4 5.2 6.6 9.4 11.8 11.8 1.5.7 3.3.6 4.6-.4l1.2-1c1-.8 1-2.3.1-3.2l-2.4-2.4c-.8-.8-2.1-.9-3-.2l-1.3 1c-.4.3-.9.3-1.3.1-2-1.3-3.7-3-5-5-.2-.4-.2-.9.1-1.3l1-1.3c.7-.9.6-2.2-.2-3z"/></g></svg>',
@@ -2277,9 +2280,7 @@ $('heart').addEventListener('click', async () => {
   if (like) {
     const hb = $('heart');
     hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
-    const b = document.createElement('span'); b.className = 'burst';
-    b.innerHTML = Array.from({ length: 8 }, (_, i) => `<i style="--a:${i * 45 + 22}deg;animation-delay:${60 + (i % 2) * 30}ms"></i>`).join('');
-    hb.appendChild(b); setTimeout(() => { b.remove(); hb.classList.remove('pop'); }, 700);
+    setTimeout(() => hb.classList.remove('pop'), 600);
     setTimeout(() => hap('rigid'), 140); // ドクン（2回目）
   }
   try {
