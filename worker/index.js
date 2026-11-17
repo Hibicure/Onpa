@@ -364,7 +364,7 @@ async function trackInfo(id, env, userToken = '', st = '') {
 // ===================== 歌詞（曲の説明欄・本人のコメントから探す） =====================
 // 日本のアーティストは説明欄に歌詞を載せていることが多い。クレジットやリンクの行は外して、
 // 「短い行が何行も続くかたまり」を歌詞とみなす
-const CREDIT = /(https?:|www\.|@|\bprod\b|produced|\bmix(ed)?\b|master(ed|ing)?|illust|artwork|\bart\b|\bmv\b|movie|video|instagram|twitter|tiktok|youtube|spotify|apple ?music|bandcamp|lyrics? by|music by|words by|vocal|作詞|作曲|編曲|イラスト|動画|映像|ミックス|マスタリング|リリース|配信|follow|#)/i;
+const CREDIT = /(https?:|www\.|@|\bprod\b|produced|\bmix(ed)?\b|master(ed|ing)?|illust|artwork|\bart\b|\bmv\b|movie|video|instagram|twitter|tiktok|youtube|spotify|apple ?music|bandcamp|lyrics? by|music by|words by|vocal|作詞|作曲|編曲|イラスト|動画|映像|ミックス|マスタリング|リリース|配信|follow|#|^\d{1,2}\s*[.)]\s|\bfeat\.|\bft\.|^[词曲编][：:]|^(词|曲|编曲|制作人|混音)\s*[：:])/i;
 function findLyrics(text) {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   // 「歌詞」「Lyrics」の見出しがあれば、その下から
@@ -384,7 +384,7 @@ function findLyrics(text) {
 }
 async function lyricsOf(id, env, userToken, st) {
   const cache = caches.default;
-  const key = new Request('https://cache.otocloud/lyrics1/' + id + (st ? '/' + st : ''));
+  const key = new Request('https://cache.otocloud/lyrics2/' + id + (st ? '/' + st : ''));
   const hit = await cache.match(key);
   if (hit) return hit.json();
   let out = { lyrics: '', from: '' };
