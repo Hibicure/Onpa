@@ -348,6 +348,18 @@
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   .artistPlace { display: flex; align-items: center; gap: 6px; padding: 2px 4px 12px; font-size: 13px; color: var(--mute, #8a8d93); }
   .artistPlace svg { width: 15px; height: 15px; flex: none; }
+  .np .lyrbtn { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(29px + env(safe-area-inset-bottom)); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
+  .np.ringing .lyrbtn, .np .lyrbtn[hidden] { display: none; }
+  .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
+  .lyr[hidden] { display: none; }
+  .lyr-top { display: flex; align-items: center; gap: 12px; padding: calc(18px + env(safe-area-inset-top)) 22px 10px; }
+  .lyr-t { flex: 1; min-width: 0; }
+  .lyr-t .t { font-weight: 800; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lyr-t .s { font-size: 13px; color: var(--mute); margin-top: 2px; }
+  .lyr-x { width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink); }
+  .lyr-x svg { width: 20px; height: 20px; }
+  .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 22px; line-height: 1.6; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
+  .lyr-body .src { display: block; margin-top: 34px; font-size: 12px; font-weight: 600; color: var(--mute); letter-spacing: 0; }
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np.square #disc, .np.square #disc .platter { border-radius: 0; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
@@ -966,6 +978,7 @@
     </div>
     <!-- 共有：いちばん下の右。曲のリンクを送る（開くとその場で再生できるページ） -->
     <button class="scsrc" id="scSrc" aria-label="Open in SoundCloud">on SoundCloud <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>
+    <button class="lyrbtn" id="lyrBtn" hidden>Lyrics</button>
     <button class="sharefab" id="shareBtn" aria-label="Share this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
   </div>
 </section>
@@ -976,6 +989,10 @@
   <div class="dial-info"><div class="t" id="dialName"></div><div class="s" id="dialSub"></div></div>
   <button class="eg-go dial-call" id="dialCall">Call</button>
   <button class="eg-no" id="dialClose">Close</button>
+</section>
+<section class="lyr" id="lyrSheet" hidden role="dialog" aria-label="Lyrics">
+  <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="lyr-body" id="lyrBody"></div>
 </section>
 <section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
   <div class="eg-card as-card">
@@ -1833,12 +1850,13 @@ function neighborMeta(dir) {
       // 入ってくる：反対側の斜め上から、転がりながら降りてきて真ん中に止まる
       el.style.transition = 'none';
       el.style.transform = roll(-dir * W * 0.7);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.style.transition = 'transform .5s cubic-bezier(.2,.9,.25,1), opacity .35s';
-        el.style.transform = ''; el.style.opacity = '';
-        setTimeout(() => { el.style.transition = ''; busy = false; }, 500);
-      }));
+      el.getBoundingClientRect(); // 入ってくる前の位置を、いったん画面に確定させる
+      el.style.transition = 'transform .5s cubic-bezier(.2,.9,.25,1), opacity .35s';
+      el.style.transform = ''; el.style.opacity = '';
+      // 念のため：どんな時でも最後は必ず真ん中に戻す（途中で止まって固まらないように）
+      setTimeout(() => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; busy = false; }, 560);
     }, 260);
+    setTimeout(() => { if (busy) { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; busy = false; } }, 1500);
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; if (pulling) { pulling = false; $('np').classList.remove('dragging'); $('np').style.transform = ''; } reset(); });
@@ -2309,7 +2327,7 @@ async function loadTrack(meta, autoplay = false) {
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     rememberPlayed(meta);
-    loadWave(meta);
+    loadWave(meta); loadLyrics(meta);
     addCue();
     clearTimeout(preloadTimer);
     preloadTimer = setTimeout(() => { if (my === loadToken) player.preload(peekNext()); }, 2500);
@@ -2432,6 +2450,28 @@ let dragging = false;
 player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawProgress(player.currentTime); });
 let waveBars = null, waveFor = null;
 
+// 歌詞：説明欄（なければコメント）に載っていたら、下の真ん中に「Lyrics」を出す
+let lyr = null, lyrFor = null;
+async function loadLyrics(meta) {
+  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true;
+  try {
+    const r = await fetch(`${WORKER}/lyrics/${meta.trackId}` + (meta.secret ? '?st=' + encodeURIComponent(meta.secret) : ''), { headers: await scHeaders() });
+    const d = await r.json();
+    if (lyrFor !== meta.trackId || !d.lyrics) return;
+    lyr = d; $('lyrBtn').hidden = false;
+  } catch { /* 歌詞なし */ }
+}
+function openLyrics() {
+  if (!lyr || !track) return;
+  $('lyrTitle').textContent = track.title || '';
+  $('lyrArtist').textContent = track.artist || '';
+  const src = lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
+  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span>`;
+  $('lyrBody').scrollTop = 0;
+  $('lyrSheet').hidden = false;
+}
+$('lyrBtn').addEventListener('click', openLyrics);
+$('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; });
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {

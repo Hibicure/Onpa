@@ -360,6 +360,49 @@ async function trackInfo(id, env, userToken = '', st = '') {
     return t;
   } catch { return null; }
 }
+
+// ===================== 歌詞（曲の説明欄・本人のコメントから探す） =====================
+// 日本のアーティストは説明欄に歌詞を載せていることが多い。クレジットやリンクの行は外して、
+// 「短い行が何行も続くかたまり」を歌詞とみなす
+const CREDIT = /(https?:|www\.|@|\bprod\b|produced|\bmix(ed)?\b|master(ed|ing)?|illust|artwork|\bart\b|\bmv\b|movie|video|instagram|twitter|tiktok|youtube|spotify|apple ?music|bandcamp|lyrics? by|music by|words by|vocal|作詞|作曲|編曲|イラスト|動画|映像|ミックス|マスタリング|リリース|配信|follow|#)/i;
+function findLyrics(text) {
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  // 「歌詞」「Lyrics」の見出しがあれば、その下から
+  let start = lines.findIndex((l) => /^\s*[\[【(（]?\s*(歌詞|lyrics?)\s*[\]】)）]?\s*[:：]?\s*$/i.test(l));
+  const body = start >= 0 ? lines.slice(start + 1) : lines;
+  let best = [], cur = [], blanks = 0;
+  const flush = () => { while (cur.length && !cur[cur.length - 1].trim()) cur.pop(); if (cur.filter((l) => l.trim()).length > best.filter((l) => l.trim()).length) best = cur; cur = []; blanks = 0; };
+  for (const raw of body) {
+    const l = raw.trim();
+    if (!l) { if (cur.length) { blanks++; if (blanks > 2) flush(); else cur.push(''); } continue; }
+    if (l.length > 70 || CREDIT.test(l)) { flush(); continue; }
+    blanks = 0; cur.push(l);
+  }
+  flush();
+  const n = best.filter((l) => l.trim()).length;
+  return n >= (start >= 0 ? 3 : 6) ? best.join('\n') : '';
+}
+async function lyricsOf(id, env, userToken, st) {
+  const cache = caches.default;
+  const key = new Request('https://cache.otocloud/lyrics1/' + id + (st ? '/' + st : ''));
+  const hit = await cache.match(key);
+  if (hit) return hit.json();
+  let out = { lyrics: '', from: '' };
+  try {
+    const t = await scGet('/tracks/' + id + (st ? '?secret_token=' + st : ''), env, userToken);
+    const d = findLyrics(t.description);
+    if (d) out = { lyrics: d, from: 'description' };
+    else {
+      // 説明欄に無ければ、コメント欄から（本人か、何行もあるコメント）
+      const c = listOf(await scGet(`/tracks/${id}/comments?limit=200&linked_partitioning=true`, env, userToken));
+      const owner = t.user?.id;
+      const cands = c.filter((x) => String(x.body || '').split('\n').length >= 4).sort((a, b) => (b.user?.id === owner) - (a.user?.id === owner));
+      for (const x of cands) { const l = findLyrics(x.body); if (l) { out = { lyrics: l, from: x.user?.id === owner ? 'artist comment' : 'comment', by: x.user?.username || '' }; break; } }
+    }
+  } catch { /* 歌詞が見つからないだけ */ }
+  if (!out.lyrics || !st) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'application/json' } }));
+  return out;
+}
 const escH = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 async function sharePage(id, env, st = '') {
   if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
@@ -429,6 +472,13 @@ export default {
       if (m) {
         const t = await trackInfo(m[1], env, userToken, url.searchParams.get('st') || '');
         return t ? json(t, 200, cors) : json({ error: 'not found' }, 404, cors);
+      }
+      // ---- 歌詞: /lyrics/123
+      m = p.match(/^\/lyrics\/(\d{1,20})$/);
+      if (m) {
+        let st = url.searchParams.get('st') || '';
+        if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
+        return json(await lyricsOf(m[1], env, userToken, st), 200, cors);
       }
       // ---- その人のプロフィール: /user/123（街・国など。アーティストページの上に出す）
       m = p.match(/^\/user\/(\d{1,20})$/);
