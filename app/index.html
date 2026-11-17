@@ -351,6 +351,11 @@
   .np .lyrbtn { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(29px + env(safe-area-inset-bottom)); padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
   .np.ringing .lyrbtn, .np .lyrbtn[hidden] { display: none; }
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
+  /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
+  :root.mist .lyr { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(34px) saturate(1.4); backdrop-filter: blur(34px) saturate(1.4); border-radius: 54px;
+    box-shadow: inset 0 0 3px 1px rgba(255,255,255,1), inset 0 0 12px 2px rgba(255,255,255,.9), inset 0 0 26px 4px rgba(255,255,255,.6), inset 0 0 60px 6px rgba(255,255,255,.25); }
+  :root.mist[data-theme="dark"] .lyr { background: rgba(0,0,0,.14);
+    box-shadow: inset 0 0 3px 1px rgba(255,255,255,.75), inset 0 0 12px 2px rgba(255,255,255,.5), inset 0 0 26px 4px rgba(255,255,255,.28), inset 0 0 60px 6px rgba(255,255,255,.1); }
   .lyr[hidden] { display: none; }
   .lyr-top { display: flex; align-items: center; gap: 12px; padding: calc(18px + env(safe-area-inset-top)) 22px 10px; }
   .lyr-t { flex: 1; min-width: 0; }
