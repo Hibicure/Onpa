@@ -400,7 +400,12 @@
   :root.mist .np.full .in::before { background: none; z-index: 2;
     box-shadow: inset 0 0 6px 3px rgba(255,255,255,1), inset 0 0 22px 8px rgba(255,255,255,.9), inset 0 0 46px 12px rgba(255,255,255,.55), inset 0 0 96px 14px rgba(255,255,255,.22); }
   /* 真ん中の自分・友達：まわりの輪や名前の札は消して、名前は文字だけ上に */
-  :root.mist .disc .pick { box-shadow: none; }
+  /* 真ん中の顔：ボタンみたいな、ちょっと重みのあるバッジ（白い枠はなし） */
+  :root.mist .disc .pick { overflow: visible; background: none; box-shadow: none; }
+  :root.mist .disc .pick-rail { border-radius: 50%; overflow: hidden; -webkit-mask-image: radial-gradient(circle closest-side, #000 99%, transparent 100%); }
+  :root.mist .disc .pick::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: 0 3px 10px rgba(0,0,0,.38), 0 1px 2px rgba(0,0,0,.4); }
+  :root.mist .disc .pick::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 3;
+    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.35), inset 0 -4px 8px rgba(0,0,0,.3); }
   :root.mist .disc .pick .avatar, :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
   :root.mist .disc .pick-name { top: auto; bottom: 103%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; letter-spacing: -0.01em; max-width: 90%; }
   .avatar .tex { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
@@ -3046,7 +3051,7 @@ function paintPick(drag, anim) {
   // 今の人と、上下となりの人だけ置く（一周できるように）
   const rows = n > 1 ? [-1, 0, 1] : [0];
   rail.style.transition = anim ? 'transform .34s cubic-bezier(.2,.9,.25,1)' : 'none';
-  rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" style="top:${o * 100}%"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
+  rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" style="top:${o * 114}%"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
   rail.style.transform = `translateY(${drag}px)`;
   const cur = pickAt(pk.i);
   $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? ' <span class="on">●</span>' : '');
@@ -3069,7 +3074,7 @@ function paintPick(drag, anim) {
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
       const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
       $('pickRail').style.transition = 'transform .22s cubic-bezier(.3,.7,.4,1)';
-      $('pickRail').style.transform = `translateY(${-d * h}px)`;
+      $('pickRail').style.transform = `translateY(${-d * h * 1.14}px)`;
       setTimeout(() => { pk.i += d; paintPick(0, false); }, 220);
     } else paintPick(0, true);
     armPick();
