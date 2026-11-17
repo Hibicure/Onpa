@@ -877,8 +877,9 @@
       linear-gradient(140deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 40%, rgba(0,0,0,0) 65%, rgba(0,0,0,.06) 100%) !important; }
   .np.square #disc { box-shadow: 0 1px 1px rgba(0,0,0,.22), 0 2px 2px -.5px rgba(0,0,0,.16), 0 3.5px 3px -1px rgba(0,0,0,.12),
       0 30px 50px -22px rgba(0,0,0,.5), 0 12px 18px -10px rgba(0,0,0,.3), 8px 0 18px -14px rgba(0,0,0,.35), -8px 0 18px -14px rgba(0,0,0,.35); }
-  /* ディスクの中の顔：CDの内側の透明なリングみたいな縁（置いたまま動かない）。線ではなく、光のにじみ */
-  :root.mist .disc .pick::after { z-index: 6;
+  /* ディスクの中の顔：1枚1枚に、CDの内側の透明なリングみたいな縁（顔といっしょに動く）。線ではなく、光のにじみで厚み */
+  :root.mist .disc .pick-it .avatar { position: relative; }
+  :root.mist .disc .pick-it .avatar::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 6; display: block;
     background: conic-gradient(from 210deg, rgba(255,255,255,.62), rgba(205,225,255,.28), rgba(255,255,255,.08), rgba(255,215,238,.3), rgba(255,255,255,.62), rgba(212,255,238,.26), rgba(255,255,255,.08), rgba(255,236,205,.3), rgba(255,255,255,.62));
     -webkit-mask: radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.55) 87%, #000 93%, rgba(0,0,0,.7) 98%, transparent 100%);
             mask: radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.55) 87%, #000 93%, rgba(0,0,0,.7) 98%, transparent 100%); }
