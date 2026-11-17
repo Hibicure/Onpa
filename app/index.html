@@ -353,9 +353,9 @@
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
   /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
   :root.mist .lyr { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(34px) saturate(1.4); backdrop-filter: blur(34px) saturate(1.4); border-radius: 54px;
-    box-shadow: inset 0 0 3px 1px rgba(255,255,255,1), inset 0 0 12px 2px rgba(255,255,255,.9), inset 0 0 26px 4px rgba(255,255,255,.6), inset 0 0 60px 6px rgba(255,255,255,.25); }
+    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26); }
   :root.mist[data-theme="dark"] .lyr { background: rgba(0,0,0,.14);
-    box-shadow: inset 0 0 3px 1px rgba(255,255,255,.75), inset 0 0 12px 2px rgba(255,255,255,.5), inset 0 0 26px 4px rgba(255,255,255,.28), inset 0 0 60px 6px rgba(255,255,255,.1); }
+    box-shadow: inset 0 0 4px 2px rgba(255,255,255,.85), inset 0 0 16px 5px rgba(255,255,255,.62), inset 0 0 34px 8px rgba(255,255,255,.34), inset 0 0 74px 10px rgba(255,255,255,.12); }
   .lyr[hidden] { display: none; }
   .lyr-top { display: flex; align-items: center; gap: 12px; padding: calc(18px + env(safe-area-inset-top)) 22px 10px; }
   .lyr-t { flex: 1; min-width: 0; }
@@ -378,7 +378,7 @@
   .disc.picking .hole { display: none; }
   @keyframes pickin { from { transform: scale(.6); opacity: 0; } }
   /* ===== 新しい見た目（お試し）：ミルクのすりガラス＋ジャケットの色がにじむ ===== */
-  :root.mist .np { background: #E7E4EC; border-radius: 54px; overflow: hidden; }
+  :root.mist .np { background: #E7E4EC; border-radius: 54px; overflow: hidden; clip-path: inset(0 round 54px); -webkit-clip-path: inset(0 round 54px); }
   :root.mist[data-theme="dark"] .np { background: #15141A; }
   :root.mist .np .amb { opacity: 1 !important; }
   :root.mist .np .amb .blob { filter: blur(60px) saturate(1.35) brightness(1.08); }
@@ -392,13 +392,13 @@
     background: linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.12) 100%);
     /* 背景はもうぼけているので、ガラスのぼかし（重い）は使わない */
     /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み。厚みのぶんだけ、くっきり白く */
-    box-shadow: inset 0 0 3px 1px rgba(255,255,255,1), inset 0 0 12px 2px rgba(255,255,255,.9), inset 0 0 26px 4px rgba(255,255,255,.6), inset 0 0 60px 6px rgba(255,255,255,.25), inset 0 0 140px rgba(90,40,70,.12); } /* 白の内側をほんの少し沈ませて、白い厚みを浮かせる */ /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
+    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26), inset 0 0 140px rgba(90,40,70,.12); } /* 白の内側をほんの少し沈ませて、白い厚みを浮かせる */ /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
   :root.mist[data-theme="dark"] .np .in::before { background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 45%, rgba(255,255,255,.07) 100%);
-    box-shadow: inset 0 0 3px 1px rgba(255,255,255,.75), inset 0 0 12px 2px rgba(255,255,255,.5), inset 0 0 26px 4px rgba(255,255,255,.28), inset 0 0 60px 6px rgba(255,255,255,.1); } /* 夜も同じ、白い厚みの縁（少しだけ控えめ） */
+    box-shadow: inset 0 0 4px 2px rgba(255,255,255,.85), inset 0 0 16px 5px rgba(255,255,255,.62), inset 0 0 34px 8px rgba(255,255,255,.34), inset 0 0 74px 10px rgba(255,255,255,.12); } /* 夜も同じ、白い厚みの縁（少しだけ控えめ） */
   :root.mist .np.full::after { display: none; }
   /* 全画面の再生：ジャケットの上でも、同じ白い厚みの縁（ガラスの面はうすく） */
   :root.mist .np.full .in::before { background: none; z-index: 2;
-    box-shadow: inset 0 0 3px 1px rgba(255,255,255,.85), inset 0 0 12px 2px rgba(255,255,255,.6), inset 0 0 26px 4px rgba(255,255,255,.32), inset 0 0 60px 6px rgba(255,255,255,.12); }
+    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26); }
   /* 真ん中の自分・友達：まわりの輪や名前の札は消して、名前は文字だけ上に */
   :root.mist .disc .pick { box-shadow: none; }
   :root.mist .disc .pick .avatar, :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
@@ -748,7 +748,7 @@
   .np .fullart .peekcard { visibility: hidden; }
   .np .fullart.paging .card { border-radius: 28px; }
   :root.mist .np .fullart .card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
-    box-shadow: inset 0 0 3px 1px rgba(255,255,255,.85), inset 0 0 12px 2px rgba(255,255,255,.6), inset 0 0 26px 4px rgba(255,255,255,.32), inset 0 0 60px 6px rgba(255,255,255,.12); }
+    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26); }
   :root.mist .np .fullart:not(.paging) .card::after { display: none; } /* 横にスライドしている時だけ。止まっている時は画面の縁が出ている */
   :root.mist .np.full .fullart.paging ~ .in::before { opacity: 0; }
   .np .fullart.paging .shade { opacity: .6; }

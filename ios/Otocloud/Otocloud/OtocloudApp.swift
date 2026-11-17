@@ -115,6 +115,13 @@ struct WebShell: UIViewRepresentable {
             return nil
         }
 
+        // Otocloud 以外のページ（SoundCloud のログインなど）は、時計や電池の下に潜らないよう、上をあける
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            let h = webView.url?.host ?? ""
+            let ours = h.hasSuffix("on-pa.net") || h.hasSuffix("otocloud.app")
+            webView.scrollView.contentInsetAdjustmentBehavior = ours ? .never : .always
+        }
+
         // 読み込みに失敗したら、少し待ってやり直す（電波が弱い時など）
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { webView.reload() }
