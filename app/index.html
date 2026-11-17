@@ -377,14 +377,14 @@
   :root.mist[data-theme="dark"] .np { background: #15141A; }
   :root.mist .np .amb { opacity: 1 !important; }
   :root.mist .np .amb .blob { filter: blur(70px) saturate(1.35) brightness(1.08); }
-  :root.mist .np .amb .veil { background: linear-gradient(180deg, rgba(240,238,244,.18) 0%, rgba(240,238,244,.34) 60%, rgba(240,238,244,.62) 100%); }
+  :root.mist .np .amb .veil { background: linear-gradient(180deg, rgba(240,238,244,.16) 0%, rgba(240,238,244,.26) 60%, rgba(240,238,244,.3) 100%); } /* 下まで色を残す（白っぽくすると縁の白が見えなくなる） */
   :root.mist[data-theme="dark"] .np .amb .veil { background: linear-gradient(180deg, rgba(18,17,22,.2) 0%, rgba(18,17,22,.42) 60%, rgba(18,17,22,.75) 100%); }
   /* 粒子感（フィルムの粒） */
   :root.mist .np::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .16; mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
   /* ミルクのすりガラスの板：曲の情報のうしろに */
   :root.mist .np .in::before { content: ""; position: fixed; inset: 0; z-index: -1; border-radius: 54px; pointer-events: none; /* 画面いっぱいのガラス（角は iPhone の画面の丸みに合わせる） */
-    background: linear-gradient(180deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,.14) 45%, rgba(255,255,255,.26) 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.12) 100%);
     -webkit-backdrop-filter: blur(26px) saturate(1.5); backdrop-filter: blur(26px) saturate(1.5);
     /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み。厚みのぶんだけ、くっきり白く */
     box-shadow: inset 0 0 3px 1px rgba(255,255,255,1), inset 0 0 12px 2px rgba(255,255,255,.9), inset 0 0 26px 4px rgba(255,255,255,.6), inset 0 0 60px 6px rgba(255,255,255,.25), inset 0 0 140px rgba(90,40,70,.12); } /* 白の内側をほんの少し沈ませて、白い厚みを浮かせる */ /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
