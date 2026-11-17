@@ -1117,6 +1117,9 @@
 <div class="schost" aria-hidden="true"><iframe id="scw" title="SoundCloud player" tabindex="-1" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F293&amp;auto_play=false&amp;visual=false"></iframe><iframe id="scw2" title="SoundCloud player 2" tabindex="-1" allow="autoplay; encrypted-media" src="https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F293&amp;auto_play=false&amp;visual=false"></iframe></div>
 
 <script>
+// 指に返る手ごたえ（iPhone アプリの時だけ。Web では何もしない）
+function hap(k) { try { window.webkit.messageHandlers.otoCall.postMessage({ op: 'haptic', k: k || 'tick', id: 'h' }); } catch { /* Web */ } }
+
 // ===================== 昼／夜の切り替え =====================
 const BULB_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z" fill="currentColor"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6M12.00 2.70L12.00 1.00M17.30 4.90L18.51 3.69M6.70 4.90L5.49 3.69M19.50 10.20L21.20 10.20M4.50 10.20L2.80 10.20"/></svg>';
 const BULB_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6"/></svg>';
@@ -1135,6 +1138,7 @@ function applyTheme(t) {
   if (t !== 'dark' && t !== 'light') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   applyTheme(t);
   document.getElementById('themeBtn').addEventListener('click', () => {
+    hap('rigid');
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     const b = document.getElementById('themeBtn'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
@@ -1670,7 +1674,7 @@ $('results').addEventListener('keydown', (e) => {
     const go = dx >= TH && e.type === 'pointerup';
     r.classList.remove('swiping'); r.style.transform = '';
     setTimeout(() => r.classList.remove('armed'), 260);
-    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) playNextUp(t); }
+    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) { hap('soft'); playNextUp(t); } }
   };
   box.addEventListener('pointerup', end);
   box.addEventListener('pointercancel', end);
@@ -1921,7 +1925,7 @@ function neighborMeta(dir) {
       const src = pkArt.getAttribute('src');
       if (src) $('npArt').src = src; else $('npArt').removeAttribute('src');
       reset();
-      if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      hap('thud'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
       setTimeout(() => { busy = false; }, 120);
     }, 370);
   };
@@ -1942,7 +1946,7 @@ function neighborMeta(dir) {
     timer = setTimeout(() => {
       timer = null;
       if (art) $('npArt').src = art;
-      if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      hap('thud'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
       // 入ってくる：反対側の斜め上から、転がりながら降りてきて真ん中に止まる
       el.style.transition = 'none';
       el.style.transform = roll(-dir * W * 0.7);
@@ -2232,6 +2236,7 @@ async function toggleRowLike(btn) {
   catch { if (like) likedIds.delete(id); else likedIds.add(id); btn.setAttribute('aria-pressed', String(!like)); paintHeart(); toast("Couldn't update your like"); }
 }
 $('heart').addEventListener('click', async () => {
+  hap('light');
   if (!track) return;
   if (!sc) { toast('Connect SoundCloud to like tracks'); setMode('likes'); $('npClose').click(); showTab('listen'); return; }
   const id = String(track.trackId);
@@ -2698,6 +2703,7 @@ $('npClose').addEventListener('click', closeNp);
       const done = () => { fa.classList.remove('paging'); animF(false); card.style.transform = ''; pcard.style.transform = ''; pcard.style.visibility = 'hidden'; fullSwiping = false; };
       if (!go) { card.style.transform = 'translateX(0px)'; pcard.style.transform = `translateX(${side * W()}px)`; setTimeout(done, 380); return; }
       // 今のカードが出ていき、次のカードが真ん中に来る
+      hap('thud');
       card.style.transform = `translateX(${-side * W()}px)`;
       pcard.style.transform = 'translateX(0px)';
       setTimeout(() => {
@@ -2750,6 +2756,7 @@ function setAmbient(src) {
   img.src = src;
 }
 $('ambBtn').addEventListener('click', (e) => {
+  hap('rigid');
   e.stopPropagation();
   ambOn = !ambOn;
   try { localStorage.setItem('oto_amb', ambOn ? 'on' : 'off'); } catch {}
@@ -3045,6 +3052,7 @@ function openPick() {
   pkEl.hidden = false; $('pickName').hidden = false;
   paintPick(0, false);
   armPick();
+  hap('soft');
 }
 function closePick() {
   clearTimeout(pk.timer);
@@ -3082,7 +3090,7 @@ function paintPick(drag, anim) {
       const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
       $('pickRail').style.transition = 'transform .22s cubic-bezier(.3,.7,.4,1)';
       $('pickRail').style.transform = `translateY(${-d * h * 1.14}px)`;
-      setTimeout(() => { pk.i += d; paintPick(0, false); }, 220);
+      setTimeout(() => { pk.i += d; paintPick(0, false); hap('tick'); }, 220);
     } else paintPick(0, true);
     armPick();
   };
@@ -3099,7 +3107,9 @@ function openDial() {
   $('dialWheel').innerHTML = dial.list.map(([uid, f]) => `<div class="dial-item" data-uid="${uid}"><div class="avatar">${face(f)}<span class="dot ${f.online ? 'on' : ''}"></span></div></div>`).join('');
   dial.pos = 0; paintDial(); $('dial').hidden = false;
 }
+let dialLast = null;
 function paintDial() {
+  { const r = Math.round(dial.pos); if (r !== dialLast) { if (dialLast !== null) hap('tick'); dialLast = r; } }
   const items = $('dialWheel').children;
   for (let i = 0; i < items.length; i++) {
     const o = i - dial.pos, a = Math.abs(o);

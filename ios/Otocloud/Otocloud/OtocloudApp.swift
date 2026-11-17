@@ -240,6 +240,9 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "spPause": SpotifyBridge.shared.pause()
                 case "spResume": SpotifyBridge.shared.resume()
                 case "spSeek": SpotifyBridge.shared.seek(body["t"] as? Double ?? 0)
+                // ---- 触った感じ（ハプティクス）：スライドや切りかえの「ククッ」
+                case "haptic":
+                    Haptics.play(body["k"] as? String ?? "tick")
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
@@ -767,5 +770,27 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         onEvent?(["type": "spState", "connected": true, "uri": s.track.uri, "name": s.track.name,
                   "artist": s.track.artist.name, "pos": Double(s.playbackPosition) / 1000,
                   "dur": Double(s.track.duration) / 1000, "paused": s.isPaused, "at": Date().timeIntervalSince1970 * 1000])
+    }
+}
+
+
+// MARK: - ハプティクス（指に返ってくる、音のない手ごたえ）
+@MainActor enum Haptics {
+    static let sel = UISelectionFeedbackGenerator()
+    static let soft = UIImpactFeedbackGenerator(style: .soft)
+    static let light = UIImpactFeedbackGenerator(style: .light)
+    static let rigid = UIImpactFeedbackGenerator(style: .rigid)
+    static let medium = UIImpactFeedbackGenerator(style: .medium)
+    static let note = UINotificationFeedbackGenerator()
+    static func play(_ k: String) {
+        switch k {
+        case "tick": sel.selectionChanged(); sel.prepare()            // ダイヤルの1目もり
+        case "soft": soft.impactOccurred(intensity: 0.7); soft.prepare()
+        case "light": light.impactOccurred(); light.prepare()
+        case "rigid": rigid.impactOccurred(intensity: 0.8); rigid.prepare() // ボタンのカチッ
+        case "thud": medium.impactOccurred(); medium.prepare()          // CDが入れかわる
+        case "success": note.notificationOccurred(.success)
+        default: sel.selectionChanged()
+        }
     }
 }
