@@ -360,6 +360,18 @@
   .lyr-x svg { width: 20px; height: 20px; }
   .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 22px; line-height: 1.6; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
   .lyr-body .src { display: block; margin-top: 34px; font-size: 12px; font-weight: 600; color: var(--mute); letter-spacing: 0; }
+  /* CDの真ん中をタップ：まず自分、上下にスライドで友達。自分をタップで自分のページ、友達をタップでそのまま電話 */
+  .disc .pick { position: absolute; inset: 35.2%; border-radius: 50%; overflow: hidden; z-index: 4; background: var(--holo); touch-action: none; cursor: pointer;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); animation: pickin .26s cubic-bezier(.2,.9,.25,1); }
+  .disc .pick[hidden], .disc .pick-name[hidden] { display: none; }
+  .disc .pick-rail { position: absolute; inset: 0; will-change: transform; }
+  .disc .pick-it { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .disc .pick-it .avatar { width: 100%; height: 100%; font-size: calc(min(80vw, 340px, 43dvh) * .15); }
+  .disc .pick-name { position: absolute; left: 50%; top: 67.5%; transform: translateX(-50%); z-index: 4; padding: 4px 11px; border-radius: 999px; max-width: 70%; overflow: hidden; text-overflow: ellipsis;
+    background: color-mix(in srgb, var(--paper) 82%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--ink); pointer-events: none; }
+  .disc .pick-name .on { color: var(--live); }
+  .disc.picking .hole { display: none; }
+  @keyframes pickin { from { transform: scale(.6); opacity: 0; } }
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np.square #disc, .np.square #disc .platter { border-radius: 0; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
@@ -953,7 +965,7 @@
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
     </div>
     <div class="stage">
-            <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div></div>
+            <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div><div class="pick" id="discPick" hidden><div class="pick-rail" id="pickRail"></div></div><div class="pick-name" id="pickName" hidden></div></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
     <div class="titlebar">
@@ -1798,10 +1810,11 @@ function neighborMeta(dir) {
       return;
     }
     if (!horizontal) {
+      if (horizontal === null && !$('discPick').hidden) { closePick(); return; } // 顔が出ている時に外側をタップ＝しまう
       // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
       if (horizontal === null && !e.target.closest('#discPeer') && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
         const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        if (Math.hypot(e.clientX - cx, e.clientY - cy) < r.width * 0.17) { openDial(); return; } // まん中（穴のまわり）
+        if (Math.hypot(e.clientX - cx, e.clientY - cy) < r.width * 0.17) { openPick(); return; } // まん中（穴のまわり）
       }
       if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer') && call.state !== 'live') {
         const np = $('np');
@@ -2897,6 +2910,64 @@ $('found').addEventListener('click', async (e) => {
 });
 
 
+
+// ===================== CDの真ん中：自分と友達 =====================
+// まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
+const pk = { list: [], i: 0, timer: 0 };
+function openPick() {
+  if (!me) return;
+  const fr = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0)).map(([uid, f]) => ({ uid, f }));
+  pk.list = [{ uid: me.uid, f: me, self: true }, ...fr];
+  pk.i = 0;
+  $('disc').classList.add('picking');
+  $('discPick').hidden = false; $('pickName').hidden = false;
+  paintPick(0, false);
+  armPick();
+}
+function closePick() {
+  clearTimeout(pk.timer);
+  $('discPick').hidden = true; $('pickName').hidden = true;
+  $('disc').classList.remove('picking');
+}
+function armPick() { clearTimeout(pk.timer); pk.timer = setTimeout(closePick, 9000); } // しばらく触らなければ、しまう
+const pickAt = (k) => pk.list[((k % pk.list.length) + pk.list.length) % pk.list.length];
+function paintPick(drag, anim) {
+  const n = pk.list.length, rail = $('pickRail');
+  // 今の人と、上下となりの人だけ置く（一周できるように）
+  const rows = n > 1 ? [-1, 0, 1] : [0];
+  rail.style.transition = anim ? 'transform .34s cubic-bezier(.2,.9,.25,1)' : 'none';
+  rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" style="top:${o * 100}%"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
+  rail.style.transform = `translateY(${drag}px)`;
+  const cur = pickAt(pk.i);
+  $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? ' <span class="on">●</span>' : '');
+}
+(() => {
+  const box = $('discPick'); let id = null, sy = 0, dy = 0, t0 = 0;
+  const stop = (e) => e.stopPropagation(); // CDのスライドや下に引いて閉じる動きと混ざらないように
+  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; dy = 0; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
+  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy; if (pk.list.length > 1) paintPick(dy, false); });
+  const up = (e) => {
+    stop(e); if (e.pointerId !== id) return; id = null;
+    const h = box.offsetHeight, fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.35;
+    if (Math.abs(dy) < 6) { // タップ
+      const cur = pickAt(pk.i);
+      closePick();
+      if (cur.self) { if (me.scId) openArtist(me.scId, me.name); else toast('Connect SoundCloud to see your page'); }
+      else if (call.state === 'idle') startCall(cur.uid);
+      return;
+    }
+    if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
+      const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
+      $('pickRail').style.transition = 'transform .22s cubic-bezier(.3,.7,.4,1)';
+      $('pickRail').style.transform = `translateY(${-d * h}px)`;
+      setTimeout(() => { pk.i += d; paintPick(0, false); }, 220);
+    } else paintPick(0, true);
+    armPick();
+  };
+  box.addEventListener('pointerup', up);
+  box.addEventListener('pointercancel', (e) => { stop(e); id = null; paintPick(0, true); });
+  box.addEventListener('click', stop);
+})();
 // ===================== 友達ダイヤル =====================
 const dial = { list: [], pos: 0, raf: 0 };
 const DIAL_STEP = 150;
@@ -3242,7 +3313,7 @@ function showRinging(c) {
   np.style.transform = ''; np.classList.add('open', 'ringing'); np.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
   $('npT').textContent = c.fromName || ('@' + c.fromHandle);
   $('npS').textContent = '@' + c.fromHandle + ' is calling';
-  $('disc').classList.add('incall'); $('discPeer').hidden = false;
+  closePick(); $('disc').classList.add('incall'); $('discPeer').hidden = false;
   setFace($('discPeerInitial'), { name: c.fromName, avatar: c.fromAvatar });
   $('ringNo').innerHTML = ICON.end; $('ringYes').innerHTML = ICON.phone; $('ringNoLbl').textContent = 'Decline';
 }
@@ -3253,7 +3324,7 @@ function showOutgoing() {
   np.style.transform = ''; np.classList.add('open', 'ringing', 'outgoing'); np.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
   $('npT').textContent = call.peer.name || ('@' + call.peer.handle);
   $('npS').textContent = 'Calling @' + call.peer.handle + '…';
-  $('disc').classList.add('incall'); $('discPeer').hidden = false;
+  closePick(); $('disc').classList.add('incall'); $('discPeer').hidden = false;
   setFace($('discPeerInitial'), call.peer);
   $('ringNo').innerHTML = ICON.end; $('ringNoLbl').textContent = 'Cancel';
 }
