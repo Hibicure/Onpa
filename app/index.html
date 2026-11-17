@@ -3035,7 +3035,12 @@ function openPick() {
   pk.list = [{ uid: me.uid, f: me, self: true }, ...fr];
   pk.i = 0;
   $('disc').classList.add('picking');
-  $('discPick').hidden = false; $('pickName').hidden = false;
+  // 顔の後ろ（スライドした時に見えるすき間）は、ジャケットの続きに見えるように
+  const art = $('npArt').getAttribute('src');
+  const pkEl = $('discPick');
+  if (art) { pkEl.style.backgroundImage = `url("${art}")`; pkEl.style.backgroundSize = '338%'; pkEl.style.backgroundPosition = 'center'; }
+  else pkEl.style.backgroundImage = '';
+  pkEl.hidden = false; $('pickName').hidden = false;
   paintPick(0, false);
   armPick();
 }
