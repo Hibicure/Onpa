@@ -398,7 +398,7 @@
   :root.mist .np.full::after { display: none; }
   /* 全画面の再生：ジャケットの上でも、同じ白い厚みの縁（ガラスの面はうすく） */
   :root.mist .np.full .in::before { background: none; z-index: 2;
-    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26); }
+    box-shadow: inset 0 0 6px 3px rgba(255,255,255,1), inset 0 0 22px 8px rgba(255,255,255,.9), inset 0 0 46px 12px rgba(255,255,255,.55), inset 0 0 96px 14px rgba(255,255,255,.22); }
   /* 真ん中の自分・友達：まわりの輪や名前の札は消して、名前は文字だけ上に */
   :root.mist .disc .pick { box-shadow: none; }
   :root.mist .disc .pick .avatar, :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
@@ -748,7 +748,7 @@
   .np .fullart .peekcard { visibility: hidden; }
   .np .fullart.paging .card { border-radius: 28px; }
   :root.mist .np .fullart .card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
-    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26); }
+    box-shadow: inset 0 0 6px 3px rgba(255,255,255,1), inset 0 0 22px 8px rgba(255,255,255,.9), inset 0 0 46px 12px rgba(255,255,255,.55), inset 0 0 96px 14px rgba(255,255,255,.22); }
   :root.mist .np .fullart:not(.paging) .card::after { display: none; } /* 横にスライドしている時だけ。止まっている時は画面の縁が出ている */
   :root.mist .np.full .fullart.paging ~ .in::before { opacity: 0; }
   .np .fullart.paging .shade { opacity: .6; }
@@ -2627,7 +2627,7 @@ $('npClose').addEventListener('click', closeNp);
   const startOk = (e) => !e.target.closest('#recBtn, #ambBtn') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
   let x0 = 0, dx = 0, way = null, side = 0;
   const img = $('fullImg'), pk = $('fullPeek'), fa = $('fullArt'), card = $('fullCard'), pcard = $('fullPeekCard');
-  const GAPF = 5; // ジャケットどうしの間の黒い柱（細く）
+  const GAPF = 9; // ジャケットどうしの間の黒い柱
   const W = () => np.clientWidth + GAPF;
   const EASEF = 'transform .36s cubic-bezier(.2,.85,.25,1)';
   const animF = (on) => { card.style.transition = on ? EASEF + ', border-radius .25s ease' : 'border-radius .25s ease'; pcard.style.transition = card.style.transition; };
