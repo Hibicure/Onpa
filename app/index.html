@@ -360,7 +360,7 @@
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
   /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
   :root.mist .lyr { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(34px) saturate(1.4); backdrop-filter: blur(34px) saturate(1.4); border-radius: 54px;
-    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26); }
+    box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
   :root.mist[data-theme="dark"] .lyr { background: rgba(0,0,0,.14);
     box-shadow: inset 0 0 4px 2px rgba(255,255,255,.85), inset 0 0 16px 5px rgba(255,255,255,.62), inset 0 0 34px 8px rgba(255,255,255,.34), inset 0 0 74px 10px rgba(255,255,255,.12); }
   .lyr[hidden] { display: none; }
@@ -399,13 +399,13 @@
     background: linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.12) 100%);
     /* 背景はもうぼけているので、ガラスのぼかし（重い）は使わない */
     /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み。厚みのぶんだけ、くっきり白く */
-    box-shadow: inset 0 0 4px 2px rgba(255,255,255,1), inset 0 0 16px 5px rgba(255,255,255,.92), inset 0 0 34px 8px rgba(255,255,255,.62), inset 0 0 74px 10px rgba(255,255,255,.26), inset 0 0 140px rgba(90,40,70,.12); } /* 白の内側をほんの少し沈ませて、白い厚みを浮かせる */ /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
+    box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2), inset 0 0 140px rgba(90,40,70,.12); } /* 白の内側をほんの少し沈ませて、白い厚みを浮かせる */ /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
   :root.mist[data-theme="dark"] .np .in::before { background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 45%, rgba(255,255,255,.07) 100%);
     box-shadow: inset 0 0 4px 2px rgba(255,255,255,.85), inset 0 0 16px 5px rgba(255,255,255,.62), inset 0 0 34px 8px rgba(255,255,255,.34), inset 0 0 74px 10px rgba(255,255,255,.12); } /* 夜も同じ、白い厚みの縁（少しだけ控えめ） */
   :root.mist .np.full::after { display: none; }
   /* 全画面の再生：ジャケットの上でも、同じ白い厚みの縁（ガラスの面はうすく） */
   :root.mist .np.full .in::before { background: none; z-index: 2;
-    box-shadow: inset 0 0 6px 3px rgba(255,255,255,1), inset 0 0 22px 8px rgba(255,255,255,.9), inset 0 0 46px 12px rgba(255,255,255,.55), inset 0 0 96px 14px rgba(255,255,255,.22); }
+    box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
   /* 真ん中の自分・友達：まわりの輪や名前の札は消して、名前は文字だけ上に */
   /* 真ん中の顔：ボタンみたいな、ちょっと重みのあるバッジ（白い枠はなし） */
   :root.mist .disc .pick { overflow: hidden; background: transparent; box-shadow: none; filter: drop-shadow(0 3px 7px rgba(0,0,0,.38)); }
@@ -782,7 +782,7 @@
   .np .fullart .peekcard { visibility: hidden; }
   .np .fullart.paging .card { border-radius: 28px; }
   :root.mist .np .fullart .card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
-    box-shadow: inset 0 0 6px 3px rgba(255,255,255,1), inset 0 0 22px 8px rgba(255,255,255,.9), inset 0 0 46px 12px rgba(255,255,255,.55), inset 0 0 96px 14px rgba(255,255,255,.22); }
+    box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
   :root.mist .np .fullart:not(.paging) .card::after { display: none; } /* 横にスライドしている時だけ。止まっている時は画面の縁が出ている */
   :root.mist .np.full .fullart.paging ~ .in::before { opacity: 0; }
   .np .fullart.paging .shade { opacity: .6; }
@@ -831,6 +831,11 @@
   #results .row .rheart[aria-pressed="true"] svg { fill: currentColor; }
   #results .row .add { margin-right: -6px; }
   .np #disc { z-index: 1; }
+  /* 再生ボタンまわり：大きく、角が丸く、押し込んだ手ごたえ */
+  .controls .pp svg { width: 58px; height: 58px; }
+  .controls .skip svg { width: 52px; height: 39px; }
+  .controls .pp, .controls .skip { transition: transform .38s cubic-bezier(.3,1.7,.5,1); }
+  .controls .pp:active, .controls .skip:active { opacity: 1; transform: scale(.84); transition: transform .08s ease-out; }
 </style>
 </head>
 <body>
@@ -1048,7 +1053,7 @@
     </div>
     <div class="seek" id="seek"><canvas class="wave" id="wave"></canvas><div class="track"><div class="fill" id="fill"></div></div><div class="knob" id="knob"></div></div>
     <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
-    <div class="controls"><div class="modes"><button class="mode" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M15 4.6v14.8a1.1 1.1 0 0 1-1.7.9L2.6 13a1.2 1.2 0 0 1 0-2L13.3 3.7a1.1 1.1 0 0 1 1.7.9zM29.6 4.6v14.8a1.1 1.1 0 0 1-1.7.9L17.2 13a1.2 1.2 0 0 1 0-2l10.7-7.3a1.1 1.1 0 0 1 1.7.9z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 32 24" fill="currentColor"><path d="M17 4.6v14.8a1.1 1.1 0 0 0 1.7.9L29.4 13a1.2 1.2 0 0 0 0-2L18.7 3.7a1.1 1.1 0 0 0-1.7.9zM2.4 4.6v14.8a1.1 1.1 0 0 0 1.7.9L14.8 13a1.2 1.2 0 0 0 0-2L4.1 3.7a1.1 1.1 0 0 0-1.7.9z"/></svg></button><div class="volwrap"><button class="mode" id="npMore" aria-label="More"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><button class="mode" id="npVol" aria-label="Voice volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="8.6" y="2.8" width="6.8" height="11.4" rx="3.4" fill="currentColor"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0M12 17.8v3.4"/></svg></button>
+    <div class="controls"><div class="modes"><button class="mode" id="npMode" data-mode="off" aria-label="Play in order"><span class="ic"></span><span class="one">1</span></button></div><button class="skip" id="npPrev" aria-label="Previous"><svg viewBox="0 0 32 24" fill="currentColor" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M28.5 5.5v13l-12-6.5z"/><path d="M16 5.5v13l-12-6.5z"/></svg></button><button class="pp" id="npPP" aria-label="Play or pause"></button><button class="skip" id="npNext" aria-label="Next"><svg viewBox="0 0 32 24" fill="currentColor" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3.5 5.5v13l12-6.5z"/><path d="M16 5.5v13l12-6.5z"/></svg></button><div class="volwrap"><button class="mode" id="npMore" aria-label="More"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button><button class="mode" id="npVol" aria-label="Voice volume" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="8.6" y="2.8" width="6.8" height="11.4" rx="3.4" fill="currentColor"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0M12 17.8v3.4"/></svg></button>
       <div class="volpop glass" id="volPop" hidden>
         <div class="vcol" id="colMusic" data-ios-hide><div class="vslot"><input type="range" id="volMusic" min="0" max="100" value="80"></div><span class="vi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5V6.2l10-2v10.3a2.6 2.6 0 1 1-1.8-2.5V8.1L10.8 9.4v8.1A2.6 2.6 0 1 1 9 15z"/></svg></span></div>
         <div class="vcol" id="colVoice"><div class="vslot"><input type="range" id="volVoice" min="0" max="100" value="100" disabled></div><span class="vi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span></div>
@@ -1216,8 +1221,8 @@ function bootOut() {
 }
 function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
-  play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M8 5.6v12.8l10.6-6.4z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.6" y="4.4" width="4.6" height="15.2" rx="1.7"/><rect x="13.8" y="4.4" width="4.6" height="15.2" rx="1.7"/></svg>',
   load: '<div class="spinner"></div>',
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   micOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.9 2.3M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.7 3M12 18v3M3 3l18 18"/></svg>',
@@ -1810,7 +1815,7 @@ function playPrev() {
   if (i >= 0) qi = i;
   pick(prev, false);
 }
-$('npNext').addEventListener('click', () => { unlockAudio(); if (!playNext(false)) playRelated(false); });
+$('npNext').addEventListener('click', () => { hap('rigid'); unlockAudio(); if (!playNext(false)) playRelated(false); });
 
 // 一覧もUp nextも最後まで流れたら、SoundCloudの「関連する曲」で続ける
 let relatedBusy = false;
@@ -1834,7 +1839,7 @@ async function playRelated(auto = true) {
     relatedBusy = false;
   }
 }
-$('npPrev').addEventListener('click', () => { unlockAudio(); playPrev(); });
+$('npPrev').addEventListener('click', () => { hap('rigid'); unlockAudio(); playPrev(); });
 
 // ジャケット（CD）を左右にスワイプ：左で次の曲、右で前の曲。
 // 指を動かした分だけ、となりの曲のCDが横から出てくる
@@ -2669,6 +2674,7 @@ $('discPeer').addEventListener('click', (e) => {
   setEndMode(!$('np').classList.contains('endmode'));
 });
 $('npPP').addEventListener('click', () => {
+  hap('rigid');
   if ($('np').classList.contains('endmode')) { setEndMode(false); $('cbEnd').click(); return; }
   unlockAudio(); togglePlay();
 });
