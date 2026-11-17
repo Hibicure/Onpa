@@ -867,17 +867,9 @@
   .disc .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
   /* 一時停止：もう少し四角く */
   /* 全画面のジャケットのすき間 */
-  /* 四角い時：CDの紙ジャケット。うすい板紙。左と下にだけ紙の厚み（明るい細いふち）、つや消し、影は机に落ちる程度 */
-  .np.square #disc { border-radius: 2px;
-    box-shadow:
-      -1px 1.5px 0 0 rgba(238,236,231,.92),      /* 紙の切り口（左と下） */
-      -1.5px 2.5px 0 0 rgba(0,0,0,.10),           /* 切り口の下の、ごく細い影 */
-      -2px 4px 5px 0 rgba(0,0,0,.16),             /* 机にふれている影 */
-      0 20px 34px -16px rgba(0,0,0,.36),          /* ふわっと落ちる影 */
-      0 8px 14px -8px rgba(0,0,0,.16); }
-  .np.square #disc .edge {
-    background: linear-gradient(140deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(0,0,0,.05) 100%) !important;
-    box-shadow: inset 0 0 0 .5px rgba(0,0,0,.07), inset 0 .5px 0 rgba(255,255,255,.3), inset 2px 0 2px -1px rgba(255,255,255,.14) !important; }
+  /* 四角いジャケット：線をやめて、四方のやわらかい影で厚み */
+  .np.square #disc .edge { box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12), inset 0 10px 14px -12px rgba(255,255,255,.35), inset 0 -10px 14px -10px rgba(0,0,0,.28), inset 10px 0 14px -12px rgba(255,255,255,.18), inset -10px 0 14px -10px rgba(0,0,0,.22) !important; }
+  .np.square #disc { box-shadow: 0 30px 50px -22px rgba(0,0,0,.5), 0 12px 18px -10px rgba(0,0,0,.3), 8px 0 18px -14px rgba(0,0,0,.35), -8px 0 18px -14px rgba(0,0,0,.35); }
 </style>
 </head>
 <body>
