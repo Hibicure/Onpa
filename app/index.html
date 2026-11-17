@@ -401,12 +401,11 @@
     box-shadow: inset 0 0 6px 3px rgba(255,255,255,1), inset 0 0 22px 8px rgba(255,255,255,.9), inset 0 0 46px 12px rgba(255,255,255,.55), inset 0 0 96px 14px rgba(255,255,255,.22); }
   /* 真ん中の自分・友達：まわりの輪や名前の札は消して、名前は文字だけ上に */
   /* 真ん中の顔：ボタンみたいな、ちょっと重みのあるバッジ（白い枠はなし） */
-  :root.mist .disc .pick { overflow: visible; background: transparent; box-shadow: none; }
-  :root.mist .disc .pick-rail { border-radius: 50%; overflow: hidden; -webkit-mask-image: radial-gradient(circle closest-side, #000 99%, transparent 100%); }
-  :root.mist .disc .pick::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: 0 3px 10px rgba(0,0,0,.38), 0 1px 2px rgba(0,0,0,.4); }
-  :root.mist .disc .pick::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 3;
-    box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.35), inset 0 -4px 8px rgba(0,0,0,.3); }
-  :root.mist .disc .pick .avatar, :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
+  :root.mist .disc .pick { overflow: hidden; background: transparent; box-shadow: none; filter: drop-shadow(0 3px 7px rgba(0,0,0,.38)); }
+  :root.mist .disc .pick::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 3; }
+  :root.mist .disc .pick-it .avatar { box-shadow: inset 0 0 0 1.5px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.35), inset 0 -4px 8px rgba(0,0,0,.3) !important; border-radius: 50%; }
+  :root.mist .disc .pick-it .avatar .tex::after { display: none; }
+  :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
   :root.mist .disc .pick-name { top: auto; bottom: 103%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; letter-spacing: -0.01em; max-width: 90%; }
   .avatar .tex { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
   .avatar .tex::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 6px 1px rgba(255,255,255,.7), inset 0 0 14px 3px rgba(255,255,255,.3); }
@@ -1202,7 +1201,7 @@ const face = (u) => safeImg(u && u.avatar) ? `<img class="pic" src="${esc(safeIm
 function bootOut() {
   const b = document.getElementById('boot');
   if (!b || b.hidden || b.classList.contains('out')) return;
-  b.classList.add('out'); hap('thud');
+  b.classList.add('out'); hap('rigid');
   setTimeout(() => { b.hidden = true; b.classList.remove('out'); }, 760);
 }
 function setFace(el, u) { el.innerHTML = face(u); }
@@ -1691,7 +1690,7 @@ $('results').addEventListener('keydown', (e) => {
     const go = dx >= TH && e.type === 'pointerup';
     r.classList.remove('swiping'); r.style.transform = '';
     setTimeout(() => r.classList.remove('armed'), 260);
-    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) { hap('soft'); playNextUp(t); } }
+    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) { hap('rigid'); playNextUp(t); } }
   };
   box.addEventListener('pointerup', end);
   box.addEventListener('pointercancel', end);
@@ -1942,7 +1941,7 @@ function neighborMeta(dir) {
       const src = pkArt.getAttribute('src');
       if (src) $('npArt').src = src; else $('npArt').removeAttribute('src');
       reset();
-      hap('thud'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      hap('rigid'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
       setTimeout(() => { busy = false; }, 120);
     }, 370);
   };
@@ -1963,7 +1962,7 @@ function neighborMeta(dir) {
     timer = setTimeout(() => {
       timer = null;
       if (art) $('npArt').src = art;
-      hap('thud'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      hap('rigid'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
       // 入ってくる：反対側の斜め上から、転がりながら降りてきて真ん中に止まる
       el.style.transition = 'none';
       el.style.transform = roll(-dir * W * 0.7);
@@ -2253,7 +2252,7 @@ async function toggleRowLike(btn) {
   catch { if (like) likedIds.delete(id); else likedIds.add(id); btn.setAttribute('aria-pressed', String(!like)); paintHeart(); toast("Couldn't update your like"); }
 }
 $('heart').addEventListener('click', async () => {
-  hap('light');
+  hap('rigid');
   if (!track) return;
   if (!sc) { toast('Connect SoundCloud to like tracks'); setMode('likes'); $('npClose').click(); showTab('listen'); return; }
   const id = String(track.trackId);
@@ -2720,7 +2719,7 @@ $('npClose').addEventListener('click', closeNp);
       const done = () => { fa.classList.remove('paging'); animF(false); card.style.transform = ''; pcard.style.transform = ''; pcard.style.visibility = 'hidden'; fullSwiping = false; };
       if (!go) { card.style.transform = 'translateX(0px)'; pcard.style.transform = `translateX(${side * W()}px)`; setTimeout(done, 380); return; }
       // 今のカードが出ていき、次のカードが真ん中に来る
-      hap('thud');
+      hap('rigid');
       card.style.transform = `translateX(${-side * W()}px)`;
       pcard.style.transform = 'translateX(0px)';
       setTimeout(() => {
@@ -3069,7 +3068,7 @@ function openPick() {
   pkEl.hidden = false; $('pickName').hidden = false;
   paintPick(0, false);
   armPick();
-  hap('soft');
+  hap('rigid');
 }
 function closePick() {
   clearTimeout(pk.timer);
@@ -3082,7 +3081,7 @@ function paintPick(drag, anim) {
   const n = pk.list.length, rail = $('pickRail');
   // 今の人と、上下となりの人だけ置く（一周できるように）
   const rows = n > 1 ? [-1, 0, 1] : [0];
-  rail.style.transition = anim ? 'transform .34s cubic-bezier(.2,.9,.25,1)' : 'none';
+  rail.style.transition = anim ? 'transform .46s cubic-bezier(.34,1.56,.64,1)' : 'none'; // 戻る時、少し行きすぎて揺れる
   rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" style="top:${o * 114}%"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
   rail.style.transform = `translateY(${drag}px)`;
   const cur = pickAt(pk.i);
@@ -3105,9 +3104,11 @@ function paintPick(drag, anim) {
     }
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
       const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
-      $('pickRail').style.transition = 'transform .22s cubic-bezier(.3,.7,.4,1)';
+      // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
+      $('pickRail').style.transition = 'transform .42s cubic-bezier(.34,1.5,.64,1)';
       $('pickRail').style.transform = `translateY(${-d * h * 1.14}px)`;
-      setTimeout(() => { pk.i += d; paintPick(0, false); hap('tick'); }, 220);
+      hap('rigid');
+      setTimeout(() => { pk.i += d; paintPick(0, false); }, 430);
     } else paintPick(0, true);
     armPick();
   };
@@ -3126,7 +3127,7 @@ function openDial() {
 }
 let dialLast = null;
 function paintDial() {
-  { const r = Math.round(dial.pos); if (r !== dialLast) { if (dialLast !== null) hap('tick'); dialLast = r; } }
+  { const r = Math.round(dial.pos); if (r !== dialLast) { if (dialLast !== null) hap('rigid'); dialLast = r; } }
   const items = $('dialWheel').children;
   for (let i = 0; i < items.length; i++) {
     const o = i - dial.pos, a = Math.abs(o);
