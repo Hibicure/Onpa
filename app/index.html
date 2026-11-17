@@ -860,6 +860,14 @@
   :root.mist[data-theme="dark"] #app::after { box-shadow: inset 0 0 5px 2px rgba(255,255,255,.8), inset 0 0 18px 6px rgba(255,255,255,.55), inset 0 0 38px 9px rgba(255,255,255,.28), inset 0 0 80px 11px rgba(255,255,255,.1); }
   :root.mist .nav { background: linear-gradient(180deg, rgba(233,231,238,0) 0%, rgba(233,231,238,.86) 45%); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; box-shadow: none; }
   :root.mist[data-theme="dark"] .nav { background: linear-gradient(180deg, rgba(20,20,25,0) 0%, rgba(20,20,25,.86) 45%); }
+  :root.mist .disc .pick-name { transition: opacity .5s ease; }
+  :root.mist .disc .pick-name.fade { opacity: 0; }
+  .disc .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
+  /* 一時停止：もう少し四角く */
+  /* 全画面のジャケットのすき間 */
+  /* 四角いジャケット：線をやめて、四方のやわらかい影で厚み */
+  .np.square #disc .edge { box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12), inset 0 10px 14px -12px rgba(255,255,255,.35), inset 0 -10px 14px -10px rgba(0,0,0,.28), inset 10px 0 14px -12px rgba(255,255,255,.18), inset -10px 0 14px -10px rgba(0,0,0,.22) !important; }
+  .np.square #disc { box-shadow: 0 30px 50px -22px rgba(0,0,0,.5), 0 12px 18px -10px rgba(0,0,0,.3), 8px 0 18px -14px rgba(0,0,0,.35), -8px 0 18px -14px rgba(0,0,0,.35); }
 </style>
 </head>
 <body>
@@ -1246,7 +1254,7 @@ function bootOut() {
 function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M8 5.6v12.8l10.6-6.4z"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.6" y="4.4" width="4.6" height="15.2" rx="1.7"/><rect x="13.8" y="4.4" width="4.6" height="15.2" rx="1.7"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.6" y="4.4" width="4.6" height="15.2" rx="1"/><rect x="13.8" y="4.4" width="4.6" height="15.2" rx="1"/></svg>',
   load: '<svg class="spin" viewBox="0 0 24 24"><path d="M12 4.2a7.8 7.8 0 1 1-7.8 7.8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>',
   mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   micOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 9.5V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 4.9 2.3M5 11a7 7 0 0 0 11.3 5.5M19 11a7 7 0 0 1-.7 3M12 18v3M3 3l18 18"/></svg>',
@@ -1952,7 +1960,6 @@ function neighborMeta(dir) {
       return;
     }
     if (!horizontal) {
-      if (horizontal === null && !$('discPick').hidden) { closePick(); return; } // 顔が出ている時に外側をタップ＝しまう
       // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
       if (horizontal === null && !e.target.closest('#discPeer') && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
         const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -2724,7 +2731,7 @@ $('npClose').addEventListener('click', closeNp);
   const startOk = (e) => !e.target.closest('#recBtn, #ambBtn') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
   let x0 = 0, dx = 0, way = null, side = 0;
   const img = $('fullImg'), pk = $('fullPeek'), fa = $('fullArt'), card = $('fullCard'), pcard = $('fullPeekCard');
-  const GAPF = 9; // ジャケットどうしの間の黒い柱
+  const GAPF = 6; // ジャケットどうしの間の黒い柱
   const W = () => np.clientWidth + GAPF;
   const EASEF = 'transform .36s cubic-bezier(.2,.85,.25,1)';
   const animF = (on) => { card.style.transition = on ? EASEF + ', border-radius .25s ease' : 'border-radius .25s ease'; pcard.style.transition = card.style.transition; };
@@ -2790,7 +2797,10 @@ $('npClose').addEventListener('click', closeNp);
 const seekEl = $('seek');
 const posToTime = (x) => { const r = seekEl.getBoundingClientRect(); return Math.max(0, Math.min(1, (x - r.left) / r.width)) * (durNow() || 0); };
 seekEl.addEventListener('pointerdown', (e) => { if (!track || !(durNow() > 0)) return; dragging = true; seekEl.classList.add('drag'); seekEl.setPointerCapture(e.pointerId); drawProgress(posToTime(e.clientX)); });
-seekEl.addEventListener('pointermove', (e) => { if (dragging) drawProgress(posToTime(e.clientX)); });
+let seekTick = -1; // 波形をなぞる時、少し進むごとにコツッと
+seekEl.addEventListener('pointermove', (e) => { if (!dragging) return; drawProgress(posToTime(e.clientX));
+  const r = seekEl.getBoundingClientRect(), k = Math.floor((e.clientX - r.left) / 14); if (k !== seekTick) { if (seekTick >= 0) hap('rigid'); seekTick = k; } });
+seekEl.addEventListener('pointerup', () => { seekTick = -1; });
 seekEl.addEventListener('pointerup', (e) => { if (!dragging) return; dragging = false; seekEl.classList.remove('drag'); seekTo(posToTime(e.clientX)); });
 seekEl.addEventListener('pointercancel', () => { dragging = false; seekEl.classList.remove('drag'); });
 
@@ -2982,7 +2992,9 @@ function watchFriends() {
   });
 }
 
+function restorePick() { let k = ''; try { k = localStorage.getItem('otocloud_pick') || ''; } catch {} if (k && me && call.state === 'idle') openPick(true); }
 function renderFriends() {
+  setTimeout(restorePick, 0); // 友達がそろうたびに、前に置いた人の顔に合わせる
   if (!$('viewHome').hidden) renderHome();
   const list = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0));
   $('friendsTitle').textContent = list.length === 1 ? '1 friend' : list.length ? `${list.length} friends` : 'Friends';
@@ -3099,11 +3111,15 @@ $('picFile').addEventListener('change', async (e) => {
 // まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
 const PICK_BG_JACKET = false;
 const pk = { list: [], i: 0, timer: 0 };
-function openPick() {
+function openPick(quiet) {
   if (!me) return;
+  if (!$('discPick').hidden && quiet && pk.list.some((x) => x.uid === (localStorage.getItem('otocloud_pick') || '')) ) return;
   const fr = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0)).map(([uid, f]) => ({ uid, f }));
   pk.list = [{ uid: me.uid, f: me, self: true }, ...fr];
-  pk.i = 0;
+  // 前に選んでいた人のところから（顔はずっと置いたまま）
+  let keep = ''; try { keep = localStorage.getItem('otocloud_pick') || ''; } catch {}
+  const ki = pk.list.findIndex((x) => x.uid === keep); pk.i = ki >= 0 ? ki : 0;
+  if (!quiet || ki >= 0) { try { localStorage.setItem('otocloud_pick', pk.list[pk.i].uid); } catch {} }
   $('disc').classList.add('picking');
   // 顔の後ろ（スライドした時に見えるすき間）は、ジャケットの続きに見えるように
   const art = $('npArt').getAttribute('src');
@@ -3113,32 +3129,51 @@ function openPick() {
   else pkEl.style.backgroundImage = '';
   pkEl.hidden = false; $('pickName').hidden = false;
   paintPick(0, false);
-  armPick();
-  hap('rigid');
+  if (!quiet) hap('rigid');
 }
 function closePick() {
   clearTimeout(pk.timer);
   $('discPick').hidden = true; $('pickName').hidden = true;
   $('disc').classList.remove('picking');
 }
-function armPick() { clearTimeout(pk.timer); pk.timer = setTimeout(closePick, 9000); } // しばらく触らなければ、しまう
+function armPick() {} // 顔は自動で消さない（置いたまま）
 const pickAt = (k) => pk.list[((k % pk.list.length) + pk.list.length) % pk.list.length];
 function paintPick(drag, anim) {
-  const n = pk.list.length, rail = $('pickRail');
-  // 今の人と、上下となりの人だけ置く（一周できるように）
-  const rows = n > 1 ? [-1, 0, 1] : [0];
-  rail.style.transition = anim ? 'transform .46s cubic-bezier(.34,1.56,.64,1)' : 'none'; // 戻る時、少し行きすぎて揺れる
-  rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" style="top:${o * 114}%"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
-  rail.style.transform = `translateY(${drag}px)`;
+  const n = pk.list.length, rail = $('pickRail'), h = $('discPick').offsetHeight || 100;
+  // 今の人と、前後2人ずつ置く（一周できるように）
+  const rows = n > 1 ? [-2, -1, 0, 1, 2] : [0];
+  if (rail.dataset.i !== String(pk.i) || rail.dataset.n !== String(n)) {
+    rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" data-o="${o}" style="top:0"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
+    rail.dataset.i = String(pk.i); rail.dataset.n = String(n);
+  }
+  rail.style.transform = 'none';
+  placePick(drag / (h * 1.14), anim);
   const cur = pickAt(pk.i);
-  $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? ' <span class="on">●</span>' : '');
+  $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? '<small class="pk-on">online</small>' : '');
+  $('pickName').classList.remove('fade'); clearTimeout(pk.nameT); pk.nameT = setTimeout(() => $('pickName').classList.add('fade'), 1800);
+}
+// ダイヤルみたいに、円の上を回る（上下に動きながら、少し横へ逃げて小さくなる）
+function placePick(off, anim) {
+  const h = $('discPick').offsetHeight || 100;
+  for (const el of $('pickRail').children) {
+    const p = Number(el.dataset.o) + off;
+    const a = p * 0.78; // 1人ぶん ≒ 45°
+    const y = Math.sin(Math.max(-1.45, Math.min(1.45, a))) * h * 1.2;
+    const x = -(1 - Math.cos(Math.max(-1.45, Math.min(1.45, a)))) * h * 0.55;
+    const sc = 1 - Math.min(0.35, Math.abs(p) * 0.16);
+    el.style.transition = anim ? 'transform .46s cubic-bezier(.34,1.56,.64,1)' : 'none';
+    el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc.toFixed(3)})`;
+  }
 }
 (() => {
   const box = $('discPick'); let id = null, sy = 0, dy = 0, t0 = 0;
   const stop = (e) => e.stopPropagation(); // CDのスライドや下に引いて閉じる動きと混ざらないように
   let slideT = 0; const sliding = (on, ms = 0) => { clearTimeout(slideT); if (on) box.classList.add('sliding'); else slideT = setTimeout(() => box.classList.remove('sliding'), ms); };
-  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; dy = 0; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
-  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy; if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); paintPick(dy, false); } });
+  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; dy = 0; tickAt = 0; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
+  let tickAt = 0;
+  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy;
+    if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); paintPick(dy, false);
+      const t = Math.trunc(dy / (box.offsetHeight * 0.32)); if (t !== tickAt) { tickAt = t; hap('rigid'); } } });
   const up = (e) => {
     stop(e); if (e.pointerId !== id) return; id = null;
     const h = box.offsetHeight, fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.35;
@@ -3152,10 +3187,9 @@ function paintPick(drag, anim) {
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
       const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
       // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
-      $('pickRail').style.transition = 'transform .42s cubic-bezier(.34,1.5,.64,1)';
-      $('pickRail').style.transform = `translateY(${-d * h * 1.14}px)`;
+      placePick(-d, true);
       hap('rigid');
-      setTimeout(() => { pk.i += d; paintPick(0, false); }, 430);
+      setTimeout(() => { pk.i += d; paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} }, 430);
       sliding(false, 470);
     } else { paintPick(0, true); sliding(false, 480); }
     armPick();
@@ -3797,6 +3831,7 @@ function endCall(msg) {
   setEndMode(false);
   $('callbar').hidden = true; $('npTogether').hidden = true;
   $('disc').classList.remove('incall'); $('discPeer').hidden = true;
+  restorePick();
   $('volVoice').disabled = true;
   $('mixNote').textContent = isIOS ? 'On iPhone, use the side buttons for music volume.' : 'Voice volume is available during a call';
   renderFriends();
