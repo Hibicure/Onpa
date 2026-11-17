@@ -552,6 +552,29 @@ export default {
       if (p === '/sc/callback') return scCallback(request, url, env);
       if (p === '/sc/refresh' && request.method === 'POST') return scRefresh(request, env, cors);
 
+      // ---- Spotify の合鍵の交換・更新（iPhone アプリの Spotify SDK から呼ばれる）
+      // 秘密の鍵（SPOTIFY_CLIENT_SECRET）はここ（Cloudflare の Secrets）にだけ置く。アプリやページには入れない
+      if ((p === '/spotify/swap' || p === '/spotify/refresh') && request.method === 'POST') {
+        if (!env.SPOTIFY_CLIENT_SECRET) return json({ error: 'SPOTIFY_CLIENT_SECRET が未設定です' }, 500, cors);
+        const form = new URLSearchParams(await request.text());
+        const body = new URLSearchParams();
+        if (p === '/spotify/swap') {
+          body.set('grant_type', 'authorization_code');
+          body.set('code', form.get('code') || '');
+          body.set('redirect_uri', 'app.otocloud://spotify-callback');
+        } else {
+          body.set('grant_type', 'refresh_token');
+          body.set('refresh_token', form.get('refresh_token') || '');
+        }
+        const r = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa('1ff4e8ebb2f94fb5a20149d697df21fc:' + env.SPOTIFY_CLIENT_SECRET) },
+          body,
+        });
+        const out = new Response(await r.text(), { status: r.status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        return out;
+      }
+
       // ---- SoundCloudのアカウントで Otocloud に入る: /auth/sc
       // SoundCloudの合鍵を確かめて、そのSoundCloudアカウント専用のログイン情報を返す。
       // 同じSoundCloudなら、どの端末でも同じ Otocloud アカウントになる。

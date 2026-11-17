@@ -4,6 +4,7 @@ import SwiftUI
 import WebKit
 import ObjectiveC
 import MusicKit
+import SpotifyiOS
 
 // Otocloud のアプリ本体。
 // 画面とふるまいは https://on-pa.net/app/ と同じものを、アプリの中でそのまま表示する。
@@ -22,6 +23,7 @@ struct OtocloudApp: App {
         WindowGroup {
             WebShell(url: URL(string: "https://on-pa.net/app/")!)
                 .ignoresSafeArea()
+                .onOpenURL { url in _ = SpotifyBridge.shared.handle(url) } // Spotify の許可から戻ってきた時
                 .background(Color(red: 0.851, green: 0.855, blue: 0.867)) // #D9DADD
         }
     }
@@ -217,6 +219,20 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "amResume": await am.resume()
                 case "amSeek": am.seek(body["t"] as? Double ?? 0)
                 case "amStop": am.stop()
+                // ---- Spotify（Premium の人。再生は iPhone の Spotify アプリで、Otocloud はリモコン）
+                case "spStatus":
+                    result = SpotifyBridge.shared.status()
+                case "spLogin":
+                    hookSP()
+                    let ok = await SpotifyBridge.shared.login()
+                    result = SpotifyBridge.shared.status().merging(["ok": ok]) { $1 }
+                case "spPlay":
+                    hookSP()
+                    let ok = await SpotifyBridge.shared.play(uri: body["uri"] as? String ?? "", at: body["at"] as? Double ?? 0)
+                    result = ["ok": ok]
+                case "spPause": SpotifyBridge.shared.pause()
+                case "spResume": SpotifyBridge.shared.resume()
+                case "spSeek": SpotifyBridge.shared.seek(body["t"] as? Double ?? 0)
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
@@ -303,6 +319,13 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                            options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowAirPlay, .mixWithOthers])
         try? s.setActive(true)
         log("session set")
+    }
+
+    private var spHooked = false
+    private func hookSP() {
+        guard !spHooked else { return }
+        spHooked = true
+        SpotifyBridge.shared.onEvent = { [weak self] e in self?.send(e) }
     }
 
     private func hookAM() {
@@ -595,5 +618,147 @@ final class AppleMusic {
                 self.lastT = t
             }
         }
+    }
+}
+
+
+// MARK: - Spotify（iOS SDK）
+// 曲を流すのは iPhone の Spotify アプリ。Otocloud はそれを操作するリモコン。
+// 許可は最初の1回だけ（合鍵を保存して、期限が来たらサーバー経由で自動更新）。
+// Spotify アプリが止まっている時だけ、一瞬 Spotify を開いて起こしてから戻ってくる。
+final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDelegate, SPTAppRemotePlayerStateDelegate {
+    static let shared = SpotifyBridge()
+    static let clientID = "1ff4e8ebb2f94fb5a20149d697df21fc"
+    static let redirect = URL(string: "app.otocloud://spotify-callback")!
+    private let config: SPTConfiguration
+    private lazy var sessionManager = SPTSessionManager(configuration: config, delegate: self)
+    private lazy var remote: SPTAppRemote = {
+        let r = SPTAppRemote(configuration: config, logLevel: .error)
+        r.delegate = self
+        return r
+    }()
+    var onEvent: (([String: Any]) -> Void)?
+    private var loginWaiter: CheckedContinuation<Bool, Never>?
+    private var connectWaiters: [CheckedContinuation<Bool, Never>] = []
+
+    override init() {
+        config = SPTConfiguration(clientID: SpotifyBridge.clientID, redirectURL: SpotifyBridge.redirect)
+        config.tokenSwapURL = URL(string: "https://geocloud.icchasong.workers.dev/spotify/swap")
+        config.tokenRefreshURL = URL(string: "https://geocloud.icchasong.workers.dev/spotify/refresh")
+        config.playURI = ""
+        super.init()
+        if let d = UserDefaults.standard.data(forKey: "spSession"),
+           let s = try? NSKeyedUnarchiver.unarchivedObject(ofClass: SPTSession.self, from: d) {
+            sessionManager.session = s
+        }
+    }
+
+    func status() -> [String: Any] {
+        let s = sessionManager.session
+        return ["ok": true, "linked": s != nil, "connected": remote.isConnected,
+                "installed": sessionManager.isSpotifyAppInstalled, "token": s?.accessToken ?? "",
+                "expires": (s?.expirationDate.timeIntervalSince1970 ?? 0) * 1000]
+    }
+
+    func login() async -> Bool {
+        await withCheckedContinuation { c in
+            loginWaiter = c
+            sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming], options: .default, campaign: nil)
+        }
+    }
+
+    // Spotify から app.otocloud://spotify-callback で戻ってきた時
+    func handle(_ url: URL) -> Bool {
+        guard url.scheme == "app.otocloud" else { return false }
+        _ = sessionManager.application(UIApplication.shared, open: url, options: [:])
+        if let p = remote.authorizationParameters(from: url), let t = p["access_token"], !t.isEmpty {
+            remote.connectionParameters.accessToken = t
+            remote.connect()
+        }
+        return true
+    }
+
+    private func saved(_ s: SPTSession) {
+        if let d = try? NSKeyedArchiver.archivedData(withRootObject: s, requiringSecureCoding: true) {
+            UserDefaults.standard.set(d, forKey: "spSession")
+        }
+        remote.connectionParameters.accessToken = s.accessToken
+    }
+
+    // つながっていなければつなぐ。Spotify が止まっていたら、その曲で起こす
+    private func ensureConnected(playURI: String) async -> Bool {
+        if remote.isConnected { return true }
+        guard let s = sessionManager.session else { return false }
+        if s.isExpired {
+            sessionManager.renewSession()
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+        }
+        remote.connectionParameters.accessToken = sessionManager.session?.accessToken
+        let ok = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+            connectWaiters.append(c)
+            remote.connect()
+        }
+        if ok { return true }
+        // Spotify アプリが動いていない：一瞬開いて、その曲から流し始めてもらう
+        let opened = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+            remote.authorizeAndPlayURI(playURI) { ok in c.resume(returning: ok) }
+        }
+        guard opened else { return false }
+        for _ in 0..<40 { // 戻ってきてつながるのを最大10秒待つ
+            if remote.isConnected { return true }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        return remote.isConnected
+    }
+
+    func play(uri: String, at: Double) async -> Bool {
+        guard !uri.isEmpty, await ensureConnected(playURI: uri) else { return false }
+        return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+            remote.playerAPI?.play(uri, callback: { _, err in
+                if at > 0.5 { self.remote.playerAPI?.seek(toPosition: Int(at * 1000), callback: nil) }
+                c.resume(returning: err == nil)
+            })
+        }
+    }
+    func pause() { remote.playerAPI?.pause(nil) }
+    func resume() { remote.playerAPI?.resume(nil) }
+    func seek(_ t: Double) { remote.playerAPI?.seek(toPosition: Int(t * 1000), callback: nil) }
+
+    private func finishConnect(_ ok: Bool) {
+        let w = connectWaiters; connectWaiters = []
+        w.forEach { $0.resume(returning: ok) }
+    }
+
+    // MARK: SPTSessionManagerDelegate
+    func sessionManager(manager: SPTSessionManager, didInitiate session: SPTSession) {
+        DispatchQueue.main.async {
+            self.saved(session)
+            self.loginWaiter?.resume(returning: true); self.loginWaiter = nil
+        }
+    }
+    func sessionManager(manager: SPTSessionManager, didFailWith error: Error) {
+        DispatchQueue.main.async {
+            self.loginWaiter?.resume(returning: false); self.loginWaiter = nil
+        }
+    }
+    func sessionManager(manager: SPTSessionManager, didRenew session: SPTSession) {
+        DispatchQueue.main.async { self.saved(session) }
+    }
+
+    // MARK: SPTAppRemoteDelegate
+    func appRemoteDidEstablishConnection(_ appRemote: SPTAppRemote) {
+        appRemote.playerAPI?.delegate = self
+        appRemote.playerAPI?.subscribe(toPlayerState: nil)
+        finishConnect(true)
+        onEvent?(["type": "spState", "connected": true])
+    }
+    func appRemote(_ appRemote: SPTAppRemote, didFailConnectionAttemptWithError error: Error?) { finishConnect(false) }
+    func appRemote(_ appRemote: SPTAppRemote, didDisconnectWithError error: Error?) { onEvent?(["type": "spState", "connected": false]) }
+
+    // MARK: SPTAppRemotePlayerStateDelegate
+    func playerStateDidChange(_ s: SPTAppRemotePlayerState) {
+        onEvent?(["type": "spState", "connected": true, "uri": s.track.uri, "name": s.track.name,
+                  "artist": s.track.artist.name, "pos": Double(s.playbackPosition) / 1000,
+                  "dur": Double(s.track.duration) / 1000, "paused": s.isPaused, "at": Date().timeIntervalSince1970 * 1000])
     }
 }

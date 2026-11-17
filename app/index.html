@@ -900,6 +900,15 @@
       <p class="set-hint" id="setRbNote" style="margin-top:8px"></p>
     </div>
 
+    <div class="set-group" id="setSpGroup" hidden>
+      <div class="set-label">Spotify (test)</div>
+      <p class="set-hint" id="setSpState">Not connected</p>
+      <div class="set-row" style="margin-top:8px"><button class="btn ghost" id="setSpLogin">Connect Spotify</button></div>
+      <input id="setSpQ" placeholder="Search Spotify" style="margin-top:10px;width:100%;height:42px;border-radius:999px;padding:0 16px;border:0;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink);font:inherit" hidden>
+      <div id="setSpList"></div>
+      <p class="set-hint" id="setSpNow" style="margin-top:8px"></p>
+    </div>
+
     <div class="set-group" id="setPwGroup">
       <div class="set-label" id="setPwLabel">Password</div>
       <p class="set-hint" id="setPwHint"></p>
@@ -1419,7 +1428,7 @@ function openSettings() {
   $('setPwHint').textContent = hasPw ? 'Sign in with @' + me.handle + ' and this password on any device.' : 'Without a password you can only use @' + me.handle + ' on this device. Set one to sign in anywhere.';
   $('setPwIn').value = '';
   signOutArmed = 0; $('signOut').textContent = 'Sign out';
-  paintRingback();
+  paintRingback(); paintSpotify();
   const sh = $('settings'); sh.classList.add('open'); sh.setAttribute('aria-hidden', 'false');
 }
 function closeSettings() { const sh = $('settings'); sh.classList.remove('open'); sh.setAttribute('aria-hidden', 'true'); }
@@ -2888,6 +2897,53 @@ $('dialCall').addEventListener('click', () => {
   $('dial').hidden = true;
   startCall(uid);
 });
+
+// ===================== Spotify（テスト：Premium の人が、iPhone の Spotify アプリをリモコンで流す） =====================
+let spTok = '';
+async function paintSpotify() {
+  if (!NATIVE_CALL) return;
+  const r = await nat('spStatus').catch(() => null);
+  if (!r || !('linked' in r)) return; // 古いアプリ
+  hookSpState();
+  $('setSpGroup').hidden = false;
+  spTok = r.token || '';
+  $('setSpState').textContent = !r.installed ? 'Install the Spotify app first' : r.linked ? (r.connected ? 'Connected' : 'Linked') : 'Not connected';
+  $('setSpLogin').textContent = r.linked ? 'Reconnect' : 'Connect Spotify';
+  $('setSpQ').hidden = !r.linked;
+}
+$('setSpLogin').addEventListener('click', async () => {
+  const r = await nat('spLogin').catch(() => null);
+  if (!r || !r.ok) toast("Couldn't connect Spotify"); else toast('Spotify connected');
+  paintSpotify();
+});
+let spSearchT = null;
+$('setSpQ').addEventListener('input', (e) => {
+  clearTimeout(spSearchT);
+  const q = e.target.value.trim();
+  spSearchT = setTimeout(async () => {
+    if (!q || !spTok) { $('setSpList').innerHTML = ''; return; }
+    try {
+      const r = await fetch('https://api.spotify.com/v1/search?type=track&limit=10&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + spTok } });
+      const d = await r.json();
+      const items = (d.tracks && d.tracks.items) || [];
+      $('setSpList').innerHTML = items.map((t) => `<div class="row" data-spuri="${esc(t.uri)}" style="cursor:pointer"><span class="artw"><img class="art" src="${esc((t.album.images[2] || t.album.images[0] || {}).url || '')}" alt=""></span><div class="txt"><div class="t">${esc(t.name)}</div><div class="s">${esc(t.artists.map((a) => a.name).join(', '))}</div></div></div>`).join('') || '<p class="set-hint">No results</p>';
+    } catch { $('setSpList').innerHTML = '<p class="set-hint">Search failed — tap Reconnect</p>'; }
+  }, 350);
+});
+$('setSpList').addEventListener('click', async (e) => {
+  const row = e.target.closest('[data-spuri]'); if (!row) return;
+  if (!player.paused) player.pause(); // SoundCloud は止める
+  const r = await nat('spPlay', { uri: row.dataset.spuri, at: 0 }).catch(() => null);
+  if (!r || !r.ok) toast("Couldn't play on Spotify");
+});
+let spHooked = false;
+function hookSpState() { // natH は後ろで作られるので、使う時に登録する
+  if (spHooked) return; spHooked = true;
+  (natH.spState = natH.spState || []).push((e) => {
+    if (e.name) $('setSpNow').textContent = `${e.paused ? '⏸' : '▶'} ${e.name} — ${e.artist}  ${Math.floor(e.pos)}s / ${Math.floor(e.dur)}s`;
+    else if (e.connected === false) $('setSpNow').textContent = 'Disconnected (it reconnects when you play again)';
+  });
+}
 
 // ===================== 呼出音 =====================
 // 電話をかけてから相手が出るまで、相手が決めた曲（決めていなければデフォルトの曲）が、かけた側に流れる。
