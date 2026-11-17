@@ -373,7 +373,7 @@
   .disc.picking .hole { display: none; }
   @keyframes pickin { from { transform: scale(.6); opacity: 0; } }
   /* ===== 新しい見た目（お試し）：ミルクのすりガラス＋ジャケットの色がにじむ ===== */
-  :root.mist .np { background: #E7E4EC; }
+  :root.mist .np { background: #E7E4EC; border-radius: 54px; overflow: hidden; }
   :root.mist[data-theme="dark"] .np { background: #15141A; }
   :root.mist .np .amb { opacity: 1 !important; }
   :root.mist .np .amb .blob { filter: blur(70px) saturate(1.35) brightness(1.08); }
@@ -387,7 +387,7 @@
     background: linear-gradient(180deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,.14) 45%, rgba(255,255,255,.26) 100%);
     -webkit-backdrop-filter: blur(26px) saturate(1.5); backdrop-filter: blur(26px) saturate(1.5);
     /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み。厚みのぶんだけ、くっきり白く */
-    box-shadow: inset 0 0 6px rgba(255,255,255,.75), inset 0 0 18px rgba(255,255,255,.55), inset 0 0 40px rgba(255,255,255,.28), inset 0 0 90px rgba(255,255,255,.12); } /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
+    box-shadow: inset 0 0 3px 1px rgba(255,255,255,1), inset 0 0 12px 2px rgba(255,255,255,.9), inset 0 0 26px 4px rgba(255,255,255,.6), inset 0 0 60px 6px rgba(255,255,255,.25), inset 0 0 140px rgba(90,40,70,.12); } /* 白の内側をほんの少し沈ませて、白い厚みを浮かせる */ /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み */
   :root.mist[data-theme="dark"] .np .in::before { background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.03) 45%, rgba(255,255,255,.07) 100%);
     box-shadow: inset 0 0 6px rgba(255,255,255,.22), inset 0 0 18px rgba(255,255,255,.14), inset 0 0 40px rgba(255,255,255,.07); }
   :root.mist .np.full .in::before, :root.mist .np.full::after { display: none; }
