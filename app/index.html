@@ -588,6 +588,9 @@
   /* ---------- お知らせ ---------- */
   .toast { pointer-events: none; position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
   .toast.show { transform: translate(-50%, 0); visibility: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  /* 新しい見た目：お知らせは箱なし、白く光る文字だけ */
+  :root.mist .toast { background: none; color: #fff; font-family: var(--display); font-weight: 700; font-size: 19px; letter-spacing: -0.01em; padding: 6px 4px; text-align: center;
+    text-shadow: 0 0 12px rgba(255,255,255,.75), 0 0 2px rgba(255,255,255,.9), 0 1px 14px rgba(0,0,0,.35); }
 
   @media (prefers-reduced-motion: reduce) {
     .disc .platter, .row.now .art, .incoming .avatar, .callbar .pulse { animation: none !important; }
