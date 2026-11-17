@@ -314,7 +314,14 @@
   .titlebar #npT { grid-column: 1; grid-row: 1; }
   .titlebar #npS { grid-column: 1; grid-row: 2; }
   /* ハートは曲名とアーティスト名のまん中の高さに（1行でも2行でも） */
-  .titlebar #heart { grid-column: 2; grid-row: 1 / span 2; align-self: center; height: 34px; }
+  .titlebar #heart { grid-column: 2; grid-row: 1; align-self: start; height: 34px; margin-top: -4px; position: relative; } /* 曲名の1行目にそろえる */
+  /* いいねした時：ポンと弾んで、光の粒がパッと散る */
+  #heart.pop svg { animation: heartpop .5s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes heartpop { 0% { transform: scale(1); } 18% { transform: scale(.72); } 55% { transform: scale(1.32); } 100% { transform: scale(1); } }
+  #heart .burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+  #heart .burst i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0;
+    box-shadow: 0 0 8px currentColor; animation: heartspark .55s cubic-bezier(.2,.8,.3,1) forwards; }
+  @keyframes heartspark { 0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--a)) translateY(-26px) scale(.2); opacity: 0; } }
   /* 三原色（背景の色）ボタンは、画面の右上に */
   .np .top #ambBtn { position: absolute; right: 2px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
   .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
@@ -2262,6 +2269,14 @@ $('heart').addEventListener('click', async () => {
   const like = !likedIds.has(id);
   if (like) likedIds.add(id); else likedIds.delete(id);
   paintHeart();
+  if (like) {
+    const hb = $('heart');
+    hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
+    const b = document.createElement('span'); b.className = 'burst';
+    b.innerHTML = Array.from({ length: 8 }, (_, i) => `<i style="--a:${i * 45 + 22}deg;animation-delay:${60 + (i % 2) * 30}ms"></i>`).join('');
+    hb.appendChild(b); setTimeout(() => { b.remove(); hb.classList.remove('pop'); }, 700);
+    setTimeout(() => hap('rigid'), 140); // ドクン（2回目）
+  }
   try {
     await scApi('/sc/like?id=' + id, like ? 'POST' : 'DELETE');
     toast(like ? 'Liked on SoundCloud' : 'Removed from your likes');
