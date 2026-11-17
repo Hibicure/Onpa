@@ -346,6 +346,8 @@
   .seek.waved .track, .seek.waved .knob { display: none; }
   .seek.waved + .times { margin-top: 20px; } /* 波形と時間の数字が重ならないように */
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
+  .artistPlace { display: flex; align-items: center; gap: 6px; padding: 2px 4px 12px; font-size: 13px; color: var(--mute, #8a8d93); }
+  .artistPlace svg { width: 15px; height: 15px; flex: none; }
   #disc .platter, #disc { transition: border-radius .35s cubic-bezier(.2,.8,.2,1), transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np.square #disc, .np.square #disc .platter { border-radius: 0; }
   .np.square #disc .platter { -webkit-mask-image: none; mask-image: none; animation: none; }
@@ -1727,6 +1729,8 @@ function neighborMeta(dir) {
     const p = Math.min(1, Math.abs(x) / span()), arc = Math.sin(Math.PI * p); // 真ん中と、となりの位置では0。間でいちばん浮く
     return `translateX(${x}px) translateY(${(-26 * arc).toFixed(2)}px) rotate(${(x / 6).toFixed(2)}deg) scale(${(1 + 0.06 * arc).toFixed(4)})`;
   };
+  // CDが転がる時の形：横に動いた分だけ回って（本物のCDが転がるくらい）、少し斜め上に上がる。大きさは変えない
+  const roll = (x) => `translate(${x.toFixed(1)}px, ${(-Math.abs(x) * 0.3).toFixed(1)}px) rotate(${(x / el.offsetWidth * 150).toFixed(2)}deg)`;
   let tw = 0;
   // 指を離した後も同じ弧の上を動かす（CSSの補間だと弧にならないので、1コマずつ置く）
   const glide = (from, to, ms) => {
@@ -1758,9 +1762,9 @@ function neighborMeta(dir) {
     if (!horizontal) return;
     dx = mx;
     hist.push([performance.now(), dx]); if (hist.length > 6) hist.shift();
-    if (!$('np').classList.contains('square')) { // CD：最初の動き。となりのCDは出さない
-      el.style.transform = `translateX(${dx}px) rotate(${dx / 8}deg)`;
-      el.style.opacity = String(1 - Math.min(Math.abs(dx) / 400, 0.5));
+    if (!$('np').classList.contains('square')) { // CD：転がるようにくるっと回りながら、斜め上へ。となりのCDは出さない
+      el.style.transform = roll(dx);
+      el.style.opacity = String(1 - Math.min(Math.abs(dx) / 420, 0.45));
       return;
     }
     if (track && dx !== 0) setPeek(dx < 0 ? 1 : -1);
@@ -1817,20 +1821,24 @@ function neighborMeta(dir) {
     const dir = dx < 0 ? -1 : 1;
     const m = neighborMeta(dir); // 入ってくるCDには、最初から次の曲のジャケットを（前の絵がダブらないように）
     const art = m && m.artwork ? m.artwork.replace('-large.', '-t500x500.') : '';
-    el.style.transform = `translateX(${dir * window.innerWidth}px) rotate(${dir * 40}deg)`;
+    // 出ていく：くるんと回りながら斜め上へ飛んでいく
+    const W = window.innerWidth;
+    el.style.transition = 'transform .3s cubic-bezier(.4,.1,.7,.6), opacity .3s';
+    el.style.transform = roll(dir * W);
     el.style.opacity = '0';
     timer = setTimeout(() => {
       timer = null;
       if (art) $('npArt').src = art;
       if (dir < 0) $('npNext').click(); else $('npPrev').click();
+      // 入ってくる：反対側の斜め上から、転がりながら降りてきて真ん中に止まる
       el.style.transition = 'none';
-      el.style.transform = `translateX(${-dir * window.innerWidth * 0.6}px) rotate(${-dir * 30}deg)`;
+      el.style.transform = roll(-dir * W * 0.7);
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        el.style.transition = '';
+        el.style.transition = 'transform .5s cubic-bezier(.2,.9,.25,1), opacity .35s';
         el.style.transform = ''; el.style.opacity = '';
-        setTimeout(() => { busy = false; }, 300);
+        setTimeout(() => { el.style.transition = ''; busy = false; }, 500);
       }));
-    }, 220);
+    }, 260);
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', (e) => { if (e.pointerId !== id) return; id = null; if (pulling) { pulling = false; $('np').classList.remove('dragging'); $('np').style.transform = ''; } reset(); });
@@ -2003,8 +2011,21 @@ async function openArtist(userId, name) {
     if (mode === 'artist') {
       // 縦に並べて、ジャケットは角なしの正方形をすき間なく積む
       renderTracks(d, msg('No tracks yet'));
+      artistPlace(userId);
     }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
+}
+// プロフィールの場所（SoundCloudに登録してある街・国）をページの上に出す
+async function artistPlace(userId) {
+  try {
+    const u = await (await fetch(`${WORKER}/user/${userId}`, { headers: await scHeaders() })).json();
+    let country = u.country || '';
+    if (!country && u.countryCode) { try { country = new Intl.DisplayNames(['en'], { type: 'region' }).of(u.countryCode); } catch { country = u.countryCode; } }
+    const place = [u.city, country].filter(Boolean).join(', ');
+    if (!place || mode !== 'artist') return;
+    const old = $('results').querySelector('.artistPlace'); if (old) old.remove();
+    $('results').insertAdjacentHTML('afterbegin', `<div class="artistPlace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>${esc(place)}</div>`);
+  } catch { /* 場所が取れなくても、曲はそのまま */ }
 }
 async function openTrackArtist() {
   if (!track) return;

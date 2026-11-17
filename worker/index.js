@@ -430,6 +430,12 @@ export default {
         const t = await trackInfo(m[1], env, userToken, url.searchParams.get('st') || '');
         return t ? json(t, 200, cors) : json({ error: 'not found' }, 404, cors);
       }
+      // ---- その人のプロフィール: /user/123（街・国など。アーティストページの上に出す）
+      m = p.match(/^\/user\/(\d{1,20})$/);
+      if (m) {
+        const u = await scGet(`/users/${m[1]}`, env, userToken);
+        return json({ city: u.city || '', country: u.country || '', countryCode: u.country_code || '', followers: u.followers_count || 0 }, 200, cors);
+      }
       // ---- その人の曲: /user/123/tracks（アーティスト名や友だちの名前から開くページ）
       m = p.match(/^\/user\/(\d{1,20})\/tracks$/);
       if (m) {
