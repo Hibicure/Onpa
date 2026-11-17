@@ -848,18 +848,20 @@
     box-shadow: inset 0 0 0 .75px rgba(255,255,255,.28), inset 0 1.5px 0 rgba(255,255,255,.45), inset 0 -2px 3px rgba(0,0,0,.26), inset 2px 0 3px rgba(255,255,255,.08), inset -2px 0 3px rgba(0,0,0,.14) !important; }
   .np.square #disc { border-radius: 1.5px; box-shadow: 0 1px 0 rgba(0,0,0,.28), 0 2.5px 0 -1px rgba(255,255,255,.35), 0 3.5px 1px -1px rgba(0,0,0,.18), 0 28px 48px -22px rgba(0,0,0,.45), 0 10px 16px -10px rgba(0,0,0,.28); }
   /* ホームなど全部のページ：同じ白い厚みの縁。曲が流れていない時も、色が抜けきらないやわらかい地 */
-  :root.mist body { background:
-      radial-gradient(90% 60% at 15% 0%, rgba(214,190,235,.55) 0%, transparent 70%),
-      radial-gradient(80% 60% at 100% 100%, rgba(190,205,240,.55) 0%, transparent 70%),
-      #E9E7EE; background-attachment: fixed; }
-  :root.mist[data-theme="dark"] body { background:
-      radial-gradient(90% 60% at 15% 0%, rgba(110,80,160,.35) 0%, transparent 70%),
-      radial-gradient(80% 60% at 100% 100%, rgba(60,90,160,.32) 0%, transparent 70%),
-      #141419; background-attachment: fixed; }
+  /* ホーム側の地：明るすぎず暗すぎないグレー（昼）／ほぼ黒（夜）。どちらも白い厚みの縁 */
+  :root.mist:not([data-theme="dark"]) {
+    --paper: #9FA0A4; --surface: #ABACB0; --ink: #121315; --mute: #45474C; --line: #8C8D91;
+    --chip: #929397; --nav: rgba(159,160,164,.92); --dot-off: #7C7D82; --mode-ic: #55575C;
+    --glass-a: rgba(185,186,190,.9); --glass-b: rgba(150,151,155,.6);
+    --pop-a: rgba(176,177,181,.97); --pop-b: rgba(160,161,165,.94);
+  }
+  :root.mist[data-theme="dark"] { --paper: #0E0E10; --surface: #18181B; --line: #26272A; --chip: #1D1E21; --nav: rgba(14,14,16,.92); }
+  :root.mist body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.07) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
+  :root.mist[data-theme="dark"] body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: 54px; box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
   :root.mist[data-theme="dark"] #app::after { box-shadow: inset 0 0 5px 2px rgba(255,255,255,.8), inset 0 0 18px 6px rgba(255,255,255,.55), inset 0 0 38px 9px rgba(255,255,255,.28), inset 0 0 80px 11px rgba(255,255,255,.1); }
-  :root.mist .nav { background: linear-gradient(180deg, rgba(233,231,238,0) 0%, rgba(233,231,238,.86) 45%); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; box-shadow: none; }
-  :root.mist[data-theme="dark"] .nav { background: linear-gradient(180deg, rgba(20,20,25,0) 0%, rgba(20,20,25,.86) 45%); }
+  :root.mist .nav { background: linear-gradient(180deg, rgba(159,160,164,0) 0%, rgba(159,160,164,.88) 45%); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; box-shadow: none; }
+  :root.mist[data-theme="dark"] .nav { background: linear-gradient(180deg, rgba(14,14,16,0) 0%, rgba(14,14,16,.88) 45%); }
   :root.mist .disc .pick-name { transition: opacity .5s ease; }
   :root.mist .disc .pick-name.fade { opacity: 0; }
   .disc .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
@@ -1187,7 +1189,7 @@ function applyTheme(t) {
   const b = document.getElementById('themeBtn');
   if (b) { b.innerHTML = t === 'dark' ? BULB_OFF : BULB_ON; b.setAttribute('aria-label', t === 'dark' ? 'Switch to day mode' : 'Switch to night mode'); }
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = t === 'dark' ? '#111214' : '#D9DADD';
+  if (m) m.content = t === 'dark' ? (document.documentElement.classList.contains('mist') ? '#0E0E10' : '#111214') : (document.documentElement.classList.contains('mist') ? '#9FA0A4' : '#D9DADD');
 }
 (() => {
   let t = null;
