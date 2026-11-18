@@ -1949,10 +1949,12 @@ $('results').addEventListener('click', (e) => {
   const add = e.target.closest('[data-q]');
   if (add) { addToUpNext(lastResults[Number(add.dataset.q)]); return; }
   const sq = e.target.closest('.sq');
-  if (sq) { playFrom(lastResults, Number(sq.dataset.i)); return; }
-  const row = e.target.closest('.row');
+  const row = sq || e.target.closest('.row');
   if (!row) return;
-  playFrom(lastResults, Number(row.dataset.i));
+  const i = Number((sq || row).dataset.i);
+  // 検索から流した時は、その1曲だけ。次は検索結果ではなく、その曲に似た曲（関連する曲）へ続く
+  if (mode === 'search') { playFrom([lastResults[i]], 0); return; }
+  playFrom(lastResults, i);
 });
 
 function playFrom(list, i) {
