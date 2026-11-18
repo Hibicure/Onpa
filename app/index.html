@@ -1143,6 +1143,7 @@
       <div class="set-label">Look (trial)</div>
       <div class="set-row"><span>Milky glass</span><button class="btn ghost" id="setMist">Turn on</button></div>
       <div class="set-row"><span>Logo mark</span><button class="btn ghost" id="setMark">Left</button></div>
+      <div class="set-row"><span>Test friends</span><button class="btn ghost" id="setDummy">Off</button></div>
     </div>
 
     <div class="set-group" id="setSpGroup" hidden>
@@ -1345,6 +1346,12 @@ function applyTheme(t) {
   if (!ORDER.includes(v)) v = 'left';
   apply(v);
   document.getElementById('setMark').addEventListener('click', () => { v = ORDER[(ORDER.indexOf(v) + 1) % ORDER.length]; apply(v); try { localStorage.setItem(K, v); } catch { /* 無視 */ } });
+})();
+(() => {
+  const b = document.getElementById('setDummy');
+  const paint = () => { let on = false; try { on = localStorage.getItem('otocloud_dummies') === '1'; } catch {} b.textContent = on ? 'On' : 'Off'; };
+  paint();
+  b.addEventListener('click', () => { let on = false; try { on = localStorage.getItem('otocloud_dummies') === '1'; localStorage.setItem('otocloud_dummies', on ? '0' : '1'); } catch {} paint(); try { if (!$('discPick').hidden) openPick(); } catch {} });
 })();
 // ===================== 設定 =====================
 const WORKER = 'https://geocloud.icchasong.workers.dev';
@@ -3306,13 +3313,20 @@ $('picFile').addEventListener('change', async (e) => {
 // ===================== CDの真ん中：自分と友達 =====================
 // まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
 const PICK_BG_JACKET = false;
+// お試し用のダミーの友達（設定の Test friends で出す／消す）。ディスクの中の並びだけに入る
+function dummyFriends() {
+  let on = false; try { on = localStorage.getItem('otocloud_dummies') === '1'; } catch {}
+  if (!on) return [];
+  const N = ['Aoi', 'Ren', 'Mio', 'Sora', 'Kai', 'Yui', 'Haru', 'Nao'];
+  return N.map((n, i) => ({ uid: 'dummy' + i, dummy: true, f: { name: n, handle: n.toLowerCase(), online: i % 2 === 0, avatar: 'tex:' + ((i * 5) % 12) } }));
+}
 const pk = { list: [], i: 0, timer: 0 };
 function openPick(quiet) {
   if (!me) return;
   // すでに出ていて、友達の人数も同じなら何もしない（友達があとから届いたら、並びを作り直す＝スライドできるように）
-  if (!$('discPick').hidden && quiet && pk.list.length === friends.size + 1 && pk.list.some((x) => x.uid === (localStorage.getItem('otocloud_pick') || '')) ) return;
+  if (!$('discPick').hidden && quiet && pk.list.length === friends.size + 1 + dummyFriends().length && pk.list.some((x) => x.uid === (localStorage.getItem('otocloud_pick') || '')) ) return;
   const fr = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0)).map(([uid, f]) => ({ uid, f }));
-  pk.list = [{ uid: me.uid, f: me, self: true }, ...fr];
+  pk.list = [{ uid: me.uid, f: me, self: true }, ...fr, ...dummyFriends()];
   // 前に選んでいた人のところから（顔はずっと置いたまま）
   let keep = ''; try { keep = localStorage.getItem('otocloud_pick') || ''; } catch {}
   const ki = pk.list.findIndex((x) => x.uid === keep); pk.i = ki >= 0 ? ki : 0;
@@ -3373,6 +3387,7 @@ function playTheirs() {
 function listenWith() {
   const cur = pickAt(pk.i);
   if (!cur || cur.self) { setJoinMode(false); return; }
+  if (cur.dummy) { toast('Test friend · nothing to send'); setJoinMode(false); return; }
   if (!cur.f.online) { toast(`${cur.f.name || '@' + cur.f.handle} is offline`); return; }
   setJoinMode(false);
   startCall(cur.uid, false);
@@ -3456,6 +3471,13 @@ function placePick(off, anim) {
     }
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
       const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
+      // 自分の顔を下へ引くと、顔をしまってCDの穴だけに戻る（もう一度出すのは、真ん中をタップ）
+      if (d === -1 && pickAt(pk.i).self) {
+        placePick(1, true); hap('rigid'); sliding(false, 300);
+        try { localStorage.setItem('otocloud_pick', ''); } catch {}
+        setTimeout(closePick, 260);
+        return;
+      }
       if (pickStep(pk.i, d) < 0) { paintPick(0, true); sliding(false, 480); armPick(); return; } // 自分より上はない
       // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
       placePick(-d, true);
