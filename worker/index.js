@@ -605,8 +605,17 @@ export default {
       // ---- その人の曲: /user/123/tracks（アーティスト名や友だちの名前から開くページ）
       m = p.match(/^\/user\/(\d{1,20})\/tracks$/);
       if (m) {
-        const d = await scGet(`/users/${m[1]}/tracks?limit=50&linked_partitioning=true&access=playable`, env, userToken);
-        return json(listOf(d).map(mapTrack), 200, cors);
+        // SoundCloudは1回に少ししか返さないので、続きのページもたどって全部集める（最大200曲）
+        let d = await scGet(`/users/${m[1]}/tracks?limit=50&linked_partitioning=true&access=playable`, env, userToken);
+        const all = listOf(d);
+        for (let i = 0; i < 6 && d && d.next_href && all.length < 200; i++) {
+          const next = String(d.next_href);
+          if (!next.startsWith(API)) break;
+          d = await scGet(next.slice(API.length), env, userToken);
+          all.push(...listOf(d));
+        }
+        const seen = new Set();
+        return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
       }
       // ---- 波形: /wave/123（シークバーを波形にする。100本の高さ 0〜1）
       m = p.match(/^\/wave\/(\d{1,20})$/);
