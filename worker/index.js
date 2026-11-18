@@ -194,7 +194,16 @@ async function scUser(path, userToken, method = 'GET') {
 
 const playCache = new Map();
 
+// 曲ごとの「音の出どころの一覧」は変わらないので1日覚えておく（SoundCloudへの再生の問い合わせを、1曲1回に減らす）
 async function candidates(id, env, userToken = '') {
+  const ck = new Request('https://cache.otocloud/cands/' + id);
+  const hit = await caches.default.match(ck);
+  if (hit) return hit.json();
+  const list = await candidatesFresh(id, env, userToken);
+  if (list.length) await caches.default.put(ck, new Response(JSON.stringify(list), { headers: { 'Cache-Control': 'public, max-age=86400' } }));
+  return list;
+}
+async function candidatesFresh(id, env, userToken = '') {
   const s = await scGet(`/tracks/${id}/streams`, env, userToken);
   return [
     { kind: 'full', hls: true, apiUrl: s.hls_aac_160_url },
@@ -675,6 +684,10 @@ export default {
         for (const c of cands) {
           const r = await fetch(c.apiUrl, { headers: { 'Authorization': `OAuth ${token}` }, redirect: 'manual' });
           const loc = r.headers.get('Location');
+          // SoundCloudが教えてくれる「残りの回数」を覚えておく（/quota で見られる）
+          const q = {}; for (const [k, v] of r.headers) if (/ratelimit|retry-after/i.test(k)) q[k] = v;
+          q.at = new Date().toISOString(); q.status = r.status;
+          await caches.default.put(new Request('https://cache.otocloud/quota'), new Response(JSON.stringify(q), { headers: { 'Cache-Control': 'public, max-age=172800' } }));
           tried.push({ kind: c.kind, status: r.status });
           if (loc) {
             const body = { kind: c.kind, hls: c.hls, url: loc };
@@ -684,6 +697,12 @@ export default {
           }
         }
         return json({ error: 'この曲は再生できません', tried }, 404, cors);
+      }
+
+      // ---- 再生の残り回数（SoundCloudが最後に教えてくれた値）
+      if (p === '/quota') {
+        const hit = await caches.default.match(new Request('https://cache.otocloud/quota'));
+        return json(hit ? await hit.json() : { none: true }, 200, cors);
       }
 
       // ---- 関連する曲: /related?id=曲ID （曲が終わったら続けて流す用）
