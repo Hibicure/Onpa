@@ -871,12 +871,12 @@
   .disc .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
   /* 一時停止：もう少し四角く */
   /* 全画面のジャケットのすき間 */
-  /* ディスクの中の顔：1枚1枚に、CDの内側の透明なリングみたいな縁（顔といっしょに動く）。線ではなく、光のにじみで厚み */
-  :root.mist .disc .pick-it .avatar { position: relative; }
-  :root.mist .disc .pick-it .avatar::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 6; display: block;
-    background: conic-gradient(from 210deg, rgba(255,255,255,.62), rgba(205,225,255,.28), rgba(255,255,255,.08), rgba(255,215,238,.3), rgba(255,255,255,.62), rgba(212,255,238,.26), rgba(255,255,255,.08), rgba(255,236,205,.3), rgba(255,255,255,.62));
-    -webkit-mask: radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.55) 87%, #000 93%, rgba(0,0,0,.7) 98%, transparent 100%);
-            mask: radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.55) 87%, #000 93%, rgba(0,0,0,.7) 98%, transparent 100%); }
+  /* ディスクの中の顔：1枚1枚に、顔の外側に枠（真ん中に収まった時は穴のふちの外になって見えない。回している時だけ見える） */
+  :root.mist .disc .pick-it .avatar { position: relative; overflow: visible !important; }
+  :root.mist .disc .pick-it .avatar::before { content: ""; position: absolute; inset: -7.5%; border-radius: 50%; z-index: -1; pointer-events: none; display: block;
+    background: radial-gradient(circle closest-side, transparent 92%, rgba(255,255,255,.35) 95%, transparent 100%),
+                conic-gradient(from 210deg, #3a3b40, #6c6d73, #2c2d31, #55565c, #3a3b40, #707177, #2c2d31, #5b5c62, #3a3b40);
+    box-shadow: 0 2px 6px rgba(0,0,0,.35); }
   /* 歌詞を閉じるボタン：開いた時の「Lyrics」と同じ場所に、押された状態で出す（×はやめ） */
   .lyr-x[hidden] { display: none; }
   .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
@@ -892,6 +892,7 @@
   /* 左上のロゴ：アイコンの「受話器と音符」マークを、文字の横に */
   .mark { display: inline-flex; align-items: center; gap: 6px; }
   .mark .mark-ic { width: 0.98em; height: 0.98em; flex: none; margin-top: -1px; }
+  :root.mist .disc .pick.sliding .pick-it .avatar { box-shadow: none !important; }
 </style>
 </head>
 <body>
@@ -3178,7 +3179,7 @@ function paintPick(drag, anim) {
     rail.dataset.i = String(pk.i); rail.dataset.n = String(n);
   }
   rail.style.transform = 'none';
-  placePick(drag / (h * 1.32), anim);
+  placePick(drag / (h * 1.16), anim);
   const cur = pickAt(pk.i);
   $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? '<small class="pk-on">online</small>' : '');
   $('pickName').classList.remove('fade'); clearTimeout(pk.nameT); pk.nameT = setTimeout(() => $('pickName').classList.add('fade'), 1800);
@@ -3189,7 +3190,7 @@ function placePick(off, anim) {
   for (const el of $('pickRail').children) {
     const p = Number(el.dataset.o) + off;
     // 縦にしっかり間をあけて（となりの顔が穴にはみ出さない）、離れるほど右へ逃げる半円
-    const y = p * h * 1.32;
+    const y = p * h * 1.16;
     const x = (1 - Math.cos(Math.max(-1.5, Math.min(1.5, p * 0.62)))) * h * 0.95;
     const sc = 1 - Math.min(0.35, Math.abs(p) * 0.16);
     el.style.transition = anim ? 'transform .46s cubic-bezier(.34,1.56,.64,1)' : 'none';
@@ -3209,10 +3210,10 @@ function placePick(off, anim) {
     stop(e); if (e.pointerId !== id) return; id = null;
     const h = box.offsetHeight, fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.35;
     if (Math.abs(dy) < 6) { // タップ
-      const cur = pickAt(pk.i);
-      closePick();
-      if (cur.self) { if (me.scId) openArtist(me.scId, me.name); else toast('Connect SoundCloud to see your page'); }
-      else if (call.state === 'idle') startCall(cur.uid);
+      // タップ：その人のページへ（顔はCDの中に置いたまま。電話はかけない）
+      const cur = pickAt(pk.i), sc = cur.self ? me.scId : cur.f.scId, nm = cur.self ? me.name : (cur.f.name || cur.f.handle);
+      hap('rigid');
+      if (sc) openArtist(sc, nm); else toast(cur.self ? 'Connect SoundCloud to see your page' : 'No SoundCloud page yet');
       return;
     }
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
