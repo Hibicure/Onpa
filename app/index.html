@@ -2906,8 +2906,20 @@ function markNow() {
 }
 const isReal = () => !!track;
 // ロック画面・コントロールセンター：「10秒送り」ではなく「前の曲・次の曲」を出す。曲名とジャケットも出す
+// ロック画面の操作を「次へ・前へ」にするための、聞こえない音（アプリの中だけ）。
+// 曲はSoundCloudの埋め込みの中で鳴っていて、そのままだとロック画面の操作がSoundCloud側（10秒送り）になる。
+// この聞こえない音をこのページで鳴らしておくと、ロック画面がこのページの操作（次へ・前へ）に切り替わる
+const lockKeeper = (() => {
+  if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall)) return null;
+  try { const a = new Audio('keep.mp3'); a.loop = true; a.preload = 'auto'; a.setAttribute('playsinline', ''); return a; } catch { return null; }
+})();
+function keepLock(on) {
+  if (!lockKeeper) return;
+  try { if (on) { if (lockKeeper.paused) lockKeeper.play().catch(() => {}); } else if (!lockKeeper.paused) lockKeeper.pause(); } catch { /* 無視 */ }
+}
 function tellLockScreen() {
   if (!track) return;
+  keepLock(!player.paused);
   const info = { op: 'nowPlaying', id: 'np', title: track.title || '', artist: track.artist || '', artwork: (track.artwork || '').replace('-large.', '-t500x500.'),
     duration: (player.duration || (track.duration || 0) / 1000) || 0, elapsed: player.currentTime || 0, playing: !player.paused };
   try { window.webkit.messageHandlers.otoCall.postMessage(info); } catch { /* Web */ }
@@ -2935,7 +2947,7 @@ try {
     try { ms.setActionHandler('seekforward', null); ms.setActionHandler('seekbackward', null); } catch { /* 無視 */ }
   }
 } catch { /* 無視 */ }
-player.addEventListener('playing', () => { if (!isReal()) return; tellLockScreen(); $('np').classList.remove('paused-amb'); publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
+player.addEventListener('playing', () => { if (!isReal()) return; tellLockScreen(); setTimeout(tellLockScreen, 1200); $('np').classList.remove('paused-amb'); publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
 player.addEventListener('pause', () => { if (!isReal()) return; tellLockScreen(); $('np').classList.add('paused-amb'); publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
 player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
 // 曲の終わりを待たずに、0.35秒前に次へ（1曲リピートは頭に戻すだけ）＝つなぎ目の待ち時間をなくす
