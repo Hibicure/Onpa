@@ -395,7 +395,11 @@
   /* ===== 新しい見た目（お試し）：ミルクのすりガラス＋ジャケットの色がにじむ ===== */
   :root.mist .np { background: #E7E4EC; border-radius: 54px; overflow: hidden; clip-path: inset(0 round 54px); -webkit-clip-path: inset(0 round 54px); }
   :root.mist[data-theme="dark"] .np { background: #15141A; }
-  :root.mist .np .amb { opacity: 1 !important; }
+  :root.mist .np.amb-on .amb { opacity: 1 !important; }
+  /* 色ボタンを切ったら：ホームと同じ無地（昼は明るいグレー、夜はほぼ黒） */
+  :root.mist .np:not(.amb-on) .amb { opacity: 0 !important; }
+  :root.mist .np:not(.amb-on) { background: #9FA0A4; }
+  :root.mist[data-theme="dark"] .np:not(.amb-on) { background: #0E0E10; }
   :root.mist .np .amb .blob { filter: blur(60px) saturate(1.35) brightness(1.08); }
   :root.mist .np .amb .veil { background: linear-gradient(180deg, rgba(240,238,244,.16) 0%, rgba(240,238,244,.26) 60%, rgba(240,238,244,.3) 100%); } /* 下まで色を残す（白っぽくすると縁の白が見えなくなる） */
   :root.mist[data-theme="dark"] .np .amb .veil { background: linear-gradient(180deg, rgba(18,17,22,.22) 0%, rgba(18,17,22,.36) 60%, rgba(18,17,22,.42) 100%); } /* 下まで色を残して、縁の光が見えるように */
