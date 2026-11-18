@@ -167,7 +167,28 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
         NotificationCenter.default.addObserver(self, selector: #selector(routeChanged(_:)),
                                                name: AVAudioSession.routeChangeNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(interrupted(_:)),
+                                               name: AVAudioSession.interruptionNotification, object: nil)
         setupRemoteCommands()
+    }
+
+    // ほかのアプリ（音声入力・録音・電話など）に音を取られて止まったら、終わったあとに続きから鳴らす
+    private var isPlayingNow = false
+    private var pausedAt = Date.distantPast
+    private var resumeAfterInterruption = false
+    @objc private func interrupted(_ n: Notification) {
+        guard let raw = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        if type == .began {
+            // 止まる直前まで鳴っていたか（ページの「止まった」が先に届くこともあるので、2秒以内なら鳴っていたとみなす）
+            resumeAfterInterruption = isPlayingNow || Date().timeIntervalSince(pausedAt) < 2
+        } else if type == .ended, resumeAfterInterruption {
+            resumeAfterInterruption = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                try? AVAudioSession.sharedInstance().setActive(true)
+                self?.webView?.evaluateJavaScript("window.__otoRemote && window.__otoRemote('play')", completionHandler: nil)
+            }
+        }
     }
 
     // ロック画面・コントロールセンター：「10秒送り・戻し」を消して「次の曲・前の曲」にする。押したらページに伝える
@@ -199,6 +220,9 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
     /// ロック画面に、曲名・アーティスト・ジャケット・長さを出す
     private func setNowPlaying(_ b: [String: Any]) {
         setupRemoteCommands() // ページ側が上書きしていたら、もう一度「次の曲・前の曲」に戻す
+        let playingNow = b["playing"] as? Bool ?? false
+        if isPlayingNow && !playingNow { pausedAt = Date() }
+        isPlayingNow = playingNow
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: b["title"] as? String ?? "",
             MPMediaItemPropertyArtist: b["artist"] as? String ?? "",
