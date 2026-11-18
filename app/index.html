@@ -3357,11 +3357,9 @@ function closePick() {
 }
 function armPick() {} // 顔は自動で消さない（置いたまま）
 const pickAt = (k) => pk.list[((k % pk.list.length) + pk.list.length) % pk.list.length];
-// いちばん上（最初の自分）より上には行けない。下へはずっと回せる（自分もまた回ってくる）
 function pickStep(i, o) {
   if (pk.list.length <= 1) return o === 0 ? i : -1;
-  const t = i + o;
-  return t < 0 ? -1 : t;
+  return i + o; // 上へも下へも、ずっと回る（自分も回ってくる）
 }
 function paintPick(drag, anim) {
   const n = pk.list.length, rail = $('pickRail'), h = $('discPick').offsetHeight || 100;
@@ -3399,7 +3397,8 @@ function placePick(off, anim) {
   box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return;
     const mx = e.clientX - sx, my = e.clientY - sy;
     // 最初に動いた向きで、縦か横かを決めたら、最後までその向きだけ（迷ったら縦）
-    if (!axis && Math.hypot(mx, my) > 9) axis = Math.abs(mx) > Math.abs(my) * 1.6 ? 'x' : 'y';
+    // 顔が止まって落ち着くまでは、横は受け付けない（縦のあとすぐの横ぶれで切り替わらないように）
+    if (!axis && Math.hypot(mx, my) > 9) axis = (Math.abs(mx) > Math.abs(my) * 1.6 && performance.now() > (pk.settleUntil || 0)) ? 'x' : 'y';
     if (axis === 'x') { dx = mx; dy = 0; $('pickRail').style.transform = `translateX(${Math.max(-26, Math.min(26, dx * .35))}px)`; return; }
     if (axis !== 'y') return;
     dx = 0; dy = my;
@@ -3434,9 +3433,10 @@ function placePick(off, anim) {
       // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
       placePick(-d, true);
       hap('rigid');
+      pk.settleUntil = performance.now() + 700;
       setTimeout(() => { pk.i = pickStep(pk.i, d); paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) { setJoinMode(false); setPeekMode(false); } else if ($('np').classList.contains('joinmode')) setJoinMode(true); else if ($('np').classList.contains('peekmode')) setPeekMode(true); }, 430);
       sliding(false, 470);
-    } else { paintPick(0, true); sliding(false, 480); }
+    } else { paintPick(0, true); sliding(false, 480); pk.settleUntil = performance.now() + 500; }
     armPick();
   };
   box.addEventListener('pointerup', up);
