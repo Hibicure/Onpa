@@ -450,7 +450,7 @@ async function lrclib(t, trace = []) {
 }
 async function lyricsOf(id, env, userToken, st, dbg) {
   const cache = caches.default;
-  const key = new Request('https://cache.otocloud/lyrics3/' + id + (st ? '/' + st : ''));
+  const key = new Request('https://cache.otocloud/lyrics4/' + id + (st ? '/' + st : ''));
   const hit = dbg ? null : await cache.match(key);
   if (hit) return hit.json();
   const trace = [];
@@ -463,7 +463,12 @@ async function lyricsOf(id, env, userToken, st, dbg) {
       // 説明欄に無ければ、コメント欄から（本人か、何行もあるコメント）
       const c = listOf(await scGet(`/tracks/${id}/comments?limit=200&linked_partitioning=true`, env, userToken));
       const owner = t.user?.id;
-      const cands = c.filter((x) => String(x.body || '').split('\n').length >= 4).sort((a, b) => (b.user?.id === owner) - (a.user?.id === owner));
+      // 曲名の「ft. ○○ & △△」に入っている人（客演）も、本人の次に優先する
+      const featM = String(t.title || '').match(/\b(?:ft|feat)\.?\s*([^()\[\]【】]+)/i);
+      const feats = featM ? featM[1].split(/\s*(?:&|,|、|\sx\s|\sand\s|×)\s*/i).map(normName).filter((n) => n.length >= 2) : [];
+      const isFeat = (u) => { const a = normName(u?.username), b = normName(u?.permalink); return feats.some((f) => (a && (a.includes(f) || f.includes(a))) || (b && (b.includes(f) || f.includes(b)))); };
+      const rank = (x) => (x.user?.id === owner ? 2 : isFeat(x.user) ? 1 : 0);
+      const cands = c.filter((x) => String(x.body || '').split('\n').length >= 4).sort((a, b) => rank(b) - rank(a));
       for (const x of cands) {
         const l = findLyrics(x.body);
         if (!l) continue;
@@ -473,7 +478,7 @@ async function lyricsOf(id, env, userToken, st, dbg) {
           .sort((p, q) => Date.parse(p.created_at) - Date.parse(q.created_at))
           .map((y) => String(y.body || '').replace(/^\s*@[^\s:：]+[:：]?\s*/, '').trim())
           .filter((b) => b.split('\n').filter((z) => z.trim()).length >= 2 && !/^(https?:|www\.)/i.test(b));
-        out = { lyrics: [l, ...more].join('\n\n'), from: who === owner ? 'artist comment' : 'comment', by: x.user?.username || '' };
+        out = { lyrics: [l, ...more].join('\n\n'), from: who === owner ? 'artist comment' : isFeat(x.user) ? 'featured artist comment' : 'comment', by: x.user?.username || '' };
         break;
       }
     }
