@@ -867,16 +867,6 @@
   .disc .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
   /* 一時停止：もう少し四角く */
   /* 全画面のジャケットのすき間 */
-  /* 四角いジャケット：線をやめて、四方のやわらかい影で厚み */
-  .np.square #disc .edge { box-shadow: inset 0 0 0 .5px rgba(255,255,255,.12), inset 0 10px 14px -12px rgba(255,255,255,.35), inset 0 -10px 14px -10px rgba(0,0,0,.28), inset 10px 0 14px -12px rgba(255,255,255,.18), inset -10px 0 14px -10px rgba(0,0,0,.22) !important; }
-  .np.square #disc { box-shadow: 0 30px 50px -22px rgba(0,0,0,.5), 0 12px 18px -10px rgba(0,0,0,.3), 8px 0 18px -14px rgba(0,0,0,.35), -8px 0 18px -14px rgba(0,0,0,.35); }
-  /* 四角いジャケット：中にCDが入っているふくらみ（ごくうっすら）と、白い線を使わない影だけの厚み */
-  .np.square #disc .edge { background:
-      radial-gradient(circle closest-side at 47% 46%, rgba(255,255,255,.07) 0%, rgba(255,255,255,.025) 60%, rgba(255,255,255,0) 92%),
-      radial-gradient(circle closest-side at 50.5% 51%, rgba(0,0,0,0) 86%, rgba(0,0,0,.045) 93%, rgba(0,0,0,0) 99%),
-      linear-gradient(140deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 40%, rgba(0,0,0,0) 65%, rgba(0,0,0,.06) 100%) !important; }
-  .np.square #disc { box-shadow: 0 1px 1px rgba(0,0,0,.22), 0 2px 2px -.5px rgba(0,0,0,.16), 0 3.5px 3px -1px rgba(0,0,0,.12),
-      0 30px 50px -22px rgba(0,0,0,.5), 0 12px 18px -10px rgba(0,0,0,.3), 8px 0 18px -14px rgba(0,0,0,.35), -8px 0 18px -14px rgba(0,0,0,.35); }
   /* ディスクの中の顔：1枚1枚に、CDの内側の透明なリングみたいな縁（顔といっしょに動く）。線ではなく、光のにじみで厚み */
   :root.mist .disc .pick-it .avatar { position: relative; }
   :root.mist .disc .pick-it .avatar::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 6; display: block;
@@ -887,6 +877,14 @@
   .lyr-x[hidden] { display: none; }
   .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
   .lyr-back:active { transform: scale(.94); }
+  /* 下のミニプレーヤーとタブ：透けない（ジャケットなどが後ろに見えないように） */
+  :root.mist .nav, :root.mist[data-theme="dark"] .nav { background: var(--paper) !important; }
+  .mini { background: var(--paper) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  /* 四角いジャケット・全画面の時は、ディスクの中の顔を出さない */
+  .np.square .disc .pick, .np.full .disc .pick, .np.square .disc .pick-name, .np.full .disc .pick-name { display: none !important; }
+  /* 「Liked on SoundCloud」などの知らせ：小さめ・1行・控えめな光 */
+  :root.mist .toast { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 4px; opacity: .95;
+    text-shadow: 0 0 6px rgba(255,255,255,.3), 0 1px 8px rgba(0,0,0,.28); }
 </style>
 </head>
 <body>
@@ -1787,8 +1785,9 @@ function playFrom(list, i) {
 
 // ===================== シャッフル・リピート =====================
 let shuffleOn = false, repeatMode = 'off', origQueue = [];
-const SHUF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 6.8h2.6c6.2 0 6.6 10.4 12.8 10.4h2.6"/><path d="M2.8 17.2h2.6c1.6 0 2.8-.7 3.8-1.8M14.8 8.6c1-1.1 2.2-1.8 3.4-1.8h2.6"/><path d="M18 3.9l2.9 2.9-2.9 2.9M18 14.3l2.9 2.9-2.9 2.9"/></svg>';
-const REP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.5V10.2a4 4 0 0 1 4-4h12.6"/><path d="M17.2 3.3l2.9 2.9-2.9 2.9"/><path d="M20.5 11.5v2.3a4 4 0 0 1-4 4H3.9"/><path d="M6.8 20.7l-2.9-2.9 2.9-2.9"/></svg>';
+const SHUF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="miter" stroke-linecap="butt"><path d="M2 17.5h3.6l8.4-11h3"/><path d="M2 6.5h3.6l2.9 3.8M11.5 13.7l2.5 3.8h3"/><path d="M17 3.4l4.6 3.1L17 9.6z" fill="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M17 14.4l4.6 3.1L17 20.6z" fill="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+const REP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="miter" stroke-linecap="butt"><path d="M3.6 13V7.6c0-.6.5-1.1 1.1-1.1H16"/><path d="M20.4 11v5.4c0 .6-.5 1.1-1.1 1.1H8"/><path d="M16 3.4l4.6 3.1L16 9.6z" fill="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 14.4l-4.6 3.1L8 20.6z" fill="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+const REP1_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="miter" stroke-linecap="butt"><path d="M3.6 13V7.6c0-.6.5-1.1 1.1-1.1H16"/><path d="M20.4 11v5.4c0 .6-.5 1.1-1.1 1.1H8"/><path d="M16 3.4l4.6 3.1L16 9.6z" fill="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 14.4l-4.6 3.1L8 20.6z" fill="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M10.9 10.3l1.5-.9v4.9" stroke-width="1.8"/></svg>';
 // 1曲リピート＝無限（∞）
 const INF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19.10 6.75 L19.74 6.97 L20.36 7.33 L20.95 7.86 L21.46 8.54 L21.89 9.37 L22.20 10.32 L22.37 11.34 L22.39 12.40 L22.26 13.43 L21.98 14.40 L21.58 15.26 L21.08 15.98 L20.51 16.55 L19.90 16.95 L19.26 17.21 L18.62 17.32 L17.99 17.31 L17.38 17.19 L16.80 16.98 L16.24 16.70 L15.72 16.35 L15.23 15.96 L14.76 15.53 L14.32 15.07 L13.90 14.59 L13.50 14.09 L13.11 13.58 L12.73 13.06 L12.37 12.53 L12.00 12.00 L11.63 11.47 L11.27 10.94 L10.89 10.42 L10.50 9.91 L10.10 9.41 L9.68 8.93 L9.24 8.47 L8.77 8.04 L8.28 7.65 L7.76 7.30 L7.20 7.02 L6.62 6.81 L6.01 6.69 L5.38 6.68 L4.74 6.79 L4.10 7.05 L3.49 7.45 L2.92 8.02 L2.42 8.74 L2.02 9.60 L1.74 10.57 L1.61 11.60 L1.63 12.66 L1.80 13.68 L2.11 14.63 L2.54 15.46 L3.05 16.14 L3.64 16.67 L4.26 17.03 L4.90 17.25 M8.95 15.80 L9.07 15.69 L9.19 15.58 L9.30 15.47 L9.41 15.35 L9.53 15.24 L9.64 15.12 L9.75 15.00 L9.85 14.88 L9.96 14.75 L10.06 14.63 L10.17 14.50 L10.27 14.38 L10.37 14.25 L10.47 14.12 L10.57 13.99 L10.67 13.86 L10.77 13.73 L10.87 13.60 L10.97 13.47 L11.06 13.34 L11.16 13.21 L11.25 13.07 L11.35 12.94 L11.44 12.81 L11.53 12.67 L11.63 12.54 L11.72 12.40 L11.81 12.27 L11.91 12.13 L12.00 12.00 L12.09 11.87 L12.19 11.73 L12.28 11.60 L12.37 11.46 L12.47 11.33 L12.56 11.19 L12.65 11.06 L12.75 10.93 L12.84 10.79 L12.94 10.66 L13.03 10.53 L13.13 10.40 L13.23 10.27 L13.33 10.14 L13.43 10.01 L13.53 9.88 L13.63 9.75 L13.73 9.62 L13.83 9.50 L13.94 9.37 L14.04 9.25 L14.15 9.12 L14.25 9.00 L14.36 8.88 L14.47 8.76 L14.59 8.65 L14.70 8.53 L14.81 8.42 L14.93 8.31 L15.05 8.20 M3.26 18.62 L5.49 17.38 L4.01 15.31 M15.23 10.33 L15.49 7.79 L12.94 7.81"/></svg>';
 function shuffled(a) {
@@ -1804,7 +1803,7 @@ const MODE_INFO = {
   off: { label: 'Play in order', icon: SHUF_ICON },
   shuffle: { label: 'Shuffle', icon: SHUF_ICON },
   repeat: { label: 'Repeat', icon: REP_ICON },
-  one: { label: 'Repeat one', icon: INF_ICON },
+  one: { label: 'Repeat one', icon: REP1_ICON },
 };
 let playMode = 'off';
 function setPlayMode(m) {
