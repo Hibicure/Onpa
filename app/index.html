@@ -904,6 +904,23 @@
   #heart .kyun i:nth-child(2) { height: 10px; top: -12px; transform-origin: 50% 12px; }
   @keyframes kyun { 0% { opacity: 0; transform: rotate(var(--a)) translateY(0) scaleY(.3); } 30% { opacity: 1; transform: rotate(var(--a)) translateY(-5px) scaleY(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-11px) scaleY(.4); } }
   @media (prefers-reduced-motion: reduce) { #heart .kyun { display: none; } }
+  /* アーティストページ：検索欄とタブを隠して、いちばん上にヘッダー（プロフィール画像・名前・場所）。ページの色はその人の画像の色 */
+  body.artist-mode #topSearch, body.artist-mode #seg { display: none !important; }
+  .artist-head { position: relative; margin: 0 0 4px; height: 190px; overflow: hidden; }
+  .artist-head[hidden] { display: none; }
+  .artist-head .ah-bg { position: absolute; inset: -30px; background: var(--ah-tint, var(--chip)) center / cover no-repeat; filter: blur(26px) saturate(1.25); transform: scale(1.15); opacity: .9; }
+  .artist-head.banner .ah-bg { inset: 0; filter: none; transform: none; opacity: 1; }
+  .artist-head::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 35%, color-mix(in srgb, var(--paper) 25%, transparent) 70%, var(--ah-page, var(--paper)) 100%); }
+  .artist-head .ah-row { position: absolute; left: 18px; right: 18px; bottom: 14px; display: flex; align-items: center; gap: 14px; z-index: 1; }
+  .artist-head .ah-pic { width: 76px; height: 76px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 6px 18px -6px rgba(0,0,0,.45); }
+  .artist-head .ah-pic:empty { display: none; }
+  .artist-head .ah-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .artist-head .ah-txt { min-width: 0; }
+  .artist-head .ah-name { font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+  .artist-head .ah-sub { font-size: 12.5px; color: var(--mute); margin-top: 3px; }
+  body.artist-mode { --ah-page: color-mix(in srgb, var(--ah-tint, var(--paper)) 32%, var(--paper)); background: var(--ah-page) !important; transition: background .4s ease; }
+  body.artist-mode .nav, body.artist-mode .mini { background: var(--ah-page) !important; }
+  .head .right .mark-ic.far { width: 26px; height: 26px; flex: none; color: var(--ink); }
 </style>
 </head>
 <body>
@@ -1004,6 +1021,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       
     </div>
+    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-sub" id="ahSub"></div></div></div></div>
     <div class="libbar" id="libbar" hidden>
       <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
       <div class="libtitle" id="libTitle"></div>
@@ -1071,6 +1089,7 @@
     <div class="set-group">
       <div class="set-label">Look (trial)</div>
       <div class="set-row"><span>Milky glass</span><button class="btn ghost" id="setMist">Turn on</button></div>
+      <div class="set-row"><span>Logo mark</span><button class="btn ghost" id="setMark">Left</button></div>
     </div>
 
     <div class="set-group" id="setSpGroup" hidden>
@@ -1251,6 +1270,20 @@ function applyTheme(t) {
     try { localStorage.setItem(K, on ? '1' : '0'); } catch { /* 無視 */ }
     paint();
   });
+})();
+// 左上のマークの置き場所（お試し）：左 → 文字の右 → いちばん右
+(() => {
+  const K = 'otocloud_mark', ORDER = ['left', 'after', 'right'], NAME = { left: 'Left', after: 'After name', right: 'Far right' };
+  const ic = document.querySelector('.head .mark-ic'), mark = document.querySelector('.head .mark'), right = document.querySelector('.head .right');
+  const apply = (v) => {
+    if (v === 'left') mark.prepend(ic); else if (v === 'after') mark.append(ic); else right.prepend(ic);
+    ic.classList.toggle('far', v === 'right');
+    const b = document.getElementById('setMark'); if (b) b.textContent = NAME[v];
+  };
+  let v = 'left'; try { v = localStorage.getItem(K) || 'left'; } catch { /* 無視 */ }
+  if (!ORDER.includes(v)) v = 'left';
+  apply(v);
+  document.getElementById('setMark').addEventListener('click', () => { v = ORDER[(ORDER.indexOf(v) + 1) % ORDER.length]; apply(v); try { localStorage.setItem(K, v); } catch { /* 無視 */ } });
 })();
 // ===================== 設定 =====================
 const WORKER = 'https://geocloud.icchasong.workers.dev';
@@ -2152,6 +2185,7 @@ $('seg').addEventListener('click', (e) => { const b = e.target.closest('[data-mo
 })();
 function setMode(m) {
   mode = m;
+  document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   document.querySelectorAll('#seg [data-mode]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
   $('searchField').hidden = true;
   $('libbar').hidden = m === 'search';
@@ -2198,6 +2232,7 @@ async function showPlaylists() {
 
 async function openPlaylist(id, title) {
   mode = 'playlist';
+  document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('libTitle').textContent = title;
   $('libBack').hidden = false;
   $('shuffle').hidden = false;
@@ -2220,7 +2255,11 @@ async function openArtist(userId, name) {
   document.querySelectorAll('#seg [data-mode]').forEach((b) => b.setAttribute('aria-selected', 'false'));
   $('searchField').hidden = true;
   $('libbar').hidden = false; $('libBack').hidden = false; $('shuffle').hidden = false;
-  $('libTitle').textContent = name || 'Tracks';
+  $('libTitle').textContent = '';
+  // 検索欄とタブは隠して、いちばん上をその人のヘッダーに
+  document.body.classList.add('artist-mode');
+  $('ahName').textContent = name || ''; $('ahSub').textContent = ''; $('ahPic').innerHTML = ''; $('ahBg').style.backgroundImage = '';
+  $('artistHead').hidden = false; window.scrollTo(0, 0);
   $('results').innerHTML = msg('Loading…');
   try {
     const r = await fetch(`${WORKER}/user/${userId}/tracks`, { headers: await scHeaders() });
@@ -2233,17 +2272,31 @@ async function openArtist(userId, name) {
     }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
 }
-// プロフィールの場所（SoundCloudに登録してある街・国）をページの上に出す
+// その人のヘッダー：プロフィール画像・名前・場所・フォロワー。背景は画像を大きくぼかしたもの、ページの色もその画像の色に
 async function artistPlace(userId) {
   try {
     const u = await (await fetch(`${WORKER}/user/${userId}`, { headers: await scHeaders() })).json();
+    if (mode !== 'artist') return;
     let country = u.country || '';
     if (!country && u.countryCode) { try { country = new Intl.DisplayNames(['en'], { type: 'region' }).of(u.countryCode); } catch { country = u.countryCode; } }
     const place = [u.city, country].filter(Boolean).join(', ');
-    if (!place || mode !== 'artist') return;
-    const old = $('results').querySelector('.artistPlace'); if (old) old.remove();
-    $('results').insertAdjacentHTML('afterbegin', `<div class="artistPlace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>${esc(place)}</div>`);
-  } catch { /* 場所が取れなくても、曲はそのまま */ }
+    const fol = u.followers ? (u.followers >= 1e6 ? (u.followers / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : u.followers >= 1e3 ? (u.followers / 1e3).toFixed(1).replace(/\.0$/, '') + 'K' : String(u.followers)) + ' followers' : '';
+    $('ahSub').textContent = [place, fol].filter(Boolean).join('  ·  ');
+    if (u.name && !$('ahName').textContent) $('ahName').textContent = u.name;
+    const img = u.banner || u.avatar || ($('results').querySelector('img') || {}).src || '';
+    if (u.avatar && safeImg(u.avatar)) $('ahPic').innerHTML = `<img src="${esc(u.avatar)}" alt="">`;
+    if (img && safeImg(img)) {
+      $('ahBg').style.backgroundImage = `url("${img}")`;
+      $('artistHead').classList.toggle('banner', !!u.banner);
+      // 画像の平均の色を、ページ全体の色に
+      try {
+        const im = await loadImg(`${WORKER}/img?u=${encodeURIComponent(img)}`);
+        const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(im, 0, 0, 8, 8);
+        const d = g.getImageData(0, 0, 8, 8).data; let r = 0, gg = 0, b = 0; for (let i = 0; i < d.length; i += 4) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; }
+        const n = d.length / 4; if (mode === 'artist') document.body.style.setProperty('--ah-tint', `rgb(${Math.round(r / n)},${Math.round(gg / n)},${Math.round(b / n)})`);
+      } catch { /* 色が取れなくても、そのまま */ }
+    }
+  } catch { /* 取れなくても、曲はそのまま */ }
 }
 async function openTrackArtist() {
   if (!track) return;
@@ -3161,7 +3214,8 @@ const PICK_BG_JACKET = false;
 const pk = { list: [], i: 0, timer: 0 };
 function openPick(quiet) {
   if (!me) return;
-  if (!$('discPick').hidden && quiet && pk.list.some((x) => x.uid === (localStorage.getItem('otocloud_pick') || '')) ) return;
+  // すでに出ていて、友達の人数も同じなら何もしない（友達があとから届いたら、並びを作り直す＝スライドできるように）
+  if (!$('discPick').hidden && quiet && pk.list.length === friends.size + 1 && pk.list.some((x) => x.uid === (localStorage.getItem('otocloud_pick') || '')) ) return;
   const fr = [...friends.entries()].sort((a, b) => (b[1].online ? 1 : 0) - (a[1].online ? 1 : 0)).map(([uid, f]) => ({ uid, f }));
   pk.list = [{ uid: me.uid, f: me, self: true }, ...fr];
   // 前に選んでいた人のところから（顔はずっと置いたまま）
