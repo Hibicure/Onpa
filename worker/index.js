@@ -638,7 +638,8 @@ export default {
       if (m) {
         const st = url.searchParams.get('st') || '';
         const cache = caches.default;
-        const key = new Request('https://cache.otocloud/wave2/' + m[1] + '/' + (url.searchParams.get('n') || '100'));
+        const raw = url.searchParams.get('mode') === 'raw';
+        const key = new Request('https://cache.otocloud/wave2/' + m[1] + '/' + (url.searchParams.get('n') || '100') + (raw ? '/raw' : ''));
         const hit = await cache.match(key);
         if (hit) return json(await hit.json(), 200, cors);
         const t = await trackInfo(m[1], env, userToken, st);
@@ -651,6 +652,8 @@ export default {
         for (let i = 0; i < n; i++) {
           const a = Math.floor(i * s.length / n), b = Math.max(a + 1, Math.floor((i + 1) * s.length / n));
           // 区間の平均（一番大きい1点だと、曲の終わりのフェードアウトが最後まで高く見えるため）
+          // raw：区間の真ん中の1点だけ（SoundCloud公式のように、となり同士の高さがばらつく＝ギザギザが残る）
+          if (raw) { const c = Math.floor((a + b) / 2); bars.push(Math.round((s[c] || 0) / h * 1000) / 1000); continue; }
           let sum = 0; for (let k = a; k < b; k++) sum += s[k] || 0;
           bars.push(Math.round(sum / (b - a) / h * 1000) / 1000);
         }

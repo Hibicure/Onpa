@@ -3055,15 +3055,15 @@ $('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidde
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {
-    const r = await fetch(`${WORKER}/wave/${meta.trackId}?n=135` + (meta.secret ? '&st=' + encodeURIComponent(meta.secret) : ''));
+    const r = await fetch(`${WORKER}/wave/${meta.trackId}?n=135&mode=raw` + (meta.secret ? '&st=' + encodeURIComponent(meta.secret) : ''));
     if (!r.ok || waveFor !== meta.trackId) return;
     const bars = await r.json();
     if (!Array.isArray(bars) || !bars.length || waveFor !== meta.trackId) return;
     // 音の大きさをそのまま高さに。曲の中で一番静かなあたり〜一番大きいあたりを、低い〜高いにめいっぱい広げる
     const sorted = bars.slice().sort((x, y) => x - y);
-    const lo = sorted[0], hi = sorted[Math.floor(sorted.length * 0.98)];
-    // 始まり・終わりをすぼめる加工はしない（音の大きさそのまま）。少しだけメリハリを強めに
-    waveBars = bars.map(v => 0.14 + 0.86 * Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 1.35));
+    const lo = sorted[Math.floor(sorted.length * 0.02)], hi = sorted[Math.floor(sorted.length * 0.98)];
+    // 公式よりもメリハリ強め：静かなところ〜大きいところをめいっぱい広げて、さらに差を大きく
+    waveBars = bars.map(v => 0.08 + 0.92 * Math.pow(Math.min(1, Math.max(0, (v - lo) / Math.max(0.001, hi - lo))), 1.9));
     $('seek').classList.add('waved');
     drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
   } catch { /* 普通のバーのまま */ }
