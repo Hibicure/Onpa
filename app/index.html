@@ -3305,6 +3305,10 @@ async function storyImage(t) {
   const artist = t.artist || ''; g.fillText(artist.length > 46 ? artist.slice(0, 45) + '…' : artist, cx, 1460);
   g.font = '700 40px Unbounded, sans-serif'; g.fillStyle = '#FFFFFF'; g.fillText('Otocloud', cx, H - 170);
   g.font = '500 30px "Instrument Sans", sans-serif'; g.fillStyle = 'rgba(255,255,255,.7)'; g.fillText('listen together · otocloud.app', cx, H - 120);
+  // SoundCloudの曲なら、公式ロゴ（白・そのまま）を曲名の下に小さく：公式の埋め込みで聴いていると一目で分かるように
+  if (t.trackId && !String(t.trackId).startsWith('am:')) {
+    try { const logo = await loadImg('sc_white.png'); const lw = 200, lh = Math.round(lw * logo.height / logo.width); g.globalAlpha = 0.9; g.drawImage(logo, cx - lw / 2, 1510, lw, lh); g.globalAlpha = 1; } catch { /* ロゴが読めなくても、画像はそのまま */ }
+  }
   return new Promise((ok) => c.toBlob(ok, 'image/png'));
 }
 // 共有：曲のリンク。インスタやLINEではジャケット付きのカードになり、開くとその場で再生できる。
