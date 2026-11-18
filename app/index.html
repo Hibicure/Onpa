@@ -965,6 +965,15 @@
   :root.mist .controls .mode { color: #FFFFFF !important; opacity: 1;
     filter: drop-shadow(0 0 1.5px rgba(255,255,255,.85)) drop-shadow(0 0 7px rgba(255,255,255,.45)) drop-shadow(0 0 16px rgba(255,255,255,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
   :root.mist .controls .mode[data-mode="off"] { opacity: .72; }
+  /* この曲を送る：友達の顔を並べて、タップした人にすぐ送る */
+  .send-card { display: grid; gap: 14px; }
+  .send-h { display: flex; flex-direction: column; gap: 2px; } .send-h b { font-size: 17px; } .send-h span { font-size: 12.5px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .send-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; max-height: 50vh; overflow: auto; }
+  .send-it { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .send-it .avatar { width: 56px; height: 56px; transition: transform .2s, opacity .2s; }
+  .send-it .nm { font-size: 11.5px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .send-it.done .avatar { opacity: .45; transform: scale(.9); }
+  .send-it.done .nm::after { content: ' ✓'; }
 </style>
 </head>
 <body>
@@ -1143,6 +1152,7 @@
       <div class="set-label">Look (trial)</div>
       <div class="set-row"><span>Milky glass</span><button class="btn ghost" id="setMist">Turn on</button></div>
       <div class="set-row"><span>Logo mark</span><button class="btn ghost" id="setMark">Left</button></div>
+      <div class="set-row"><span>Show friends what I'm playing</span><button class="btn ghost" id="setShareNow">On</button></div>
       <div class="set-row"><span>Test friends</span><button class="btn ghost" id="setDummy">Off</button></div>
     </div>
 
@@ -1236,6 +1246,9 @@
     <button class="eg-no" id="picClose">Cancel</button>
     <input type="file" id="picFile" accept="image/*" hidden>
   </div>
+</section>
+<section class="eargate actsheet" id="sendSheet" hidden role="dialog" aria-label="Send this song">
+  <div class="card send-card"><div class="send-h"><b>Send</b><span id="sendTitle"></span></div><div class="send-list" id="sendList"></div><button class="btn ghost" id="sendClose">Done</button></div>
 </section>
 <section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
   <div class="eg-card as-card">
@@ -1348,6 +1361,13 @@ function applyTheme(t) {
   document.getElementById('setMark').addEventListener('click', () => { v = ORDER[(ORDER.indexOf(v) + 1) % ORDER.length]; apply(v); try { localStorage.setItem(K, v); } catch { /* 無視 */ } });
 })();
 (() => {
+  const b = document.getElementById('setShareNow');
+  const get = () => { try { return localStorage.getItem('otocloud_share_now') !== '0'; } catch { return true; } };
+  const paint = () => { b.textContent = get() ? 'On' : 'Off'; };
+  paint();
+  b.addEventListener('click', () => { try { localStorage.setItem('otocloud_share_now', get() ? '0' : '1'); } catch {} paint(); try { lastNow = ''; publishNow(!player.paused); } catch {} });
+})();
+(() => {
   const b = document.getElementById('setDummy');
   const paint = () => { let on = false; try { on = localStorage.getItem('otocloud_dummies') === '1'; } catch {} b.textContent = on ? 'On' : 'Off'; };
   paint();
@@ -1391,6 +1411,8 @@ function bootOut() {
 }
 function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
+  send: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 11.2 19.6 4.1c.9-.4 1.7.5 1.3 1.3L13.8 21.6c-.4.9-1.7.8-1.9-.2l-1.4-6.4c-.1-.4-.4-.7-.8-.8l-6.1-1.3c-1-.2-1.1-1.5-.2-1.7z"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.6 2.9 21.1 8.4c.6.6.4 1.6-.4 1.9l-3.3 1.3-3.4 3.4.4 3.4c.1.6-.6 1-1.1.6L3 8.7c-.4-.5 0-1.2.6-1.1l3.4.4 3.4-3.4 1.3-3.3c.3-.8 1.3-1 1.9-.4z"/><path d="M8.2 15.8 3 21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
   together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15.5v-3a8.5 8.5 0 0 1 17 0v3"/><rect x="2.6" y="13.6" width="4.8" height="7" rx="2" fill="currentColor"/><rect x="16.6" y="13.6" width="4.8" height="7" rx="2" fill="currentColor"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M8 5.6v12.8l10.6-6.4z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.6" y="4.4" width="4.6" height="15.2" rx="1"/><rect x="13.8" y="4.4" width="4.6" height="15.2" rx="1"/></svg>',
@@ -1502,7 +1524,7 @@ async function routeUser(user) {
   catch (e) { toast("Can't reach the server (" + e.message + ')'); return; }
   $('authWait').hidden = true;
   if (u && u.handle) {
-    me = { uid: user.uid, handle: u.handle, name: u.name, avatar: u.avatar || '' };
+    me = { uid: user.uid, handle: u.handle, name: u.name, avatar: u.avatar || '', mood: u.mood || null };
     $('onboard').hidden = true;
     if ($('app').hidden) startApp(); else { $('meLabel').textContent = '@' + me.handle; $('myHandle').textContent = '@' + me.handle; $('myName').textContent = me.name || ''; setFace($('myAvatar'), me); }
   } else { showOnboard(); }
@@ -2730,7 +2752,7 @@ function seekTo(t) {
 function setPP(s) {
   const html = s === 'load' ? ICON.load : s === 'pause' ? ICON.pause : ICON.play;
   $('miniPP').innerHTML = html;
-  if (!$('np').classList.contains('endmode') && !$('np').classList.contains('joinmode') && !$('np').classList.contains('peekmode')) $('npPP').innerHTML = html;
+  if (!['endmode', 'joinmode', 'peekmode', 'sendmode', 'pinmode'].some((c) => $('np').classList.contains(c))) $('npPP').innerHTML = html;
 }
 function renderTrack() {
   $('scSrc').hidden = !track;
@@ -2882,6 +2904,8 @@ $('npPP').addEventListener('click', () => {
   if ($('np').classList.contains('endmode')) { setEndMode(false); $('cbEnd').click(); return; }
   if ($('np').classList.contains('joinmode')) { listenWith(); return; }
   if ($('np').classList.contains('peekmode')) { playTheirs(); return; }
+  if ($('np').classList.contains('sendmode')) { openSendSheet(); return; }
+  if ($('np').classList.contains('pinmode')) { pinMood(); return; }
   unlockAudio(); togglePlay();
 });
 $('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
@@ -3173,6 +3197,8 @@ function shareTrack(peerUid) {
 let lastNow = '';
 function publishNow(playing) {
   if (!me || !track || rb) return;
+  let share = true; try { share = localStorage.getItem('otocloud_share_now') !== '0'; } catch {}
+  if (!share) { if (lastNow !== 'off') { lastNow = 'off'; db.ref(`users/${me.uid}/now`).remove().catch(() => {}); } return; }
   const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', playing: !!playing, at: TS };
   const key = `${v.trackId}:${v.playing}`;
   if (key === lastNow) return;
@@ -3364,11 +3390,11 @@ function setPeekMode(on) {
   if (on) np.classList.remove('joinmode');
   np.classList.toggle('peekmode', on);
   if (on) {
-    const n = cur.f.now && cur.f.now.trackId ? cur.f.now : null, live = n && n.playing && cur.f.online;
+    const mood = moodOf(cur.f), n = mood || (cur.f.now && cur.f.now.trackId ? cur.f.now : null), live = !mood && n && n.playing && cur.f.online;
     $('npPP').innerHTML = ICON.play; $('npPP').setAttribute('aria-label', n ? `Play ${n.title}` : 'Nothing playing');
     $('npPP').classList.toggle('dim', !n);
     $('pickName').innerHTML = esc(cur.f.name || '@' + cur.f.handle) + (n
-      ? `<small class="pk-now">${n.artwork && safeImg(n.artwork) ? `<img src="${esc(n.artwork)}" alt="">` : ''}<span>${live ? '' : 'Last · '}${esc(n.title)}</span></small>`
+      ? `<small class="pk-now">${n.artwork && safeImg(n.artwork) ? `<img src="${esc(n.artwork)}" alt="">` : ''}<span>${mood ? 'Mood · ' : live ? '' : 'Last · '}${esc(n.title)}</span></small>`
       : '<small class="pk-now"><span>Not playing</span></small>');
     $('pickName').classList.remove('fade');
   } else {
@@ -3376,8 +3402,44 @@ function setPeekMode(on) {
     if (!np.classList.contains('joinmode')) { $('npPP').setAttribute('aria-label', 'Play or pause'); setPP(loading ? 'load' : (player.paused ? 'play' : 'pause')); }
   }
 }
+// 自分の顔を横にスライドした時の、真ん中のボタン
+function setSelfMode(m) {
+  const np = $('np'), cur = pk.list.length ? pickAt(pk.i) : null;
+  if (!cur || !cur.self || call.state !== 'idle' || !track) m = '';
+  np.classList.toggle('sendmode', m === 'send'); np.classList.toggle('pinmode', m === 'pin');
+  if (m) { np.classList.remove('joinmode', 'peekmode'); }
+  if (m === 'send') { $('npPP').innerHTML = ICON.send; $('npPP').setAttribute('aria-label', 'Send this song'); $('pickName').innerHTML = 'You<small class="pk-on">Send to a friend</small>'; $('pickName').classList.remove('fade'); }
+  else if (m === 'pin') { const on = myMood() && myMood().trackId === track.trackId; $('npPP').innerHTML = ICON.pin; $('npPP').setAttribute('aria-label', on ? 'Unpin from your profile' : 'Pin to your profile'); $('pickName').innerHTML = `You<small class="pk-on">${on ? 'Pinned · tap to remove' : 'Pin as your mood · 24h'}</small>`; $('pickName').classList.remove('fade'); }
+  else if (!np.classList.contains('joinmode') && !np.classList.contains('peekmode')) { $('npPP').setAttribute('aria-label', 'Play or pause'); setPP(loading ? 'load' : (player.paused ? 'play' : 'pause')); }
+}
+// 今の気分の曲（24時間で消える）
+const MOOD_MS = 24 * 3600e3;
+function moodOf(f) { const m = f && f.mood; return m && m.trackId && serverNow() - (m.at || 0) < MOOD_MS ? m : null; }
+function myMood() { return moodOf(me); }
+function pinMood() {
+  if (!me || !track) return;
+  const cur = myMood();
+  if (cur && cur.trackId === track.trackId) { db.ref(`users/${me.uid}/mood`).remove(); me.mood = null; toast('Removed from your profile'); }
+  else { const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', at: Date.now() }; db.ref(`users/${me.uid}/mood`).set({ ...v, at: TS }); me.mood = v; toast('Pinned to your profile for 24 hours'); }
+  hap('success'); setSelfMode('');
+}
+// 送る相手を選ぶ（顔をタップした人に、すぐ送る）
+function openSendSheet() {
+  const list = [...friends.entries()];
+  if (!list.length) { toast('Add a friend first'); return; }
+  $('sendList').innerHTML = list.map(([uid, f]) => `<button class="send-it" data-uid="${esc(uid)}"><span class="avatar">${face(f)}</span><span class="nm">${esc(f.name || '@' + f.handle)}</span></button>`).join('');
+  $('sendTitle').textContent = track ? track.title : '';
+  $('sendSheet').hidden = false;
+}
+$('sendList').addEventListener('click', (e) => {
+  const b = e.target.closest('.send-it'); if (!b || b.classList.contains('done')) return;
+  shareTrack(b.dataset.uid); b.classList.add('done'); hap('success');
+  const f = friends.get(b.dataset.uid); toast(`Sent to ${f ? (f.name || '@' + f.handle) : 'friend'}`);
+});
+$('sendClose').addEventListener('click', () => { $('sendSheet').hidden = true; setSelfMode(''); });
+$('sendSheet').addEventListener('click', (e) => { if (e.target.id === 'sendSheet') { $('sendSheet').hidden = true; setSelfMode(''); } });
 function playTheirs() {
-  const cur = pickAt(pk.i), n = cur && !cur.self && cur.f.now;
+  const cur = pickAt(pk.i), n = cur && !cur.self && (moodOf(cur.f) || cur.f.now);
   if (!n || !n.trackId) return;
   setPeekMode(false);
   unlockAudio();
@@ -3394,7 +3456,7 @@ function listenWith() {
 }
 function closePick() {
   clearTimeout(pk.timer);
-  $('discPick').hidden = true; $('pickName').hidden = true; setJoinMode(false); setPeekMode(false);
+  $('discPick').hidden = true; $('pickName').hidden = true; setJoinMode(false); setPeekMode(false); setSelfMode('');
   $('disc').classList.remove('picking');
 }
 function armPick() {} // 顔は自動で消さない（置いたまま）
@@ -3459,6 +3521,11 @@ function placePick(off, anim) {
         if (dx > 0) { if (np.classList.contains('peekmode')) setPeekMode(false); else setJoinMode(!np.classList.contains('joinmode')); }
         else { if (np.classList.contains('joinmode')) setJoinMode(false); else setPeekMode(!np.classList.contains('peekmode')); }
         hap('rigid');
+      } else {
+        // 自分の顔：右へ＝この曲を友達に送る ／ 左へ＝この曲を「今の気分」としてプロフィールに出す（24時間）
+        if (dx > 0) { if (np.classList.contains('pinmode')) setSelfMode(''); else setSelfMode(np.classList.contains('sendmode') ? '' : 'send'); }
+        else { if (np.classList.contains('sendmode')) setSelfMode(''); else setSelfMode(np.classList.contains('pinmode') ? '' : 'pin'); }
+        hap('rigid');
       }
       return;
     }
@@ -3483,7 +3550,7 @@ function placePick(off, anim) {
       placePick(-d, true);
       hap('rigid');
       pk.settleUntil = performance.now() + 700;
-      setTimeout(() => { pk.i = pickStep(pk.i, d); paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) { setJoinMode(false); setPeekMode(false); } else if ($('np').classList.contains('joinmode')) setJoinMode(true); else if ($('np').classList.contains('peekmode')) setPeekMode(true); }, 430);
+      setTimeout(() => { pk.i = pickStep(pk.i, d); paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (!pickAt(pk.i).self) setSelfMode(''); if (pickAt(pk.i).self) { setJoinMode(false); setPeekMode(false); } else if ($('np').classList.contains('joinmode')) setJoinMode(true); else if ($('np').classList.contains('peekmode')) setPeekMode(true); }, 430);
       sliding(false, 470);
     } else { paintPick(0, true); sliding(false, 480); pk.settleUntil = performance.now() + 500; }
     armPick();
