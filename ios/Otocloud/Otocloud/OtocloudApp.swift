@@ -191,6 +191,25 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         }
     }
 
+    // ページの中の埋め込み（SoundCloud）が、あとから「10秒送り」に戻してしまうので、鳴っている間は2秒ごとに「次の曲・前の曲」に戻し続ける
+    private var guardTimer: Timer?
+    private func guardRemoteCommands(_ on: Bool) {
+        if !on { guardTimer?.invalidate(); guardTimer = nil; return }
+        guard guardTimer == nil else { return }
+        guardTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                let c = MPRemoteCommandCenter.shared()
+                if c.skipForwardCommand.isEnabled || c.skipBackwardCommand.isEnabled || !c.nextTrackCommand.isEnabled {
+                    self?.setupRemoteCommands()
+                }
+                if let info = self?.lastInfo, (MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyTitle] as? String) != (info[MPMediaItemPropertyTitle] as? String) {
+                    MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                }
+            }
+        }
+    }
+    private var lastInfo: [String: Any]?
+
     // ロック画面・コントロールセンター：「10秒送り・戻し」を消して「次の曲・前の曲」にする。押したらページに伝える
     private func setupRemoteCommands() {
         let c = MPRemoteCommandCenter.shared()
@@ -223,6 +242,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         let playingNow = b["playing"] as? Bool ?? false
         if isPlayingNow && !playingNow { pausedAt = Date() }
         isPlayingNow = playingNow
+        guardRemoteCommands(playingNow)
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: b["title"] as? String ?? "",
             MPMediaItemPropertyArtist: b["artist"] as? String ?? "",
@@ -233,6 +253,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         let url = b["artwork"] as? String ?? ""
         if url == artURL, let a = artImage { info[MPMediaItemPropertyArtwork] = a }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        lastInfo = info
         if url != artURL, let u = URL(string: url), url.hasPrefix("https://") {
             artURL = url; artImage = nil
             Task {
@@ -244,6 +265,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     var cur = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
                     cur[MPMediaItemPropertyArtwork] = art
                     MPNowPlayingInfoCenter.default().nowPlayingInfo = cur
+                    self.lastInfo?[MPMediaItemPropertyArtwork] = art
                 }
             }
         }
