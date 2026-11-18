@@ -1694,6 +1694,8 @@ function startApp() {
     ref.update({ online: true });
   });
   watchFriends();
+  // 好みがまだ無ければ、最近聴いた曲から作っておく
+  setTimeout(() => { try { if (!Object.keys(loadTaste()).length) [...recent].reverse().forEach((t) => noteTaste(t.artist)); } catch {} publishTaste(); }, 4000);
   watchIncoming();
   // 友だち検索の名簿（名前・@ハンドル・アイコンだけ）
   db.ref('dir/' + me.uid).set({ name: me.name || '', handle: me.handle || '', avatar: safeImg(me.avatar) || (/^tex:\d{1,2}$/.test(me.avatar || '') ? me.avatar : '') }).catch(() => {});
@@ -3231,7 +3233,35 @@ function rememberPlayed(meta) {
   const t = { id: meta.trackId, title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0, secret: meta.secret || '', userId: meta.userId || null, uploader: meta.uploader || '' };
   recent = [t, ...recent.filter((r) => String(r.id) !== String(t.id))].slice(0, 30);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch { /* 無視 */ }
+  noteTaste(t.artist);
   if (!$('viewHome').hidden) renderHome();
+}
+// ===================== 好み（よく聴くアーティスト） =====================
+// 聴いた曲のアーティストを数えておく（この端末）。上位だけを taste/{自分} に出して、近い人さがしに使う
+const TASTE_KEY = 'oto_taste';
+function tasteKey(name) {
+  const first = String(name || '').split(/\s+(?:x|×|&|and|feat\.?|ft\.?|vs\.?)\s+|,|、|\//i)[0] || '';
+  return first.toLowerCase().normalize('NFKC').replace(/[\s.$#\[\]\/'’"“”・,!?！？~〜\-–—_]/g, '').slice(0, 60);
+}
+function loadTaste() { try { return JSON.parse(localStorage.getItem(TASTE_KEY) || '{}') || {}; } catch { return {}; } }
+let tasteTimer = 0;
+function noteTaste(artist) {
+  const k = tasteKey(artist); if (k.length < 2) return;
+  const m = loadTaste();
+  // 古い好みは少しずつ薄れる（最近よく聴く人ほど強い）
+  for (const v of Object.values(m)) v.n *= 0.985;
+  const nm = String(artist).split(/\s+(?:x|×|&|feat\.?|ft\.?)\s+|,/i)[0].trim().slice(0, 60);
+  m[k] = { n: ((m[k] && m[k].n) || 0) + 1, name: nm };
+  const top = Object.entries(m).sort((a, b) => b[1].n - a[1].n).slice(0, 60);
+  const keep = Object.fromEntries(top.filter(([, v]) => v.n > 0.05));
+  try { localStorage.setItem(TASTE_KEY, JSON.stringify(keep)); } catch {}
+  clearTimeout(tasteTimer); tasteTimer = setTimeout(publishTaste, 20000);
+}
+function publishTaste() {
+  if (!me) return;
+  const a = {};
+  for (const [k, v] of Object.entries(loadTaste()).sort((x, y) => y[1].n - x[1].n).slice(0, 30)) a[k] = { n: Math.round(v.n * 100) / 100, name: v.name };
+  if (Object.keys(a).length) db.ref('taste/' + me.uid).set({ a, at: TS }).catch(() => {});
 }
 const big = (a) => (a || '').replace('-large.', '-t300x300.');
 function jkHTML(t, list, i, who) {
