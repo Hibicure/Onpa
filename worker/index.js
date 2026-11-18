@@ -395,34 +395,45 @@ function normName(s) { return String(s || '').toLowerCase().normalize('NFKC').re
 // LRCLIB（だれでも使える歌詞のデータベース。時間つき歌詞もある）で、曲名とアーティスト名から探す
 async function lrclib(t, trace = []) {
   const UA = { 'User-Agent': 'Otocloud (https://otocloud.app)' };
-  let title = cleanTitle(t.publisher_metadata?.release_title || t.title);
+  const raw = String(t.publisher_metadata?.release_title || t.title || '');
+  // リミックス・カバー・速さ違いは、長さが違っても歌詞は同じ
+  const loose = /remix|edit|cover|sped|slowed|nightcore|bootleg|flip|rework|カバー|歌ってみた|弾き語り|acoustic|live/i.test(raw);
+  let title = cleanTitle(raw);
   let artist = String(t.publisher_metadata?.artist || t.user?.username || '').trim();
+  const pairs = [[title, artist]];
   const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
-  if (dash) { artist = dash[1].trim(); title = cleanTitle(dash[2]); }
+  if (dash) { pairs.unshift([cleanTitle(dash[2]), dash[1].trim()]); pairs.splice(1, 0, [cleanTitle(dash[1]), dash[2].trim()]); }
   const dur = Math.round((t.full_duration || t.duration || 0) / 1000);
-  // 先頭の「作詞：」「作曲：」などのクレジット行は外す
   const tidy = (txt) => String(txt || '').split('\n').filter((l) => !/^\s*(作[词詞]|作曲|[编編]曲|制作人|混音|和声|Lời|Lyrics by|Composed by)\s*.{0,40}[:：]/i.test(l)).join('\n').replace(/^\s+/, '');
-  const pick = (x) => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics) ? { lyrics: tidy(x.plainLyrics || x.syncedLyrics.replace(/^\[[^\]]*\]\s?/gm, '')), synced: x.syncedLyrics || '', from: 'lrclib' } : null;
-  try {
-    const q = new URLSearchParams({ track_name: title, artist_name: artist }); if (dur) q.set('duration', String(dur));
-    const r = await fetch('https://lrclib.net/api/get?' + q, { headers: UA });
-    trace.push('get ' + r.status + ' ' + title + ' / ' + artist + ' ' + dur);
-    if (r.ok) { const hit = pick(await r.json()); if (hit) return hit; }
-  } catch { /* つぎへ */ }
-  const nt = normName(title), na = normName(artist);
-  if (nt.length < 2) return null;
-  const tn = (x) => normName(x.trackName);
-  for (const q of [`${artist} ${title}`, title]) {
+  const pick = (x) => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics) ? { lyrics: tidy(x.plainLyrics || x.syncedLyrics.replace(/^\[[^\]]*\]\s?/gm, '')), synced: loose ? '' : (x.syncedLyrics || ''), from: 'lrclib' } : null;
+  // ① 曲名・アーティスト名・長さがぴったり
+  if (!loose) for (const [ti, ar] of pairs) {
+    try {
+      const q = new URLSearchParams({ track_name: ti, artist_name: ar }); if (dur) q.set('duration', String(dur));
+      const r = await fetch('https://lrclib.net/api/get?' + q, { headers: UA });
+      trace.push('get ' + r.status + ' ' + ti + ' / ' + ar + ' ' + dur);
+      if (r.ok) { const hit = pick(await r.json()); if (hit) return hit; }
+    } catch { /* つぎへ */ }
+  }
+  // ② 検索して、曲名とアーティスト名が合うもの（長さが近い順）
+  const tn = (x) => normName(x.trackName), an = (x) => normName(x.artistName);
+  const near = (a, b) => a === b || (a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a)));
+  const seen = new Set();
+  for (const q of [`${artist} ${title}`, ...pairs.map((p) => p[0])]) {
+    if (seen.has(q)) continue; seen.add(q);
     try {
       const r = await fetch('https://lrclib.net/api/search?' + new URLSearchParams({ q }), { headers: UA });
       trace.push('search ' + r.status + ' ' + q);
       if (!r.ok) continue;
-      const list = (await r.json()) || [];
-      const ok = list.filter((x) => !/inst|instrumental|off ?vocal|karaoke|カラオケ|オフボーカル/i.test(x.trackName || ''))
-        .filter((x) => tn(x) === nt || (tn(x).length >= 2 && (tn(x).includes(nt) || nt.includes(tn(x)))))
-        .filter((x) => !na || normName(x.artistName).includes(na) || na.includes(normName(x.artistName)) || (dur && Math.abs((x.duration || 0) - dur) <= 3))
-        .sort((p, q) => Math.abs((p.duration || 0) - dur) - Math.abs((q.duration || 0) - dur));
-      for (const x of ok) { if (dur && x.duration && Math.abs(x.duration - dur) > 12) continue; const hit = pick(x); if (hit) return hit; }
+      const list = ((await r.json()) || []).filter((x) => !/inst|instrumental|off ?vocal|karaoke|カラオケ|オフボーカル/i.test(x.trackName || ''));
+      for (const [ti, ar] of pairs) {
+        const nt = normName(ti), na = normName(ar);
+        if (nt.length < 2) continue;
+        const ok = list.filter((x) => near(tn(x), nt))
+          .filter((x) => !na || near(an(x), na) || tn(x).includes(na) || (dur && Math.abs((x.duration || 0) - dur) <= 3))
+          .sort((p, q) => Math.abs((p.duration || 0) - dur) - Math.abs((q.duration || 0) - dur));
+        for (const x of ok) { if (!loose && dur && x.duration && Math.abs(x.duration - dur) > 12) continue; const hit = pick(x); if (hit) return hit; }
+      }
     } catch { /* つぎへ */ }
   }
   return null;
