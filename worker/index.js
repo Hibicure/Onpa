@@ -393,7 +393,7 @@ function cleanTitle(s) {
 }
 function normName(s) { return String(s || '').toLowerCase().normalize('NFKC').replace(/[\s'’"“”・.,!?！？~〜\-–—_/]/g, ''); }
 // LRCLIB（だれでも使える歌詞のデータベース。時間つき歌詞もある）で、曲名とアーティスト名から探す
-async function lrclib(t) {
+async function lrclib(t, trace = []) {
   const UA = { 'User-Agent': 'Otocloud (https://otocloud.app)' };
   let title = cleanTitle(t.publisher_metadata?.release_title || t.title);
   let artist = String(t.publisher_metadata?.artist || t.user?.username || '').trim();
@@ -406,6 +406,7 @@ async function lrclib(t) {
   try {
     const q = new URLSearchParams({ track_name: title, artist_name: artist }); if (dur) q.set('duration', String(dur));
     const r = await fetch('https://lrclib.net/api/get?' + q, { headers: UA });
+    trace.push('get ' + r.status + ' ' + title + ' / ' + artist + ' ' + dur);
     if (r.ok) { const hit = pick(await r.json()); if (hit) return hit; }
   } catch { /* つぎへ */ }
   const nt = normName(title), na = normName(artist);
@@ -414,6 +415,7 @@ async function lrclib(t) {
   for (const q of [`${artist} ${title}`, title]) {
     try {
       const r = await fetch('https://lrclib.net/api/search?' + new URLSearchParams({ q }), { headers: UA });
+      trace.push('search ' + r.status + ' ' + q);
       if (!r.ok) continue;
       const list = (await r.json()) || [];
       const ok = list.filter((x) => !/inst|instrumental|off ?vocal|karaoke|カラオケ|オフボーカル/i.test(x.trackName || ''))
@@ -425,11 +427,12 @@ async function lrclib(t) {
   }
   return null;
 }
-async function lyricsOf(id, env, userToken, st) {
+async function lyricsOf(id, env, userToken, st, dbg) {
   const cache = caches.default;
   const key = new Request('https://cache.otocloud/lyrics3/' + id + (st ? '/' + st : ''));
-  const hit = await cache.match(key);
+  const hit = dbg ? null : await cache.match(key);
   if (hit) return hit.json();
+  const trace = [];
   let out = { lyrics: '', from: '' };
   try {
     const t = await scGet('/tracks/' + id + (st ? '?secret_token=' + st : ''), env, userToken);
@@ -454,8 +457,10 @@ async function lyricsOf(id, env, userToken, st) {
       }
     }
     // SoundCloudに無ければ、曲名とアーティスト名で歌詞のデータベースを探す
-    if (!out.lyrics) { const l = await lrclib(t); if (l) out = l; }
-  } catch { /* 歌詞が見つからないだけ */ }
+    trace.push('sc ok: ' + (t.title || ''));
+    if (!out.lyrics) { const l = await lrclib(t, trace); if (l) out = l; }
+  } catch (e) { trace.push('err: ' + (e && e.message)); }
+  if (dbg) return { ...out, trace };
   if (!out.lyrics || !st) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'Cache-Control': 'public, max-age=' + (out.lyrics ? 86400 : 21600), 'Content-Type': 'application/json' } }));
   return out;
 }
@@ -534,7 +539,7 @@ export default {
       if (m) {
         let st = url.searchParams.get('st') || '';
         if (st && !/^s-[A-Za-z0-9]{1,40}$/.test(st)) st = '';
-        return json(await lyricsOf(m[1], env, userToken, st), 200, cors);
+        return json(await lyricsOf(m[1], env, userToken, st, url.searchParams.get('debug') === '1'), 200, cors);
       }
       // ---- その人のプロフィール: /user/123（街・国など。アーティストページの上に出す）
       m = p.match(/^\/user\/(\d{1,20})$/);
