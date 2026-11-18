@@ -912,7 +912,7 @@
   body.artist-mode .head { display: none; }
   .artist-head { position: sticky; top: 0; z-index: 6; margin: 0 0 0; background: var(--ah-page, var(--paper)); }
   .artist-head[hidden] { display: none; }
-  .artist-head .ah-bg { position: relative; width: 100%; aspect-ratio: 2480 / 520; min-height: calc(env(safe-area-inset-top) + 40px); background: var(--ah-tint, var(--chip)) center / cover no-repeat; overflow: hidden; }
+  .artist-head .ah-bg { position: relative; width: 100%; aspect-ratio: 2.2 / 1; /* SoundCloudのアプリと同じくらい、少し拡大して上下を見せる */ min-height: calc(env(safe-area-inset-top) + 40px); background: var(--ah-tint, var(--chip)) center / cover no-repeat; overflow: hidden; }
   .artist-head:not(.banner) .ah-bg { filter: blur(20px) saturate(1.25); transform: scale(1.3); }
   .artist-head .ah-row { position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 0 18px 8px; margin-top: -30px; z-index: 1; }
   .artist-head .ah-pic { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 0 0 3px var(--ah-page, var(--paper)), 0 8px 20px -8px rgba(0,0,0,.5); }
