@@ -883,6 +883,10 @@
     background: conic-gradient(from 210deg, rgba(255,255,255,.62), rgba(205,225,255,.28), rgba(255,255,255,.08), rgba(255,215,238,.3), rgba(255,255,255,.62), rgba(212,255,238,.26), rgba(255,255,255,.08), rgba(255,236,205,.3), rgba(255,255,255,.62));
     -webkit-mask: radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.55) 87%, #000 93%, rgba(0,0,0,.7) 98%, transparent 100%);
             mask: radial-gradient(circle closest-side, transparent 80%, rgba(0,0,0,.55) 87%, #000 93%, rgba(0,0,0,.7) 98%, transparent 100%); }
+  /* 歌詞を閉じるボタン：開いた時の「Lyrics」と同じ場所に、押された状態で出す（×はやめ） */
+  .lyr-x[hidden] { display: none; }
+  .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+  .lyr-back:active { transform: scale(.94); }
 </style>
 </head>
 <body>
@@ -1129,7 +1133,8 @@
   <button class="eg-no" id="dialClose">Close</button>
 </section>
 <section class="lyr" id="lyrSheet" hidden role="dialog" aria-label="Lyrics">
-  <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <button class="lyr-back" id="lyrBack" aria-label="Close lyrics">Lyrics</button>
+  <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <div class="lyr-body" id="lyrBody"></div>
 </section>
 <section class="eargate actsheet" id="picSheet" hidden role="dialog" aria-label="Profile picture">
@@ -2653,9 +2658,14 @@ function openLyrics() {
   $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span>`;
   $('lyrBody').scrollTop = 0;
   $('lyrSheet').hidden = false;
+  // 「Lyrics」ボタンとぴったり同じ場所に、閉じるボタンを置く
+  const b = $('lyrBtn').getBoundingClientRect(), k = $('lyrBack');
+  if (b.width) { k.style.left = b.left + 'px'; k.style.top = b.top + 'px'; k.style.width = b.width + 'px'; k.style.height = b.height + 'px'; k.style.bottom = ''; k.style.transform = ''; }
+  else { k.style.left = '50%'; k.style.top = ''; k.style.bottom = 'calc(29px + env(safe-area-inset-bottom))'; k.style.transform = 'translateX(-50%)'; }
 }
 $('lyrBtn').addEventListener('click', openLyrics);
 $('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; });
+$('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidden = true; });
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {
