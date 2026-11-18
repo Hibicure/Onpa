@@ -2854,8 +2854,38 @@ function markNow() {
   document.querySelectorAll('#results .row').forEach((r) => r.classList.toggle('now', !!track && String(track.trackId) === r.dataset.id && !player.paused));
 }
 const isReal = () => !!track;
-player.addEventListener('playing', () => { if (!isReal()) return; $('np').classList.remove('paused-amb'); publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
-player.addEventListener('pause', () => { if (!isReal()) return; $('np').classList.add('paused-amb'); publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
+// ロック画面・コントロールセンター：「10秒送り」ではなく「前の曲・次の曲」を出す。曲名とジャケットも出す
+function tellLockScreen() {
+  if (!track) return;
+  const info = { op: 'nowPlaying', id: 'np', title: track.title || '', artist: track.artist || '', artwork: (track.artwork || '').replace('-large.', '-t500x500.'),
+    duration: (player.duration || (track.duration || 0) / 1000) || 0, elapsed: player.currentTime || 0, playing: !player.paused };
+  try { window.webkit.messageHandlers.otoCall.postMessage(info); } catch { /* Web */ }
+  try {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: info.title, artist: info.artist, artwork: info.artwork ? [{ src: info.artwork, sizes: '500x500', type: 'image/jpeg' }] : [] });
+      navigator.mediaSession.playbackState = info.playing ? 'playing' : 'paused';
+    }
+  } catch { /* 無視 */ }
+}
+window.__otoRemote = (cmd) => {
+  if (cmd === 'next') { unlockAudio(); if (!playNext(false)) playRelated(false); }
+  else if (cmd === 'prev') playPrev();
+  else if (cmd === 'play') { if (player.paused) togglePlay(); }
+  else if (cmd === 'pause') { if (!player.paused) togglePlay(); }
+  else if (cmd === 'toggle') togglePlay();
+};
+try {
+  if ('mediaSession' in navigator) {
+    const ms = navigator.mediaSession;
+    ms.setActionHandler('nexttrack', () => window.__otoRemote('next'));
+    ms.setActionHandler('previoustrack', () => window.__otoRemote('prev'));
+    ms.setActionHandler('play', () => window.__otoRemote('play'));
+    ms.setActionHandler('pause', () => window.__otoRemote('pause'));
+    try { ms.setActionHandler('seekforward', null); ms.setActionHandler('seekbackward', null); } catch { /* 無視 */ }
+  }
+} catch { /* 無視 */ }
+player.addEventListener('playing', () => { if (!isReal()) return; tellLockScreen(); $('np').classList.remove('paused-amb'); publishNow(true); setPP('pause'); $('disc').classList.add('spinning'); markNow(); });
+player.addEventListener('pause', () => { if (!isReal()) return; tellLockScreen(); $('np').classList.add('paused-amb'); publishNow(false); if (!loading) setPP('play'); $('disc').classList.remove('spinning'); markNow(); });
 player.addEventListener('waiting', () => { if (isReal()) setPP('load'); });
 // 曲の終わりを待たずに、0.35秒前に次へ（1曲リピートは頭に戻すだけ）＝つなぎ目の待ち時間をなくす
 let endedFor = null, earlyNow = false;

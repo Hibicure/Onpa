@@ -1,4 +1,5 @@
 import AVFoundation
+import MediaPlayer
 import LiveKit
 import SwiftUI
 import WebKit
@@ -166,6 +167,62 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         AudioManager.shared.audioSession.isAutomaticDeactivationEnabled = false
         NotificationCenter.default.addObserver(self, selector: #selector(routeChanged(_:)),
                                                name: AVAudioSession.routeChangeNotification, object: nil)
+        setupRemoteCommands()
+    }
+
+    // ロック画面・コントロールセンター：「10秒送り・戻し」を消して「次の曲・前の曲」にする。押したらページに伝える
+    private func setupRemoteCommands() {
+        let c = MPRemoteCommandCenter.shared()
+        c.skipForwardCommand.isEnabled = false
+        c.skipBackwardCommand.isEnabled = false
+        c.seekForwardCommand.isEnabled = false
+        c.seekBackwardCommand.isEnabled = false
+        let hook: (MPRemoteCommand, String) -> Void = { cmd, name in
+            cmd.isEnabled = true
+            cmd.removeTarget(nil)
+            cmd.addTarget { [weak self] _ in
+                Task { @MainActor in
+                    self?.webView?.evaluateJavaScript("window.__otoRemote && window.__otoRemote('\(name)')", completionHandler: nil)
+                }
+                return .success
+            }
+        }
+        hook(c.nextTrackCommand, "next")
+        hook(c.previousTrackCommand, "prev")
+        hook(c.playCommand, "play")
+        hook(c.pauseCommand, "pause")
+        hook(c.togglePlayPauseCommand, "toggle")
+    }
+
+    private var artURL = ""
+    private var artImage: MPMediaItemArtwork?
+    /// ロック画面に、曲名・アーティスト・ジャケット・長さを出す
+    private func setNowPlaying(_ b: [String: Any]) {
+        setupRemoteCommands() // ページ側が上書きしていたら、もう一度「次の曲・前の曲」に戻す
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: b["title"] as? String ?? "",
+            MPMediaItemPropertyArtist: b["artist"] as? String ?? "",
+            MPMediaItemPropertyPlaybackDuration: b["duration"] as? Double ?? 0,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: b["elapsed"] as? Double ?? 0,
+            MPNowPlayingInfoPropertyPlaybackRate: (b["playing"] as? Bool ?? false) ? 1.0 : 0.0,
+        ]
+        let url = b["artwork"] as? String ?? ""
+        if url == artURL, let a = artImage { info[MPMediaItemPropertyArtwork] = a }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        if url != artURL, let u = URL(string: url), url.hasPrefix("https://") {
+            artURL = url; artImage = nil
+            Task {
+                guard let (data, _) = try? await URLSession.shared.data(from: u), let img = UIImage(data: data) else { return }
+                let art = MPMediaItemArtwork(boundsSize: img.size) { _ in img }
+                await MainActor.run {
+                    guard self.artURL == url else { return }
+                    self.artImage = art
+                    var cur = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                    cur[MPMediaItemPropertyArtwork] = art
+                    MPNowPlayingInfoCenter.default().nowPlayingInfo = cur
+                }
+            }
+        }
     }
 
     static func routeText() -> String {
@@ -251,6 +308,8 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "spResume": SpotifyBridge.shared.resume()
                 case "spSeek": SpotifyBridge.shared.seek(body["t"] as? Double ?? 0)
                 // ---- 触った感じ（ハプティクス）：スライドや切りかえの「ククッ」
+                case "nowPlaying":
+                    setNowPlaying(body)
                 case "haptic":
                     Haptics.play(body["k"] as? String ?? "tick")
                 case "open":
