@@ -842,11 +842,15 @@
   @keyframes spinarc { to { transform: rotate(360deg); } }
   .controls .pp svg.spin { width: 46px; height: 46px; }
   /* 四角い時：レコードのジャケット（紙のスリーブ）っぽい厚みと、ふちの光 */
-  .np.square #disc .edge { display: block !important; border-radius: 1.5px; pointer-events: none; z-index: 3; opacity: 1;
+  /* 四角いジャケット＝CDの紙ジャケット。入れ口は右（右のふちだけ、すき間の影）。ほかの3辺は折り返しで、ぷっくり丸い。光は上から：下ほど影 */
+  .np.square #disc .edge { display: block !important; border-radius: 2px; pointer-events: none; z-index: 3; opacity: 1;
     -webkit-mask-image: none !important; mask-image: none !important;
-    background: linear-gradient(128deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(0,0,0,.10) 100%);
-    box-shadow: inset 0 0 0 .75px rgba(255,255,255,.28), inset 0 1.5px 0 rgba(255,255,255,.45), inset 0 -2px 3px rgba(0,0,0,.26), inset 2px 0 3px rgba(255,255,255,.08), inset -2px 0 3px rgba(0,0,0,.14) !important; }
-  .np.square #disc { border-radius: 1.5px; box-shadow: 0 1px 0 rgba(0,0,0,.28), 0 2.5px 0 -1px rgba(255,255,255,.35), 0 3.5px 1px -1px rgba(0,0,0,.18), 0 28px 48px -22px rgba(0,0,0,.45), 0 10px 16px -10px rgba(0,0,0,.28); }
+    background:
+      linear-gradient(270deg, rgba(0,0,0,.26) 0, rgba(0,0,0,.12) 1.2px, rgba(0,0,0,.04) 3px, rgba(0,0,0,0) 7px),
+      radial-gradient(ellipse 125% 125% at 46% 38%, rgba(255,255,255,.05) 0%, rgba(0,0,0,0) 52%, rgba(0,0,0,.12) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 30%, rgba(0,0,0,0) 65%, rgba(0,0,0,.08) 100%) !important;
+    box-shadow: inset 0 0 5px rgba(0,0,0,.14), inset 0 -4px 6px -2px rgba(0,0,0,.24), inset 4px 0 6px -3px rgba(0,0,0,.12), inset 0 3px 5px -3px rgba(0,0,0,.08) !important; }
+  .np.square #disc { border-radius: 2px; box-shadow: 0 1px 1.5px rgba(0,0,0,.30), 0 3px 4px -1px rgba(0,0,0,.22), 0 14px 22px -10px rgba(0,0,0,.35), 0 36px 60px -24px rgba(0,0,0,.5), 7px 2px 14px -10px rgba(0,0,0,.28), -7px 2px 14px -10px rgba(0,0,0,.28); }
   /* ホームなど全部のページ：同じ白い厚みの縁。曲が流れていない時も、色が抜けきらないやわらかい地 */
   /* ホーム側の地：明るすぎず暗すぎないグレー（昼）／ほぼ黒（夜）。どちらも白い厚みの縁 */
   :root.mist:not([data-theme="dark"]) {
