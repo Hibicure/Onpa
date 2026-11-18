@@ -2010,6 +2010,7 @@ function setPlayMode(m) {
 $('npMode').addEventListener('click', () => {
   const next = MODES[(MODES.indexOf(playMode) + 1) % MODES.length];
   setPlayMode(next);
+  try { localStorage.setItem('otocloud_play_mode', next); } catch { /* 保存できなくても動く */ }
   toast(MODE_INFO[next].label);
 });
 function replayCurrent() {
@@ -4558,7 +4559,8 @@ if (isIOS) {
 }
 setPP('play');
 renderUpNext();
-setPlayMode('off');
+// 最初はシャッフル。自分で変えたら、アプリを閉じてもその設定のまま
+setPlayMode((() => { try { const m = localStorage.getItem('otocloud_play_mode'); return MODES.includes(m) ? m : 'shuffle'; } catch { return 'shuffle'; } })());
 </script>
 </body>
 </html>
