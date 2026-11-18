@@ -875,7 +875,7 @@
   :root.mist .disc .pick-it .avatar { position: relative; overflow: visible !important; }
   :root.mist .disc .pick-it .avatar::before { content: ""; position: absolute; inset: -3.2%; border-radius: 50%; z-index: -1; pointer-events: none; display: block;
     background: radial-gradient(circle closest-side, transparent 94%, rgba(255,255,255,.4) 97%, transparent 100%),
-                conic-gradient(from 210deg, #3a3b40, #6c6d73, #2c2d31, #55565c, #3a3b40, #707177, #2c2d31, #5b5c62, #3a3b40);
+                conic-gradient(from 210deg, #a7a9ae, #d3d5d9, #9c9ea3, #c4c6cb, #a7a9ae, #d6d8dc, #9a9ca1, #c8cacf, #a7a9ae);
     box-shadow: 0 2px 6px rgba(0,0,0,.35); }
   /* 歌詞を閉じるボタン：開いた時の「Lyrics」と同じ場所に、押された状態で出す（×はやめ） */
   .lyr-x[hidden] { display: none; }
@@ -3304,12 +3304,24 @@ function closePick() {
 }
 function armPick() {} // 顔は自動で消さない（置いたまま）
 const pickAt = (k) => pk.list[((k % pk.list.length) + pk.list.length) % pk.list.length];
+// 自分（0番）はいちばん上で止まる。友達（1番〜）の中だけ、ぐるぐる回る
+function pickStep(i, o) {
+  const n = pk.list.length, F = n - 1;
+  if (F <= 0) return o === 0 ? i : -1;
+  const t = i + o;
+  if (t === 0) return 0;
+  if (t < 0 || (i === 0 && o < 0)) return -1;
+  if (F === 1) return t === 1 ? 1 : -1; // 友達が1人なら、自分とその人の2つだけ
+  if (i === 0 && o > 0) return 1 + ((o - 1) % F);
+  if (t < 1) return t === 0 ? 0 : -1;
+  return 1 + ((((t - 1) % F) + F) % F);
+}
 function paintPick(drag, anim) {
   const n = pk.list.length, rail = $('pickRail'), h = $('discPick').offsetHeight || 100;
   // 今の人と、前後2人ずつ置く（一周できるように）
   const rows = n > 1 ? [-2, -1, 0, 1, 2] : [0];
   if (rail.dataset.i !== String(pk.i) || rail.dataset.n !== String(n)) {
-    rail.innerHTML = rows.map((o) => { const it = pickAt(pk.i + o); return `<div class="pick-it" data-o="${o}" style="top:0"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
+    rail.innerHTML = rows.map((o) => { const k = pickStep(pk.i, o); if (k < 0) return ''; const it = pk.list[k]; return `<div class="pick-it" data-o="${o}" style="top:0"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
     rail.dataset.i = String(pk.i); rail.dataset.n = String(n);
   }
   rail.style.transform = 'none';
@@ -3339,7 +3351,7 @@ function placePick(off, anim) {
   let tickAt = 0;
   box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy; dx = e.clientX - sx;
     if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 8) { $('pickRail').style.transform = `translateX(${Math.max(-26, Math.min(26, dx * .35))}px)`; return; }
-    if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); paintPick(dy, false);
+    if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); if (dy > 0 && pickStep(pk.i, -1) < 0) dy *= 0.25; paintPick(dy, false);
       const t = Math.trunc(dy / (box.offsetHeight * 0.32)); if (t !== tickAt) { tickAt = t; hap('rigid'); } } });
   const up = (e) => {
     stop(e); if (e.pointerId !== id) return; id = null;
@@ -3365,10 +3377,11 @@ function placePick(off, anim) {
     }
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
       const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
+      if (pickStep(pk.i, d) < 0) { paintPick(0, true); sliding(false, 480); armPick(); return; } // 自分より上はない
       // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
       placePick(-d, true);
       hap('rigid');
-      setTimeout(() => { pk.i += d; paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) { setJoinMode(false); setPeekMode(false); } else if ($('np').classList.contains('joinmode')) setJoinMode(true); else if ($('np').classList.contains('peekmode')) setPeekMode(true); }, 430);
+      setTimeout(() => { pk.i = pickStep(pk.i, d); paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) { setJoinMode(false); setPeekMode(false); } else if ($('np').classList.contains('joinmode')) setJoinMode(true); else if ($('np').classList.contains('peekmode')) setPeekMode(true); }, 430);
       sliding(false, 470);
     } else { paintPick(0, true); sliding(false, 480); }
     armPick();
