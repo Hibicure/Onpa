@@ -926,6 +926,11 @@
   @keyframes joinpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
   #cbMute.nudge { animation: joinpulse 1s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .np.joinmode .controls .pp svg, #cbMute.nudge { animation: none; } }
+  /* 左スライド：その人の今の曲（小さいジャケット＋曲名） */
+  .disc .pick-name .pk-now { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 3px; font-size: 11px; font-weight: 600; color: inherit; opacity: .9; max-width: 62vw; }
+  .disc .pick-name .pk-now img { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none; }
+  .disc .pick-name .pk-now span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .controls .pp.dim { opacity: .4; }
 </style>
 </head>
 <body>
@@ -2662,7 +2667,7 @@ function seekTo(t) {
 function setPP(s) {
   const html = s === 'load' ? ICON.load : s === 'pause' ? ICON.pause : ICON.play;
   $('miniPP').innerHTML = html;
-  if (!$('np').classList.contains('endmode') && !$('np').classList.contains('joinmode')) $('npPP').innerHTML = html;
+  if (!$('np').classList.contains('endmode') && !$('np').classList.contains('joinmode') && !$('np').classList.contains('peekmode')) $('npPP').innerHTML = html;
 }
 function renderTrack() {
   $('scSrc').hidden = !track;
@@ -2813,6 +2818,7 @@ $('npPP').addEventListener('click', () => {
   hap('rigid');
   if ($('np').classList.contains('endmode')) { setEndMode(false); $('cbEnd').click(); return; }
   if ($('np').classList.contains('joinmode')) { listenWith(); return; }
+  if ($('np').classList.contains('peekmode')) { playTheirs(); return; }
   unlockAudio(); togglePlay();
 });
 $('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
@@ -3244,6 +3250,7 @@ function openPick(quiet) {
 function setJoinMode(on) {
   const np = $('np'), cur = pk.list.length ? pickAt(pk.i) : null;
   on = !!on && !!cur && !cur.self && call.state === 'idle';
+  if (on) np.classList.remove('peekmode');
   np.classList.toggle('joinmode', on);
   if (on) {
     $('npPP').innerHTML = ICON.together; $('npPP').setAttribute('aria-label', `Listen with ${cur.f.name || cur.f.handle}`);
@@ -3254,6 +3261,33 @@ function setJoinMode(on) {
     setPP(loading ? 'load' : (player.paused ? 'play' : 'pause'));
   }
 }
+// 左へスライド：その人が今（最後に）聴いている曲を見せる。真ん中を押すと、その曲を自分で流す（同期はしない）
+function setPeekMode(on) {
+  const np = $('np'), cur = pk.list.length ? pickAt(pk.i) : null;
+  on = !!on && !!cur && !cur.self && call.state === 'idle';
+  if (on) np.classList.remove('joinmode');
+  np.classList.toggle('peekmode', on);
+  if (on) {
+    const n = cur.f.now && cur.f.now.trackId ? cur.f.now : null, live = n && n.playing && cur.f.online;
+    $('npPP').innerHTML = ICON.play; $('npPP').setAttribute('aria-label', n ? `Play ${n.title}` : 'Nothing playing');
+    $('npPP').classList.toggle('dim', !n);
+    $('pickName').innerHTML = esc(cur.f.name || '@' + cur.f.handle) + (n
+      ? `<small class="pk-now">${n.artwork && safeImg(n.artwork) ? `<img src="${esc(n.artwork)}" alt="">` : ''}<span>${live ? '' : 'Last · '}${esc(n.title)}</span></small>`
+      : '<small class="pk-now"><span>Not playing</span></small>');
+    $('pickName').classList.remove('fade');
+  } else {
+    $('npPP').classList.remove('dim');
+    if (!np.classList.contains('joinmode')) { $('npPP').setAttribute('aria-label', 'Play or pause'); setPP(loading ? 'load' : (player.paused ? 'play' : 'pause')); }
+  }
+}
+function playTheirs() {
+  const cur = pickAt(pk.i), n = cur && !cur.self && cur.f.now;
+  if (!n || !n.trackId) return;
+  setPeekMode(false);
+  unlockAudio();
+  playFrom([{ id: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork }], 0);
+  toast(`From ${cur.f.name || '@' + cur.f.handle}`);
+}
 function listenWith() {
   const cur = pickAt(pk.i);
   if (!cur || cur.self) { setJoinMode(false); return; }
@@ -3263,7 +3297,7 @@ function listenWith() {
 }
 function closePick() {
   clearTimeout(pk.timer);
-  $('discPick').hidden = true; $('pickName').hidden = true; setJoinMode(false);
+  $('discPick').hidden = true; $('pickName').hidden = true; setJoinMode(false); setPeekMode(false);
   $('disc').classList.remove('picking');
 }
 function armPick() {} // 顔は自動で消さない（置いたまま）
@@ -3310,7 +3344,16 @@ function placePick(off, anim) {
     const h = box.offsetHeight, fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.35;
     $('pickRail').style.transform = 'none';
     // 横にスライド：真ん中のボタンを「再生」⇔「一緒に聴く」に切り替える（友達の時だけ）
-    if (Math.abs(dx) > 34 && Math.abs(dx) > Math.abs(dy) * 1.2) { const cur = pickAt(pk.i); if (!cur.self) { setJoinMode(!$('np').classList.contains('joinmode')); hap('rigid'); } return; }
+    // 右へ：一緒に聴く ／ 左へ：その人が今聴いている曲。反対へもう一回で、ふつうの再生ボタンに戻る
+    if (Math.abs(dx) > 34 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      const cur = pickAt(pk.i), np = $('np');
+      if (!cur.self) {
+        if (dx > 0) { if (np.classList.contains('peekmode')) setPeekMode(false); else setJoinMode(!np.classList.contains('joinmode')); }
+        else { if (np.classList.contains('joinmode')) setJoinMode(false); else setPeekMode(!np.classList.contains('peekmode')); }
+        hap('rigid');
+      }
+      return;
+    }
     if (Math.abs(dy) < 6) { // タップ
       // タップ：その人のページへ（顔はCDの中に置いたまま。電話はかけない）
       const cur = pickAt(pk.i), sc = cur.self ? me.scId : cur.f.scId, nm = cur.self ? me.name : (cur.f.name || cur.f.handle);
@@ -3323,7 +3366,7 @@ function placePick(off, anim) {
       // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
       placePick(-d, true);
       hap('rigid');
-      setTimeout(() => { pk.i += d; paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) setJoinMode(false); else if ($('np').classList.contains('joinmode')) setJoinMode(true); }, 430);
+      setTimeout(() => { pk.i += d; paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) { setJoinMode(false); setPeekMode(false); } else if ($('np').classList.contains('joinmode')) setJoinMode(true); else if ($('np').classList.contains('peekmode')) setPeekMode(true); }, 430);
       sliding(false, 470);
     } else { paintPick(0, true); sliding(false, 480); }
     armPick();
