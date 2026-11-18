@@ -951,6 +951,13 @@
   svg.spin.dots circle { transform-box: fill-box; transform-origin: center; animation: dotroll .96s linear infinite; }
   @keyframes dotroll { 0% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(.3); opacity: .3; } }
   @media (prefers-reduced-motion: reduce) { svg.spin.dots circle { animation-duration: 2.4s; } }
+  /* いいねの「パッ」：髪の毛くらい細い光の線が、外へ一瞬走って消える */
+  #heart .flash { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+  #heart .flash i { position: absolute; left: -.75px; top: 0; width: 1.5px; height: var(--l); border-radius: 1px; background: currentColor; opacity: 0;
+    box-shadow: 0 0 6px currentColor; transform-origin: 50% 0; transform: rotate(var(--a)) translateY(10px) scaleY(.2);
+    animation: heartflash .34s cubic-bezier(.1,.9,.2,1) .1s forwards; }
+  @keyframes heartflash { 0% { opacity: 0; transform: rotate(var(--a)) translateY(10px) scaleY(.2); } 25% { opacity: 1; transform: rotate(var(--a)) translateY(14px) scaleY(1.2); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(24px) scaleY(.1); } }
+  @media (prefers-reduced-motion: reduce) { #heart .flash { display: none; } }
 </style>
 </head>
 <body>
@@ -1270,7 +1277,15 @@
 
 <script>
 // 指に返る手ごたえ（iPhone アプリの時だけ。Web では何もしない）
-function hap(k) { try { window.webkit.messageHandlers.otoCall.postMessage({ op: 'haptic', k: k || 'tick', id: 'h' }); } catch { /* Web */ } }
+let lastHapAt = 0;
+function hap(k) { lastHapAt = performance.now(); try { window.webkit.messageHandlers.otoCall.postMessage({ op: 'haptic', k: k || 'tick', id: 'h' }); } catch { /* Web */ } }
+// ボタンっぽいものは全部、押した時にカチッ（そのボタン自身がもう振動を出していたら重ねない）。曲の一覧などは少し軽め
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('button, [role="tab"], [role="button"], a[href], .jk, .row, [data-i], [data-artist], [data-list], label.sw');
+  if (!el || el.disabled) return;
+  const light = el.matches('.jk, .row, [data-i], [data-artist], [data-list]') && !el.matches('button:not(.jk)');
+  setTimeout(() => { if (performance.now() - lastHapAt > 90) hap(light ? 'light' : 'rigid'); }, 0);
+});
 
 // ===================== 昼／夜の切り替え =====================
 const BULB_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.6a5.4 5.4 0 0 0-3.2 9.75c.6.45.95 1.15.95 1.9V17h4.5v-.75c0-.75.35-1.45.95-1.9A5.4 5.4 0 0 0 12 4.6z"/><path d="M9.9 19.4h4.2M10.7 21.8h2.6M12.00 2.70L12.00 1.00M17.30 4.90L18.51 3.69M6.70 4.90L5.49 3.69M19.50 10.20L21.20 10.20M4.50 10.20L2.80 10.20"/></svg>';
@@ -2441,11 +2456,11 @@ $('heart').addEventListener('click', async () => {
     hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
     setTimeout(() => hb.classList.remove('pop'), 600);
     setTimeout(() => hap('rigid'), 140); // ドクン（2回目）
-    // キュン：傾いた右上にだけ、短い線が3本ピッと飛ぶ
-    hb.querySelector('.kyun')?.remove();
-    const k = document.createElement('span'); k.className = 'kyun';
-    k.innerHTML = '<i style="--a:-8deg"></i><i style="--a:32deg"></i><i style="--a:72deg"></i>';
-    hb.appendChild(k); setTimeout(() => k.remove(), 800);
+    // パッ：細い光の線がまわりに一瞬だけ走って消える（残像くらい）
+    hb.querySelector('.flash')?.remove();
+    const k = document.createElement('span'); k.className = 'flash';
+    k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('');
+    hb.appendChild(k); setTimeout(() => k.remove(), 600);
   }
   try {
     await scApi('/sc/like?id=' + id, like ? 'POST' : 'DELETE');
