@@ -2950,6 +2950,7 @@ const isReal = () => !!track;
 // 曲はSoundCloudの埋め込みの中で鳴っていて、そのままだとロック画面の操作がSoundCloud側（10秒送り）になる。
 // この聞こえない音をこのページで鳴らしておくと、ロック画面がこのページの操作（次へ・前へ）に切り替わる
 const lockKeeper = (() => {
+  return null; // いったん止める：この音を鳴らすと、曲の音が出なくなることがあった
   if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall)) return null;
   try { const a = new Audio('keep.mp3'); a.loop = true; a.preload = 'auto'; a.setAttribute('playsinline', ''); return a; } catch { return null; }
 })();
