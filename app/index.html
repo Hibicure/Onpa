@@ -933,6 +933,16 @@
   .disc .pick-name .pk-now img { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none; }
   .disc .pick-name .pk-now span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .controls .pp.dim { opacity: .4; }
+  /* 一緒に聴くのお願い：上に小さく（鳴らさない） */
+  .joinbanner { position: fixed; left: 12px; right: 12px; top: calc(10px + env(safe-area-inset-top)); z-index: 90; display: flex; align-items: center; gap: 10px; padding: 9px 9px 9px 10px; border-radius: 20px;
+    background: color-mix(in srgb, var(--paper) 86%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 10px 30px -12px rgba(0,0,0,.45), inset 0 0 0 .5px rgba(255,255,255,.35); animation: jbin .35s cubic-bezier(.2,.9,.3,1.2); }
+  .joinbanner[hidden] { display: none; }
+  .joinbanner .avatar { width: 36px; height: 36px; flex: none; }
+  .joinbanner .jb-t { flex: 1; min-width: 0; font-size: 13px; line-height: 1.3; color: var(--ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .joinbanner .jb-x { width: 30px; height: 30px; display: grid; place-items: center; color: var(--mute); flex: none; }
+  .joinbanner .jb-x svg { width: 16px; height: 16px; }
+  .joinbanner .jb-go { flex: none; padding: 8px 14px; border-radius: 999px; background: var(--ink); color: var(--paper); font-weight: 700; font-size: 13px; }
+  @keyframes jbin { from { transform: translateY(-120%); } to { transform: none; } }
 </style>
 </head>
 <body>
@@ -977,6 +987,11 @@
     </div>
   </header>
 
+  <div class="joinbanner" id="joinBanner" hidden role="alert">
+    <div class="avatar" id="jbFace"></div><div class="jb-t" id="jbText"></div>
+    <button class="jb-x" id="jbNo" aria-label="Not now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button class="jb-go" id="jbJoin">Join</button>
+  </div>
   <div class="callbar" id="callbar" hidden>
     <div class="pulse"></div>
     <div class="who"><b id="cbName"></b><span id="cbSub"></span></div>
@@ -998,6 +1013,10 @@
     <section class="hsec" id="hMineSec" hidden>
       <div class="hhead"><div class="htitle">Your tracks</div></div>
       <div class="hrow" id="hMine"></div>
+    </section>
+    <section class="hsec" id="hSentSec" hidden>
+      <div class="hhead"><div class="htitle">Sent to you</div></div>
+      <div class="hrow" id="hSent"></div>
     </section>
     <section class="hsec" id="hFriendsSec" hidden>
       <div class="hhead"><div class="htitle">Friends listening</div></div>
@@ -3039,7 +3058,7 @@ function jkHTML(t, list, i, who) {
     <div class="cover"><img src="${esc(big(t.artwork))}" alt="" loading="lazy" onerror="this.removeAttribute('src')">${who ? `<span class="who">${face(who)}</span>` : ''}</div>
     <div class="t">${esc(t.title)}</div><div class="s">${esc(who ? who.name : t.artist)}</div></button>`;
 }
-let homeLists = { mine: [], friends: [], recent: [], likes: [] };
+let homeLists = { mine: [], friends: [], recent: [], likes: [], sent: [] };
 let myTracks = null, myTracksLoading = false;
 function renderHome() {
   // 自分がSoundCloudに上げた曲
@@ -3055,6 +3074,10 @@ function renderHome() {
   homeLists.friends = now.map((f) => ({ id: f.now.trackId, title: f.now.title, artist: f.now.artist, artwork: f.now.artwork, who: f }));
   $('hFriendsSec').hidden = !homeLists.friends.length;
   $('hFriends').innerHTML = homeLists.friends.map((t, i) => jkHTML(t, 'friends', i, t.who)).join('');
+  // 友達が送ってくれた曲（あとから聴ける。新しい順、聴いたら消える）
+  homeLists.sent = sentToMe();
+  $('hSentSec').hidden = !homeLists.sent.length;
+  $('hSent').innerHTML = homeLists.sent.map((t, i) => jkHTML(t, 'sent', i, t.who)).join('');
   // 最近聴いた曲
   homeLists.recent = recent.slice(0, 20);
   $('hRecentSec').hidden = !homeLists.recent.length;
@@ -3079,8 +3102,30 @@ $('viewHome').addEventListener('click', (e) => {
   if (!b) return;
   const which = b.dataset.list, i = Number(b.dataset.i);
   const list = which === 'likes' ? likesList : homeLists[which];
+  if (which === 'sent' && list && list[i]) { markSentSeen(list[i].key); playFrom([list[i]], 0); renderHome(); return; }
   if (list && list[i]) playFrom(list, i);
 });
+// 送られた曲：友達の users/{友達}/shares/{自分} に入っている。聴いたものは、この端末で「見た」にする
+function sentSeen() { try { return new Set(JSON.parse(localStorage.getItem('otocloud_sent_seen') || '[]')); } catch { return new Set(); } }
+function markSentSeen(key) { const s = sentSeen(); s.add(key); try { localStorage.setItem('otocloud_sent_seen', JSON.stringify([...s].slice(-300))); } catch {} }
+function sentToMe() {
+  if (!me) return [];
+  const seen = sentSeen(), out = [];
+  for (const [uid, f] of friends) {
+    const box = f.shares && f.shares[me.uid]; if (!box) continue;
+    for (const [k, v] of Object.entries(box)) {
+      const key = uid + ':' + k;
+      if (!v || !v.trackId || seen.has(key) || serverNow() - (v.at || 0) > 14 * 864e5) continue;
+      out.push({ id: v.trackId, title: v.title, artist: v.artist, artwork: v.artwork, secret: v.secret || '', who: f, key, at: v.at || 0 });
+    }
+  }
+  return out.sort((a, b) => b.at - a.at).slice(0, 20);
+}
+// 曲を送る（あとから聴いてもらえる）。一緒に聴くのお願いと同時にも使う
+function shareTrack(peerUid) {
+  if (!me || !track) return;
+  db.ref(`users/${me.uid}/shares/${peerUid}`).push({ trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', at: TS }).catch(() => {});
+}
 
 // 自分が今聴いている曲を友達に見せる
 let lastNow = '';
@@ -3304,24 +3349,18 @@ function closePick() {
 }
 function armPick() {} // 顔は自動で消さない（置いたまま）
 const pickAt = (k) => pk.list[((k % pk.list.length) + pk.list.length) % pk.list.length];
-// 自分（0番）はいちばん上で止まる。友達（1番〜）の中だけ、ぐるぐる回る
+// いちばん上（最初の自分）より上には行けない。下へはずっと回せる（自分もまた回ってくる）
 function pickStep(i, o) {
-  const n = pk.list.length, F = n - 1;
-  if (F <= 0) return o === 0 ? i : -1;
+  if (pk.list.length <= 1) return o === 0 ? i : -1;
   const t = i + o;
-  if (t === 0) return 0;
-  if (t < 0 || (i === 0 && o < 0)) return -1;
-  if (F === 1) return t === 1 ? 1 : -1; // 友達が1人なら、自分とその人の2つだけ
-  if (i === 0 && o > 0) return 1 + ((o - 1) % F);
-  if (t < 1) return t === 0 ? 0 : -1;
-  return 1 + ((((t - 1) % F) + F) % F);
+  return t < 0 ? -1 : t;
 }
 function paintPick(drag, anim) {
   const n = pk.list.length, rail = $('pickRail'), h = $('discPick').offsetHeight || 100;
   // 今の人と、前後2人ずつ置く（一周できるように）
   const rows = n > 1 ? [-2, -1, 0, 1, 2] : [0];
   if (rail.dataset.i !== String(pk.i) || rail.dataset.n !== String(n)) {
-    rail.innerHTML = rows.map((o) => { const k = pickStep(pk.i, o); if (k < 0) return ''; const it = pk.list[k]; return `<div class="pick-it" data-o="${o}" style="top:0"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
+    rail.innerHTML = rows.map((o) => { const k = pickStep(pk.i, o); if (k < 0) return ''; const it = pickAt(k); return `<div class="pick-it" data-o="${o}" style="top:0"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
     rail.dataset.i = String(pk.i); rail.dataset.n = String(n);
   }
   rail.style.transform = 'none';
@@ -3709,14 +3748,15 @@ async function startCall(peerUid, voice = true) {
   const f = friends.get(peerUid);
   call.voice = !!voice;
   call.state = 'ringing'; call.caller = true; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) || f.avatar || '' };
-  showOutgoing();
+  if (voice) showOutgoing();
   showCallbar();
   await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
-  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, fromAvatar: safeImg(me.avatar) || null, room: call.room, at: TS, kind: voice ? 'call' : 'listen' });
+  if (!voice) shareTrack(peerUid); // 相手が今いなくても、あとから聴けるように
+  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, fromAvatar: safeImg(me.avatar) || null, room: call.room, at: TS, kind: voice ? 'call' : 'listen', title: (!voice && track && track.title) || null });
   watchCallStatus();
   if (voice) startRingback(peerUid);
   call.ringTimer = setTimeout(() => {
-    if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(call.voice ? `@${f.handle} didn't answer` : `@${f.handle} didn't join`); }
+    if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(call.voice ? `@${f.handle} didn't answer` : `Sent to ${f.name || '@' + f.handle} · they can play it later`); }
   }, 35000);
 }
 
@@ -3725,7 +3765,7 @@ function watchCallStatus() {
   call.statusRef.on('value', (s) => {
     const st = s.val();
     if (st === 'accepted' && call.state === 'ringing') joinCall();
-    if (st === 'declined' && call.state !== 'idle') endCall(call.voice ? `@${call.peer.handle} can't talk right now` : `@${call.peer.handle} can't listen right now`);
+    if (st === 'declined' && call.state !== 'idle') endCall(call.voice ? `@${call.peer.handle} can't talk right now` : `Sent to ${call.peer.name || '@' + call.peer.handle} · they can play it later`);
     if (st === 'ended' && call.state !== 'idle') endCall('Call ended');
   });
 }
@@ -3769,10 +3809,11 @@ $('ringNo').addEventListener('click', () => { if ($('np').classList.contains('ou
 function watchIncoming() {
   db.ref('calls/' + me.uid).on('value', (s) => {
     const c = s.val();
-    if (!c) { if (incomingData) { incomingData = null; hideRinging(); if (earGateClose) earGateClose(); } return; }
+    if (!c) { if (incomingData) { incomingData = null; hideRinging(); hideJoinBanner(); if (earGateClose) earGateClose(); } return; }
     if (serverNow() - (c.at || 0) > 40000) { s.ref.remove(); return; } // 古い呼び出しは無視
     if (call.state !== 'idle') { db.ref(`rooms/${c.room}/call/status`).set('declined'); s.ref.remove(); return; }
     incomingData = c;
+    if (c.kind === 'listen') { showJoinBanner(c); return; }
     setFace($('inAvatar'), { name: c.fromName, avatar: c.fromAvatar });
     $('inName').textContent = c.fromName;
     $('inHandle').textContent = c.kind === 'listen' ? '@' + c.fromHandle + ' wants to listen together' : '@' + c.fromHandle + ' is calling';
@@ -3786,7 +3827,7 @@ $('inYes').addEventListener('click', async () => {
   if (voiceIn && !(await earGate('answer'))) return; // 呼び出しは鳴ったまま（あとから出られる）
   const c = incomingData; if (!c) return;
   call.voice = voiceIn;
-  incomingData = null; ringWasOpen = true; hideRinging();
+  incomingData = null; ringWasOpen = $('np').classList.contains('open'); hideRinging(); hideJoinBanner();
   db.ref('calls/' + me.uid).remove();
   call.state = 'ringing'; call.caller = false; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
   showCallbar();
@@ -3794,6 +3835,16 @@ $('inYes').addEventListener('click', async () => {
   watchCallStatus();
   joinCall();
 });
+// 一緒に聴くのお願い：鳴らさずに、上に小さく出すだけ。いつ入っても、相手の今の位置から一緒に流れる
+function showJoinBanner(c) {
+  const b = $('joinBanner');
+  setFace($('jbFace'), { name: c.fromName, avatar: c.fromAvatar });
+  $('jbText').innerHTML = `<b>${esc(c.fromName || '@' + c.fromHandle)}</b> ${c.title ? 'is listening to ' + esc(c.title) : 'wants to listen together'}`;
+  b.hidden = false; hap('rigid');
+}
+function hideJoinBanner() { $('joinBanner').hidden = true; }
+$('jbJoin').addEventListener('click', () => { hideJoinBanner(); $('inYes').click(); });
+$('jbNo').addEventListener('click', () => { hideJoinBanner(); $('inNo').click(); });
 $('inNo').addEventListener('click', () => {
   const c = incomingData; if (!c) return;
   incomingData = null; hideRinging();
