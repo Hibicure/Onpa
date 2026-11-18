@@ -665,6 +665,10 @@ export default {
         if (!/^\d+$/.test(id)) return json({ error: 'id が不正です' }, 400, cors);
         const hit = playCache.get(id);
         if (hit && hit.exp > Date.now()) return json(hit.body, 200, cors);
+        // ほかのサーバーでも同じ曲のアドレスを使い回す（一緒に聴いている2人や、くり返し聴く時に、SoundCloudへの再生の数を増やさない）
+        const pk = new Request('https://cache.otocloud/play/' + id);
+        const shared = await caches.default.match(pk);
+        if (shared) { const body = await shared.json(); playCache.set(id, { body, exp: Date.now() + 8 * 60 * 1000 }); return json(body, 200, cors); }
         const cands = await candidates(id, env, userToken);
         const token = userToken || await getToken(env);
         const tried = [];
@@ -675,6 +679,7 @@ export default {
           if (loc) {
             const body = { kind: c.kind, hls: c.hls, url: loc };
             playCache.set(id, { body, exp: Date.now() + 10 * 60 * 1000 });
+            await caches.default.put(pk, new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=480' } }));
             return json(body, 200, cors);
           }
         }
