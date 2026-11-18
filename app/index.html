@@ -873,9 +873,9 @@
   /* 全画面のジャケットのすき間 */
   /* ディスクの中の顔：1枚1枚に、顔の外側に枠（真ん中に収まった時は穴のふちの外になって見えない。回している時だけ見える） */
   :root.mist .disc .pick-it .avatar { position: relative; overflow: visible !important; }
-  :root.mist .disc .pick-it .avatar::before { content: ""; position: absolute; inset: -3.2%; border-radius: 50%; z-index: -1; pointer-events: none; display: block;
-    background: radial-gradient(circle closest-side, transparent 94%, rgba(255,255,255,.4) 97%, transparent 100%),
-                conic-gradient(from 210deg, #a7a9ae, #d3d5d9, #9c9ea3, #c4c6cb, #a7a9ae, #d6d8dc, #9a9ca1, #c8cacf, #a7a9ae);
+  :root.mist .disc .pick-it .avatar::before { content: ""; position: absolute; inset: -1.8%; border-radius: 50%; z-index: -1; pointer-events: none; display: block;
+    background: radial-gradient(circle closest-side, transparent 96%, rgba(255,255,255,.3) 98%, transparent 100%),
+                conic-gradient(from 210deg, #6f7176, #9a9ca1, #64666b, #8b8d92, #6f7176, #9ea0a5, #626469, #8f9196, #6f7176);
     box-shadow: 0 2px 6px rgba(0,0,0,.35); }
   /* 歌詞を閉じるボタン：開いた時の「Lyrics」と同じ場所に、押された状態で出す（×はやめ） */
   .lyr-x[hidden] { display: none; }
