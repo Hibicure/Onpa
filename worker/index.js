@@ -66,6 +66,7 @@ function mapTrack(t) {
     access: t.access,
     permalink_url: t.permalink_url,
     waveform: t.waveform_url || '',
+    plays: t.playback_count || 0, // 検索の並び替えに使う（よく聴かれている曲を上に）
     // 非公開曲の秘密の鍵（secret_token が無い時は secret_uri の中から取り出す）
     secret: t.sharing === 'private' ? (t.secret_token || (String(t.secret_uri || '').match(/secret_token=([A-Za-z0-9-]+)/) || [])[1] || '') : '',
   };

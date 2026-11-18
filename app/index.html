@@ -988,6 +988,12 @@
   /* 画面収録中（アプリ本体が知らせてくれる）：画面の角の丸みをなくして、収録した動画に角が映らないように */
   :root.captured #app::after, :root.captured .np .in::before, :root.captured .lyr { border-radius: 0 !important; }
   :root.captured .np { border-radius: 0 !important; clip-path: none !important; -webkit-clip-path: none !important; }
+  .as-item .as-col { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; }
+  .as-item .as-col small { font-size: 11px; font-weight: 500; opacity: .55; }
+  .as-item .as-col small:empty { display: none; }
+  .set-legal { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; }
+  .set-legal a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; opacity: .8; }
+  .set-legal span { width: 100%; color: var(--mute); font-size: 11.5px; }
 </style>
 </head>
 <body>
@@ -1185,6 +1191,11 @@
       <div class="set-row"><input id="setPwIn" type="password" autocomplete="new-password" placeholder="6+ characters"><button class="btn primary" id="setPwGo">Save</button></div>
     </div>
 
+    <div class="set-group set-legal">
+      <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
+      <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a>
+      <span>Music from SoundCloud. Tracks belong to their uploaders.</span>
+    </div>
     <div class="set-group">
       <button class="set-out" id="signOut">Sign out</button>
     </div>
@@ -1268,7 +1279,7 @@
 <section class="eargate actsheet" id="moreSheet" hidden role="dialog" aria-label="More">
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
-    <button class="as-item" id="asSC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open in SoundCloud</button>
+    <button class="as-item" id="asSC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span class="as-col"><span>Open in SoundCloud</span><small id="asBy"></small></span></button>
     <button class="as-item" id="asArtist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Go to artist</button>
     <button class="eg-no" id="asClose">Cancel</button>
   </div>
@@ -1869,7 +1880,7 @@ async function search(q) {
     const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
-    searchList = d.map(splitArtist);
+    searchList = rankSearch(d.map(splitArtist), q);
     if (mode === 'search') renderTracks(searchList, msg('No results', 'Try different words'));
   } catch (e) {
     if (mode !== 'search') return;
@@ -2531,6 +2542,28 @@ $('heart').addEventListener('click', async () => {
 
 // SoundCloudの「artist」はアップロードした人の名前なので、
 // 曲名が「アーティスト - 曲名」の形なら、そこから本当のアーティスト名を取り出す
+// 検索の並び：自分がいいねした曲 → アーティスト本人が上げた曲 → よく聴かれている曲 → 他の人のリミックスやカバー。同じ曲が重なったら、本人のものを1つだけ残す
+function normT(x) { return String(x || '').toLowerCase().normalize('NFKC').replace(/[\[(（【].*?[\])）】]/g, '').replace(/[^\p{L}\p{N}]+/gu, ''); }
+function rankSearch(list, q) {
+  const liked = new Set((likesList || []).map((t) => String(t.id)));
+  const words = String(q || '').toLowerCase().normalize('NFKC').split(/\s+/).filter(Boolean);
+  const scored = list.map((t, i) => {
+    const a = normT(t.artist), u = normT(t.uploader), title = String(t.title || '');
+    const own = !!a && !!u && (a === u || u.includes(a) || a.includes(u));
+    const other = /remix|edit|bootleg|flip|cover|カバー|歌ってみた|sped|slowed|nightcore|mashup|rework/i.test(title) && !own;
+    const hay = (title + ' ' + (t.artist || '') + ' ' + (t.uploader || '')).toLowerCase().normalize('NFKC');
+    const hit = words.length && words.every((w) => hay.includes(w));
+    const score = (liked.has(String(t.id)) ? 60 : 0) + (own ? 30 : 0) - (other ? 18 : 0) + (hit ? 10 : 0) + Math.log10((t.plays || 0) + 1) * 4 - i * 0.4;
+    return { t, score, own, key: normT(t.artist) + '|' + normT(t.title), dur: Math.round((t.duration || 0) / 1000) };
+  }).sort((x, y) => y.score - x.score);
+  const seen = new Map(), out = [];
+  for (const it of scored) {
+    const prev = seen.get(it.key);
+    if (prev && Math.abs(prev.dur - it.dur) <= 4) continue; // 同じ曲（同じ名前・同じ長さ）はいちばん上の1つだけ
+    seen.set(it.key, it); out.push(it.t);
+  }
+  return out;
+}
 function splitArtist(t) {
   if (t.uploader && t.artist && t.artist !== t.uploader) return t; // 本物のアーティスト名がある
   const uploader = t.uploader || t.artist;
@@ -3800,7 +3833,12 @@ $('scSrc').addEventListener('click', openInSC);
 $('asSC').addEventListener('click', () => { $('moreSheet').hidden = true; openInSC(); });
 
 // ---- 「…」メニューと、着信の時に流す範囲を選ぶ画面
-$('npMore').addEventListener('click', () => { if (!track) return; $('moreSheet').hidden = false; });
+$('npMore').addEventListener('click', () => {
+  if (!track) return;
+  // SoundCloudの決まり：アップロードした人と、SoundCloudが出どころだと分かるように（小さく）
+  const by = $('asBy'); if (by) by.textContent = track.trackId && !String(track.trackId).startsWith('am:') ? `Uploaded by ${track.uploader || track.artist || 'unknown'} on SoundCloud` : '';
+  $('moreSheet').hidden = false;
+});
 $('asClose').addEventListener('click', () => { $('moreSheet').hidden = true; });
 $('moreSheet').addEventListener('click', (e) => { if (e.target.id === 'moreSheet') $('moreSheet').hidden = true; });
 $('asArtist').addEventListener('click', () => { $('moreSheet').hidden = true; openTrackArtist(); });
