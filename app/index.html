@@ -127,6 +127,14 @@
   .list { margin: 4px 16px 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
   .row:last-child { border-bottom: none; }
+  /* アーティストのページ：アルバム・EPを横一列に（ジャケは角なしの正方形） */
+  .albums { display: flex; gap: 12px; overflow-x: auto; margin: 4px -16px 10px; padding: 2px 16px 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .albums::-webkit-scrollbar { display: none; }
+  .alb { flex: 0 0 112px; width: 112px; display: flex; flex-direction: column; gap: 3px; text-align: left; }
+  .alb-art { display: block; width: 112px; height: 112px; background: var(--holo); box-shadow: 0 6px 14px -8px rgba(0,0,0,.45); overflow: hidden; }
+  .alb-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .alb-t { margin-top: 5px; font-weight: 700; font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alb-s { font-size: 11.5px; color: var(--mute); }
   .row .art { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--holo); flex-shrink: 0; }
   /* 再生中の行：回さずに、行全体をうっすら濃い帯にする */
   .row.now { background: color-mix(in srgb, var(--ink) 9%, transparent); }
@@ -2367,7 +2375,7 @@ async function showPlaylists() {
 }
 
 async function openPlaylist(id, title) {
-  mode = 'playlist';
+  mode = 'playlist'; albumBack = null;
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('libTitle').textContent = title;
   $('libBack').hidden = false;
@@ -2379,7 +2387,12 @@ async function openPlaylist(id, title) {
   } catch (e) { $('results').innerHTML = msg("Couldn't load this playlist", esc(e.message)); }
 }
 let libBackTo = 'playlists';
-$('libBack').addEventListener('click', () => setMode(libBackTo));
+$('libBack').addEventListener('click', () => {
+  // アルバムから戻るときは、そのアーティストのページへ
+  if (albumBack && mode === 'playlist') { const a = albumBack; albumBack = null; const keep = libBackTo; openArtist(a.artistId, a.artistName).then(() => { libBackTo = keep; }); libBackTo = keep; return; }
+  albumBack = null;
+  setMode(libBackTo);
+});
 
 // その人の曲のページ（アーティスト名・友だちの名前から）
 async function openArtist(userId, name) {
@@ -2406,8 +2419,39 @@ async function openArtist(userId, name) {
       // 縦に並べて、ジャケットは角なしの正方形をすき間なく積む
       renderTracks(d, msg('No tracks yet'));
       artistPlace(userId);
+      artistAlbums(userId, name);
     }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
+}
+// その人のアルバム・EPを、曲の上に横一列で（押すと中の曲）
+let albumBack = null;
+async function artistAlbums(userId, name) {
+  try {
+    const r = await fetch(`${WORKER}/user/${userId}/albums`, { headers: await scHeaders() });
+    if (!r.ok) return;
+    const list = (await r.json()).filter((a) => a.count > 0);
+    if (mode !== 'artist' || !list.length) return;
+    const tile = (a) => `<button class="alb" data-alb="${a.id}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork.replace('-large.', '-t300x300.'))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${a.type === 'ep' ? 'EP' : a.type === 'single' ? 'Single' : 'Album'} · ${a.count}</span></button>`;
+    $('results').insertAdjacentHTML('afterbegin', `<div class="albums" id="albums">${list.map(tile).join('')}</div>`);
+    $('albums').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-alb]'); if (!b) return;
+      openAlbum(b.dataset.alb, b.dataset.title, userId, name);
+    });
+  } catch { /* アルバムが取れなくても、曲はそのまま */ }
+}
+async function openAlbum(id, title, artistId, artistName) {
+  mode = 'playlist';
+  albumBack = { artistId, artistName };
+  document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
+  $('libTitle').textContent = title;
+  $('libBack').hidden = false; $('shuffle').hidden = false;
+  $('results').innerHTML = msg('Loading…'); window.scrollTo(0, 0);
+  try {
+    const r = await fetch(`${WORKER}/album/${id}`, { headers: await scHeaders() });
+    if (!r.ok) throw new Error(r.status);
+    const d = (await r.json()).map(splitArtist);
+    if (mode === 'playlist') renderTracks(d, msg('This album is empty'));
+  } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
 function measureAH() { requestAnimationFrame(() => document.body.style.setProperty('--ahH', $('artistHead').offsetHeight + 'px')); }
 // その人のヘッダー：プロフィール画像・名前・場所・フォロワー。背景は画像を大きくぼかしたもの、ページの色もその画像の色に

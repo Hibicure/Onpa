@@ -617,6 +617,21 @@ export default {
         const seen = new Set();
         return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
       }
+      // ---- その人のアルバム（EP・シングルも）: /user/123/albums
+      m = p.match(/^\/user\/(\d{1,20})\/albums$/);
+      if (m) {
+        const d = await scGet(`/users/${m[1]}/playlists?limit=50&linked_partitioning=true&show_tracks=false`, env, userToken);
+        const out = listOf(d)
+          .filter((pl) => pl && /^(album|ep|single|compilation)$/i.test(pl.set_type || pl.playlist_type || ''))
+          .map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: pl.artwork_url || '', type: String(pl.set_type || pl.playlist_type || '').toLowerCase(), date: pl.release_date || pl.created_at || '' }));
+        return json(out, 200, cors);
+      }
+      // ---- アルバムの中の曲（ログインなしでも）: /album/123
+      m = p.match(/^\/album\/(\d{1,20})$/);
+      if (m) {
+        const d = await scGet(`/playlists/${m[1]}/tracks?limit=200&linked_partitioning=true&access=playable`, env, userToken);
+        return json(listOf(d).map(mapTrack), 200, cors);
+      }
       // ---- 波形: /wave/123（シークバーを波形にする。100本の高さ 0〜1）
       m = p.match(/^\/wave\/(\d{1,20})$/);
       if (m) {
