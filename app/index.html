@@ -3537,13 +3537,13 @@ function pickStep(i, o) {
 function paintPick(drag, anim) {
   const n = pk.list.length, rail = $('pickRail'), h = $('discPick').offsetHeight || 100;
   // 今の人と、前後2人ずつ置く（一周できるように）
-  const rows = n > 1 ? [-2, -1, 0, 1, 2] : [0];
+  const rows = n > 1 ? [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6] : [0]; // 大きく回しても、下（上）が途切れて見えないように
   if (rail.dataset.i !== String(pk.i) || rail.dataset.n !== String(n)) {
     rail.innerHTML = rows.map((o) => { const k = pickStep(pk.i, o); if (k < 0) return ''; const it = pickAt(k); return `<div class="pick-it" data-o="${o}" style="top:0"><div class="avatar">${face(it.f)}${it.self ? '' : `<span class="dot ${it.f.online ? 'on' : ''}"></span>`}</div></div>`; }).join('');
     rail.dataset.i = String(pk.i); rail.dataset.n = String(n);
   }
   rail.style.transform = 'none';
-  placePick(drag / (h * 1.16), anim);
+  placePick(drag / (h * 1.06), anim);
   const cur = pickAt(pk.i);
   $('pickName').innerHTML = cur.self ? 'You' : esc(cur.f.name || '@' + cur.f.handle) + (cur.f.online ? '<small class="pk-on">online</small>' : '');
   $('pickName').classList.remove('fade'); clearTimeout(pk.nameT); pk.nameT = setTimeout(() => $('pickName').classList.add('fade'), 1800);
@@ -3554,7 +3554,7 @@ function placePick(off, anim) {
   for (const el of $('pickRail').children) {
     const p = Number(el.dataset.o) + off;
     // 縦にしっかり間をあけて（となりの顔が穴にはみ出さない）、離れるほど右へ逃げる半円
-    const y = p * h * 1.16;
+    const y = p * h * 1.06; // 顔と顔の間（少しつめた）
     const x = (1 - Math.cos(Math.max(-1.5, Math.min(1.5, p * 0.62)))) * h * 0.95;
     const sc = 1 - Math.min(0.35, Math.abs(p) * 0.16);
     el.style.transition = anim ? 'transform .46s cubic-bezier(.34,1.56,.64,1)' : 'none';
@@ -3604,9 +3604,8 @@ function placePick(off, anim) {
         else { if (np.classList.contains('joinmode')) setJoinMode(false); else setPeekMode(!np.classList.contains('peekmode')); }
         hap('rigid');
       } else {
-        // 自分の顔：右へ＝この曲を友達に送る ／ 左へ＝この曲を「今の気分」としてプロフィールに出す（24時間）
-        if (dx > 0) { if (np.classList.contains('pinmode')) setSelfMode(''); else setSelfMode(np.classList.contains('sendmode') ? '' : 'send'); }
-        else { if (np.classList.contains('sendmode')) setSelfMode(''); else setSelfMode(np.classList.contains('pinmode') ? '' : 'pin'); }
+        // 自分の顔：横に引くと、この曲を「今の気分」としてプロフィールに出す（24時間）
+        setSelfMode(np.classList.contains('pinmode') ? '' : 'pin'); // 自分は、どっちに引いても「今の気分に出す」（送るのは、友達の顔に合わせてから）
         hap('rigid');
       }
       return;
@@ -3619,9 +3618,10 @@ function placePick(off, anim) {
       return;
     }
     if (pk.list.length > 1 && (Math.abs(dy) > h * 0.28 || fast)) {
-      const d = dy < 0 ? 1 : -1; // 上へ払う＝次の人、下へ払う＝前の人
+      // 上へ払う＝次の人、下へ払う＝前の人。大きく動かしたら、その分だけ何人も進む
+      const steps = Math.max(1, Math.round(Math.abs(dy) / (h * 1.06))), d = (dy < 0 ? 1 : -1) * steps;
       // 自分の顔を下へ引くと、顔をしまってCDの穴だけに戻る（もう一度出すのは、真ん中をタップ）
-      if (d === -1 && pickAt(pk.i).self) {
+      if (d < 0 && pickAt(pk.i).self) {
         placePick(1, true); hap('rigid'); sliding(false, 300);
         try { localStorage.setItem('otocloud_pick', ''); } catch {}
         setTimeout(closePick, 260);
