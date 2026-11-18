@@ -557,10 +557,33 @@ export default {
       if (m) {
         const u = await scGet(`/users/${m[1]}`, env, userToken);
         const big = (x) => (x ? String(x).replace(/-(large|t\d+x\d+|crop|badge|small|tiny|mini)\./, '-t500x500.') : '');
-        const banner = u.visuals?.visuals?.[0]?.visual_url || u.visual_url || u.banner_url || '';
+        let banner = u.visuals?.visuals?.[0]?.visual_url || u.visual_url || u.banner_url || '';
+        // ヘッダー画像（SoundCloudのプロフィールの上の横長の画像）。公式の仕組みには無いので、公開プロフィールのページに書いてあるものを読む
+        const dbg = url.searchParams.get('debug') === '1', bt = [];
+        if (!banner) {
+          const cache = caches.default, bk = new Request('https://cache.otocloud/banner/' + m[1]);
+          const hit = dbg ? null : await cache.match(bk);
+          if (hit) banner = await hit.text();
+          else {
+            try {
+              const tok = userToken || await getToken(env);
+              const r2 = await fetch('https://api-v2.soundcloud.com/users/' + m[1], { headers: { 'Accept': 'application/json', 'Authorization': `OAuth ${tok}` } });
+              bt.push('v2 ' + r2.status);
+              if (r2.ok) { const v = await r2.json(); banner = v.visuals?.visuals?.[0]?.visual_url || ''; }
+            } catch (e) { bt.push('v2 err ' + e.message); }
+            if (!banner && u.permalink_url) {
+              try {
+                const r3 = await fetch(u.permalink_url, { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', 'Accept-Language': 'en' } });
+                bt.push('page ' + r3.status);
+                if (r3.ok) { const h = await r3.text(); const mm = h.match(/"visual_url":"(https:[^"]+)"/); if (mm) banner = mm[1].replace(/\\u002F/g, '/'); bt.push('found ' + !!mm); }
+              } catch (e) { bt.push('page err ' + e.message); }
+            }
+            await cache.put(bk, new Response(banner || '', { headers: { 'Cache-Control': 'public, max-age=' + (banner ? 86400 : 21600) } }));
+          }
+        }
         const out = { city: u.city || '', country: u.country || '', countryCode: u.country_code || '', followers: u.followers_count || 0,
-          avatar: /default_avatar/.test(u.avatar_url || '') ? '' : big(u.avatar_url), banner: banner ? String(banner).replace(/-original\./, '-t2480x520.') : '', name: u.username || '', fullName: u.full_name || '' };
-        if (url.searchParams.get('debug') === '1') out.keys = Object.keys(u);
+          avatar: /default_avatar/.test(u.avatar_url || '') ? '' : big(u.avatar_url), banner: banner ? String(banner).replace(/-original\./, '-t2480x520.') : '', name: u.username || '', fullName: u.full_name || '', handle: u.permalink || '' };
+        if (dbg) { out.keys = Object.keys(u); out.bt = bt; }
         return json(out, 200, cors);
       }
       // ---- その人の曲: /user/123/tracks（アーティスト名や友だちの名前から開くページ）
