@@ -1298,6 +1298,7 @@
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
     <button class="as-item" id="asSC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span class="as-col"><span>Open in SoundCloud</span><small id="asBy"></small></span></button>
+    <button class="as-item" id="asLess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 12h8"/></svg><span class="as-col"><span>Fewer like this</span><small>Suggested less often</small></span></button>
     <button class="as-item" id="asArtist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Go to artist</button>
     <button class="eg-no" id="asClose">Cancel</button>
   </div>
@@ -2066,8 +2067,43 @@ function playPrev() {
   if (i >= 0) qi = i;
   pick(prev, false);
 }
-$('npNext').addEventListener('click', () => { hap('rigid'); unlockAudio(); if (!playNext(false)) playRelated(false); });
+$('npNext').addEventListener('click', () => { hap('rigid'); noteSkip(); unlockAudio(); if (!playNext(false)) playRelated(false); });
 
+// ===================== おすすめを、自分で育てる =====================
+// 「Fewer like this」を押したアーティストや、毎回すぐ飛ばされる曲は、自動で流れる曲に出にくくする。
+// ゼロにはしない（たまには出る）＝出会いはなくさない
+const LESS_KEY = 'oto_less', SKIP_KEY = 'oto_skips';
+const readJ = (k) => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch { return {}; } };
+const writeJ = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+function lessOf(artist, add) {
+  const k = tasteKey(artist); if (k.length < 2) return 0;
+  const m = readJ(LESS_KEY);
+  if (add) { m[k] = Math.min(3, (m[k] || 0) + add); writeJ(LESS_KEY, m); }
+  return m[k] || 0;
+}
+// 自動で流れてきた曲を、はじめの方ですぐ飛ばしたら覚えておく（1回目はただ遊んでいただけかもしれないので、何度も続いたら効く）
+function noteSkip() {
+  if (!track || !track.trackId || call.state === 'live') return;
+  const t = player.currentTime || 0, d = durNow() || 0;
+  if (!(d > 40) || t > 30 || t > d * 0.35) return;
+  const m = readJ(SKIP_KEY), id = String(track.trackId);
+  m[id] = Math.min(5, (m[id] || 0) + 1);
+  const keys = Object.keys(m); if (keys.length > 400) delete m[keys[0]];
+  writeJ(SKIP_KEY, m);
+}
+function softPick(list) {
+  const less = readJ(LESS_KEY), skips = readJ(SKIP_KEY);
+  // 残す確率：アーティストを1回減らすと4割、2回で2割、3回で1割。2回以上すぐ飛ばした曲は3割
+  const keep = (t) => {
+    let p = [1, 0.4, 0.2, 0.1][less[tasteKey(t.artist)] || 0] ?? 0.1;
+    const sk = skips[String(t.id)] || 0; if (sk >= 2) p *= 0.3;
+    return p;
+  };
+  const out = list.filter((t) => Math.random() < keep(t));
+  // 全部消えたら、残す確率が高い順に少しだけ戻す（止まらないように）
+  if (out.length >= 3) return out;
+  return [...out, ...list.filter((t) => !out.includes(t)).sort((a, b) => keep(b) - keep(a)).slice(0, 3 - out.length)];
+}
 // 一覧もUp nextも最後まで流れたら、SoundCloudの「関連する曲」で続ける
 let relatedBusy = false;
 async function playRelated(auto = true) {
@@ -2078,7 +2114,7 @@ async function playRelated(auto = true) {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
     const played = new Set([String(track.trackId), ...playHistory.map((h) => String(h.trackId))]);
-    const list = d.map(splitArtist).filter((t) => !played.has(String(t.id)));
+    const list = softPick(d.map(splitArtist).filter((t) => !played.has(String(t.id))));
     if (!list.length) return playFromOwn(auto);
     queue = list; qi = 0;
     if (!auto) toast('Playing similar tracks');
@@ -4000,6 +4036,13 @@ $('asClose').addEventListener('click', () => { $('moreSheet').hidden = true; });
 $('moreSheet').addEventListener('click', (e) => { if (e.target.id === 'moreSheet') $('moreSheet').hidden = true; });
 $('asArtist').addEventListener('click', () => { $('moreSheet').hidden = true; openTrackArtist(); });
 $('asCall').addEventListener('click', () => { $('moreSheet').hidden = true; openCallSong(); });
+$('asLess').addEventListener('click', () => {
+  $('moreSheet').hidden = true;
+  if (!track) return;
+  lessOf(track.artist, 1);
+  toast("Got it. You'll hear less like this");
+  unlockAudio(); if (!playNext(false)) playRelated(false);
+});
 const cs = { a: 0, b: 15, d: 0, previewing: false };
 const CS_MAX = 30, CS_MIN = 3;
 function openCallSong() {
