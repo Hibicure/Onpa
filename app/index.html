@@ -2649,7 +2649,7 @@ function openLyrics() {
   if (!lyr || !track) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
-  const src = lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
+  const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
   $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span>`;
   $('lyrBody').scrollTop = 0;
   $('lyrSheet').hidden = false;

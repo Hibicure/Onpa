@@ -383,9 +383,44 @@ function findLyrics(text) {
   const n = best.filter((l) => l.trim()).length;
   return n >= (start >= 0 ? 3 : 6) ? best.join('\n') : '';
 }
+// 曲名を検索しやすい形に（[MV] (prod. x) feat. y などを外す）
+function cleanTitle(s) {
+  return String(s || '')
+    .replace(/[\[【(（「][^\]】)）」]*(prod|feat|ft\.|mv|m\/v|official|video|lyric|audio|free|dl|download|out now|release|full|ver\.?|version|remaster|cover|カバー|歌ってみた|オリジナル|original)[^\]】)）」]*[\]】)）」]/gi, '')
+    .replace(/\s(feat|ft)\.?\s.+$/i, '')
+    .replace(/[\[【][^\]】]*[\]】]/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+function normName(s) { return String(s || '').toLowerCase().normalize('NFKC').replace(/[\s'’"“”・.,!?！？~〜\-–—_/]/g, ''); }
+// LRCLIB（だれでも使える歌詞のデータベース。時間つき歌詞もある）で、曲名とアーティスト名から探す
+async function lrclib(t) {
+  const UA = { 'User-Agent': 'Otocloud (https://otocloud.app)' };
+  let title = cleanTitle(t.publisher_metadata?.release_title || t.title);
+  let artist = String(t.publisher_metadata?.artist || t.user?.username || '').trim();
+  const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (dash) { artist = dash[1].trim(); title = cleanTitle(dash[2]); }
+  const dur = Math.round((t.full_duration || t.duration || 0) / 1000);
+  const pick = (x) => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics) ? { lyrics: x.plainLyrics || x.syncedLyrics.replace(/^\[[^\]]*\]\s?/gm, ''), synced: x.syncedLyrics || '', from: 'lrclib' } : null;
+  try {
+    const q = new URLSearchParams({ track_name: title, artist_name: artist }); if (dur) q.set('duration', String(dur));
+    const r = await fetch('https://lrclib.net/api/get?' + q, { headers: UA });
+    if (r.ok) { const hit = pick(await r.json()); if (hit) return hit; }
+  } catch { /* つぎへ */ }
+  try {
+    const r = await fetch('https://lrclib.net/api/search?' + new URLSearchParams({ q: `${artist} ${title}` }), { headers: UA });
+    if (!r.ok) return null;
+    const list = (await r.json()) || [];
+    const nt = normName(title), na = normName(artist);
+    const ok = list.filter((x) => normName(x.trackName) === nt || normName(x.trackName).includes(nt) || nt.includes(normName(x.trackName)))
+      .filter((x) => !na || normName(x.artistName).includes(na) || na.includes(normName(x.artistName)) || (dur && Math.abs((x.duration || 0) - dur) <= 4))
+      .sort((p, q) => Math.abs((p.duration || 0) - dur) - Math.abs((q.duration || 0) - dur));
+    for (const x of ok) { if (dur && x.duration && Math.abs(x.duration - dur) > 12) continue; const hit = pick(x); if (hit) return hit; }
+  } catch { /* 見つからない */ }
+  return null;
+}
 async function lyricsOf(id, env, userToken, st) {
   const cache = caches.default;
-  const key = new Request('https://cache.otocloud/lyrics2/' + id + (st ? '/' + st : ''));
+  const key = new Request('https://cache.otocloud/lyrics3/' + id + (st ? '/' + st : ''));
   const hit = await cache.match(key);
   if (hit) return hit.json();
   let out = { lyrics: '', from: '' };
@@ -398,10 +433,23 @@ async function lyricsOf(id, env, userToken, st) {
       const c = listOf(await scGet(`/tracks/${id}/comments?limit=200&linked_partitioning=true`, env, userToken));
       const owner = t.user?.id;
       const cands = c.filter((x) => String(x.body || '').split('\n').length >= 4).sort((a, b) => (b.user?.id === owner) - (a.user?.id === owner));
-      for (const x of cands) { const l = findLyrics(x.body); if (l) { out = { lyrics: l, from: x.user?.id === owner ? 'artist comment' : 'comment', by: x.user?.username || '' }; break; } }
+      for (const x of cands) {
+        const l = findLyrics(x.body);
+        if (!l) continue;
+        // 同じ人が返信で続きを載せていたら、つなげる（「@名前」を外して、書いた順に）
+        const t0 = Date.parse(x.created_at) || 0, who = x.user?.id;
+        const more = c.filter((y) => y !== x && y.user?.id === who && (Date.parse(y.created_at) || 0) >= t0 && (Date.parse(y.created_at) || 0) - t0 < 3 * 864e5)
+          .sort((p, q) => Date.parse(p.created_at) - Date.parse(q.created_at))
+          .map((y) => String(y.body || '').replace(/^\s*@[^\s:：]+[:：]?\s*/, '').trim())
+          .filter((b) => b.split('\n').filter((z) => z.trim()).length >= 2 && !/^(https?:|www\.)/i.test(b));
+        out = { lyrics: [l, ...more].join('\n\n'), from: who === owner ? 'artist comment' : 'comment', by: x.user?.username || '' };
+        break;
+      }
     }
+    // SoundCloudに無ければ、曲名とアーティスト名で歌詞のデータベースを探す
+    if (!out.lyrics) { const l = await lrclib(t); if (l) out = l; }
   } catch { /* 歌詞が見つからないだけ */ }
-  if (!out.lyrics || !st) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'Cache-Control': 'public, max-age=86400', 'Content-Type': 'application/json' } }));
+  if (!out.lyrics || !st) await cache.put(key, new Response(JSON.stringify(out), { headers: { 'Cache-Control': 'public, max-age=' + (out.lyrics ? 86400 : 21600), 'Content-Type': 'application/json' } }));
   return out;
 }
 const escH = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
