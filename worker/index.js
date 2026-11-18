@@ -621,6 +621,7 @@ export default {
       m = p.match(/^\/user\/(\d{1,20})\/albums$/);
       if (m) {
         const d = await scGet(`/users/${m[1]}/playlists?limit=50&linked_partitioning=true&show_tracks=false`, env, userToken);
+        if (url.searchParams.get('raw')) return json(listOf(d).map((pl) => ({ t: pl.title, set: pl.set_type, pt: pl.playlist_type, n: pl.track_count })), 200, cors);
         const out = listOf(d)
           .filter((pl) => pl && /^(album|ep|single|compilation)$/i.test(pl.set_type || pl.playlist_type || ''))
           .map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: pl.artwork_url || '', type: String(pl.set_type || pl.playlist_type || '').toLowerCase(), date: pl.release_date || pl.created_at || '' }));
