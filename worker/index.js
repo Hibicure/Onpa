@@ -575,7 +575,7 @@ export default {
               try {
                 const r3 = await fetch(u.permalink_url, { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', 'Accept-Language': 'en' } });
                 bt.push('page ' + r3.status);
-                if (r3.ok) { const h = await r3.text(); const mm = h.match(/"visual_url":"(https:[^"]+)"/); if (mm) banner = mm[1].replace(/\\u002F/g, '/'); bt.push('found ' + !!mm); }
+                if (r3.ok) { const h = await r3.text(); const mm = h.match(/"visual_url":"(https:[^"]+)"/) || h.match(/visual_url\\?":\\?"(https:[^"\\]+)/) || h.match(/(https:\/\/i1\.sndcdn\.com\/visuals-[^"'\s)\\]+)/); if (mm) banner = mm[1].replace(/\\u002F/g, '/'); bt.push('found ' + !!mm + ' len ' + h.length + ' vis ' + (h.indexOf('visuals') >= 0) + ' ' + (h.match(/.{0,80}visuals-.{0,80}/) || [''])[0]); }
               } catch (e) { bt.push('page err ' + e.message); }
             }
             await cache.put(bk, new Response(banner || '', { headers: { 'Cache-Control': 'public, max-age=' + (banner ? 86400 : 21600) } }));
