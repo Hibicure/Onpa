@@ -2431,7 +2431,7 @@ async function artistAlbums(userId, name) {
     if (!r.ok) return;
     const list = (await r.json()).filter((a) => a.count > 0);
     if (mode !== 'artist' || !list.length) return;
-    const tile = (a) => `<button class="alb" data-alb="${a.id}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork.replace('-large.', '-t300x300.'))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${a.type === 'ep' ? 'EP' : a.type === 'single' ? 'Single' : 'Album'} · ${a.count}</span></button>`;
+    const tile = (a) => `<button class="alb" data-alb="${a.id}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork.replace('-large.', '-t300x300.'))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${({ album: 'Album · ', ep: 'EP · ', single: 'Single · ', compilation: 'Compilation · ' })[a.type] || ''}${a.count} ${a.count === 1 ? 'track' : 'tracks'}</span></button>`;
     $('results').insertAdjacentHTML('afterbegin', `<div class="albums" id="albums">${list.map(tile).join('')}</div>`);
     $('albums').addEventListener('click', (e) => {
       const b = e.target.closest('[data-alb]'); if (!b) return;
