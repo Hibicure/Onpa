@@ -3386,13 +3386,18 @@ function placePick(off, anim) {
   }
 }
 (() => {
-  const box = $('discPick'); let id = null, sy = 0, dy = 0, sx = 0, dx = 0, t0 = 0;
+  const box = $('discPick'); let id = null, sy = 0, dy = 0, sx = 0, dx = 0, t0 = 0, axis = '';
   const stop = (e) => e.stopPropagation(); // CDのスライドや下に引いて閉じる動きと混ざらないように
   let slideT = 0; const sliding = (on, ms = 0) => { clearTimeout(slideT); if (on) box.classList.add('sliding'); else slideT = setTimeout(() => box.classList.remove('sliding'), ms); };
-  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; sx = e.clientX; dx = 0; dy = 0; tickAt = 0; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
+  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; sx = e.clientX; dx = 0; dy = 0; tickAt = 0; axis = ''; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
   let tickAt = 0;
-  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy; dx = e.clientX - sx;
-    if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 8) { $('pickRail').style.transform = `translateX(${Math.max(-26, Math.min(26, dx * .35))}px)`; return; }
+  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return;
+    const mx = e.clientX - sx, my = e.clientY - sy;
+    // 最初に動いた向きで、縦か横かを決めたら、最後までその向きだけ（迷ったら縦）
+    if (!axis && Math.hypot(mx, my) > 9) axis = Math.abs(mx) > Math.abs(my) * 1.6 ? 'x' : 'y';
+    if (axis === 'x') { dx = mx; dy = 0; $('pickRail').style.transform = `translateX(${Math.max(-26, Math.min(26, dx * .35))}px)`; return; }
+    if (axis !== 'y') return;
+    dx = 0; dy = my;
     if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); if (dy > 0 && pickStep(pk.i, -1) < 0) dy *= 0.25; paintPick(dy, false);
       const t = Math.trunc(dy / (box.offsetHeight * 0.32)); if (t !== tickAt) { tickAt = t; hap('rigid'); } } });
   const up = (e) => {
@@ -3401,7 +3406,8 @@ function placePick(off, anim) {
     $('pickRail').style.transform = 'none';
     // 横にスライド：真ん中のボタンを「再生」⇔「一緒に聴く」に切り替える（友達の時だけ）
     // 右へ：一緒に聴く ／ 左へ：その人が今聴いている曲。反対へもう一回で、ふつうの再生ボタンに戻る
-    if (Math.abs(dx) > 34 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+    if (axis === 'x') {
+      if (Math.abs(dx) < 34) { armPick(); return; }
       const cur = pickAt(pk.i), np = $('np');
       if (!cur.self) {
         if (dx > 0) { if (np.classList.contains('peekmode')) setPeekMode(false); else setJoinMode(!np.classList.contains('joinmode')); }
