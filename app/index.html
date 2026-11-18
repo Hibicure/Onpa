@@ -908,18 +908,22 @@
   @media (prefers-reduced-motion: reduce) { #heart .kyun { display: none; } }
   /* アーティストページ：検索欄とタブを隠して、いちばん上にヘッダー（プロフィール画像・名前・場所）。ページの色はその人の画像の色 */
   body.artist-mode #topSearch, body.artist-mode #seg { display: none !important; }
-  .artist-head { position: relative; margin: 0 0 4px; height: 190px; overflow: hidden; }
+  /* ヘッダー：いちばん上（Otocloudのロゴの後ろ）まで引き上げる。下に、プロフィール画像が少し重なって、名前と@ID */
+  .artist-head { position: relative; margin: calc(-1 * var(--headH, 70px)) 0 6px; }
   .artist-head[hidden] { display: none; }
-  .artist-head .ah-bg { position: absolute; inset: -30px; background: var(--ah-tint, var(--chip)) center / cover no-repeat; filter: blur(26px) saturate(1.25); transform: scale(1.15); opacity: .9; }
-  .artist-head.banner .ah-bg { inset: 0; filter: none; transform: none; opacity: 1; }
-  .artist-head::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 35%, color-mix(in srgb, var(--paper) 25%, transparent) 70%, var(--ah-page, var(--paper)) 100%); }
-  .artist-head .ah-row { position: absolute; left: 18px; right: 18px; bottom: 14px; display: flex; align-items: center; gap: 14px; z-index: 1; }
-  .artist-head .ah-pic { width: 76px; height: 76px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 6px 18px -6px rgba(0,0,0,.45); }
+  .artist-head .ah-bg { position: relative; height: calc(150px + var(--headH, 70px)); background: var(--ah-tint, var(--chip)) center / cover no-repeat; overflow: hidden; }
+  .artist-head:not(.banner) .ah-bg { filter: blur(24px) saturate(1.25); transform: scale(1.25); transform-origin: 50% 70%; }
+  .artist-head .ah-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0) 70%, rgba(0,0,0,.12) 100%); }
+  .artist-head .ah-row { position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 0 18px; margin-top: -40px; z-index: 1; }
+  .artist-head .ah-pic { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 0 0 3px var(--ah-page, var(--paper)), 0 8px 20px -8px rgba(0,0,0,.5); }
   .artist-head .ah-pic:empty { display: none; }
   .artist-head .ah-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .artist-head .ah-txt { min-width: 0; }
-  .artist-head .ah-name { font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
-  .artist-head .ah-sub { font-size: 12.5px; color: var(--mute); margin-top: 3px; }
+  .artist-head .ah-txt { min-width: 0; padding-top: 47px; }
+  .artist-head .ah-name { font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1.1; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+  .artist-head .ah-handle { font-size: 13px; font-weight: 600; color: var(--mute); margin-top: 2px; }
+  .artist-head .ah-sub { font-size: 12px; color: var(--mute); margin-top: 3px; }
+  body.artist-mode .head { position: relative; z-index: 2; }
+  body.artist-mode .head .mark, body.artist-mode .head .mark-ic { color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
   body.artist-mode { --ah-page: color-mix(in srgb, var(--ah-tint, var(--paper)) 32%, var(--paper)); background: var(--ah-page) !important; transition: background .4s ease; }
   body.artist-mode .nav, body.artist-mode .mini { background: var(--ah-page) !important; }
   .head .right .mark-ic.far { width: 26px; height: 26px; flex: none; color: var(--ink); }
@@ -1067,7 +1071,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       
     </div>
-    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-sub" id="ahSub"></div></div></div></div>
+    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-handle" id="ahHandle"></div><div class="ah-sub" id="ahSub"></div></div></div></div>
     <div class="libbar" id="libbar" hidden>
       <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
       <div class="libtitle" id="libTitle"></div>
@@ -2313,7 +2317,8 @@ async function openArtist(userId, name) {
   $('libTitle').textContent = '';
   // 検索欄とタブは隠して、いちばん上をその人のヘッダーに
   document.body.classList.add('artist-mode');
-  $('ahName').textContent = name || ''; $('ahSub').textContent = ''; $('ahPic').innerHTML = ''; $('ahBg').style.backgroundImage = '';
+  $('ahName').textContent = name || ''; $('ahHandle').textContent = ''; $('ahSub').textContent = ''; $('ahPic').innerHTML = ''; $('ahBg').style.backgroundImage = ''; $('artistHead').classList.remove('banner');
+  document.body.style.setProperty('--headH', (document.querySelector('.head').offsetHeight || 70) + 'px');
   $('artistHead').hidden = false; window.scrollTo(0, 0);
   $('results').innerHTML = msg('Loading…');
   try {
@@ -2337,12 +2342,14 @@ async function artistPlace(userId) {
     const place = [u.city, country].filter(Boolean).join(', ');
     const fol = u.followers ? (u.followers >= 1e6 ? (u.followers / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : u.followers >= 1e3 ? (u.followers / 1e3).toFixed(1).replace(/\.0$/, '') + 'K' : String(u.followers)) + ' followers' : '';
     $('ahSub').textContent = [place, fol].filter(Boolean).join('  ·  ');
-    if (u.name && !$('ahName').textContent) $('ahName').textContent = u.name;
-    const img = u.banner || u.avatar || ($('results').querySelector('img') || {}).src || '';
+    if (u.name) $('ahName').textContent = u.name; // 曲に出ているアーティスト名（SoundCloudの名前）と同じに
+    $('ahHandle').textContent = u.handle ? '@' + u.handle : '';
+    const banner = u.banner ? u.banner.replace(/-(original|t\d+x\d+)\./, '-t2480x520.') : '';
+    const img = banner || u.avatar || ($('results').querySelector('img') || {}).src || '';
     if (u.avatar && safeImg(u.avatar)) $('ahPic').innerHTML = `<img src="${esc(u.avatar)}" alt="">`;
     if (img && safeImg(img)) {
       $('ahBg').style.backgroundImage = `url("${img}")`;
-      $('artistHead').classList.toggle('banner', !!u.banner);
+      $('artistHead').classList.toggle('banner', !!banner);
       // 画像の平均の色を、ページ全体の色に
       try {
         const im = await loadImg(`${WORKER}/img?u=${encodeURIComponent(img)}`);
