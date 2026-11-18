@@ -400,22 +400,29 @@ async function lrclib(t) {
   const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
   if (dash) { artist = dash[1].trim(); title = cleanTitle(dash[2]); }
   const dur = Math.round((t.full_duration || t.duration || 0) / 1000);
-  const pick = (x) => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics) ? { lyrics: x.plainLyrics || x.syncedLyrics.replace(/^\[[^\]]*\]\s?/gm, ''), synced: x.syncedLyrics || '', from: 'lrclib' } : null;
+  // 先頭の「作詞：」「作曲：」などのクレジット行は外す
+  const tidy = (txt) => String(txt || '').split('\n').filter((l) => !/^\s*(作[词詞]|作曲|[编編]曲|制作人|混音|和声|Lời|Lyrics by|Composed by)\s*.{0,40}[:：]/i.test(l)).join('\n').replace(/^\s+/, '');
+  const pick = (x) => x && !x.instrumental && (x.plainLyrics || x.syncedLyrics) ? { lyrics: tidy(x.plainLyrics || x.syncedLyrics.replace(/^\[[^\]]*\]\s?/gm, '')), synced: x.syncedLyrics || '', from: 'lrclib' } : null;
   try {
     const q = new URLSearchParams({ track_name: title, artist_name: artist }); if (dur) q.set('duration', String(dur));
     const r = await fetch('https://lrclib.net/api/get?' + q, { headers: UA });
     if (r.ok) { const hit = pick(await r.json()); if (hit) return hit; }
   } catch { /* つぎへ */ }
-  try {
-    const r = await fetch('https://lrclib.net/api/search?' + new URLSearchParams({ q: `${artist} ${title}` }), { headers: UA });
-    if (!r.ok) return null;
-    const list = (await r.json()) || [];
-    const nt = normName(title), na = normName(artist);
-    const ok = list.filter((x) => normName(x.trackName) === nt || normName(x.trackName).includes(nt) || nt.includes(normName(x.trackName)))
-      .filter((x) => !na || normName(x.artistName).includes(na) || na.includes(normName(x.artistName)) || (dur && Math.abs((x.duration || 0) - dur) <= 4))
-      .sort((p, q) => Math.abs((p.duration || 0) - dur) - Math.abs((q.duration || 0) - dur));
-    for (const x of ok) { if (dur && x.duration && Math.abs(x.duration - dur) > 12) continue; const hit = pick(x); if (hit) return hit; }
-  } catch { /* 見つからない */ }
+  const nt = normName(title), na = normName(artist);
+  if (nt.length < 2) return null;
+  const tn = (x) => normName(x.trackName);
+  for (const q of [`${artist} ${title}`, title]) {
+    try {
+      const r = await fetch('https://lrclib.net/api/search?' + new URLSearchParams({ q }), { headers: UA });
+      if (!r.ok) continue;
+      const list = (await r.json()) || [];
+      const ok = list.filter((x) => !/inst|instrumental|off ?vocal|karaoke|カラオケ|オフボーカル/i.test(x.trackName || ''))
+        .filter((x) => tn(x) === nt || (tn(x).length >= 2 && (tn(x).includes(nt) || nt.includes(tn(x)))))
+        .filter((x) => !na || normName(x.artistName).includes(na) || na.includes(normName(x.artistName)) || (dur && Math.abs((x.duration || 0) - dur) <= 3))
+        .sort((p, q) => Math.abs((p.duration || 0) - dur) - Math.abs((q.duration || 0) - dur));
+      for (const x of ok) { if (dur && x.duration && Math.abs(x.duration - dur) > 12) continue; const hit = pick(x); if (hit) return hit; }
+    } catch { /* つぎへ */ }
+  }
   return null;
 }
 async function lyricsOf(id, env, userToken, st) {
