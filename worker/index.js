@@ -556,7 +556,12 @@ export default {
       m = p.match(/^\/user\/(\d{1,20})$/);
       if (m) {
         const u = await scGet(`/users/${m[1]}`, env, userToken);
-        return json({ city: u.city || '', country: u.country || '', countryCode: u.country_code || '', followers: u.followers_count || 0 }, 200, cors);
+        const big = (x) => (x ? String(x).replace(/-(large|t\d+x\d+|crop|badge|small|tiny|mini)\./, '-t500x500.') : '');
+        const banner = u.visuals?.visuals?.[0]?.visual_url || u.visual_url || u.banner_url || '';
+        const out = { city: u.city || '', country: u.country || '', countryCode: u.country_code || '', followers: u.followers_count || 0,
+          avatar: /default_avatar/.test(u.avatar_url || '') ? '' : big(u.avatar_url), banner: banner ? String(banner).replace(/-original\./, '-t2480x520.') : '', name: u.username || '', fullName: u.full_name || '' };
+        if (url.searchParams.get('debug') === '1') out.keys = Object.keys(u);
+        return json(out, 200, cors);
       }
       // ---- その人の曲: /user/123/tracks（アーティスト名や友だちの名前から開くページ）
       m = p.match(/^\/user\/(\d{1,20})\/tracks$/);
