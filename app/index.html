@@ -1850,6 +1850,7 @@ $('tabFriends').addEventListener('click', () => showTab('friends'));
 
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
+const searchMemo = new Map();
 let queue = [], qi = -1;
 const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
 
@@ -1857,7 +1858,7 @@ $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
   if (q.length < 2) return;
-  searchTimer = setTimeout(() => search(q), 350);
+  searchTimer = setTimeout(() => search(q), 800); // 打ち終わるのを少し長めに待つ（SoundCloudの検索の回数を節約）
 });
 
 function rowHTML(t, i) {
@@ -1883,9 +1884,12 @@ const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</di
 async function search(q) {
   $('results').innerHTML = msg('Searching…');
   try {
-    const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() });
+    // 同じ言葉は、この端末でも10分は覚えておく（打ち直し・戻った時にSoundCloudに聞き直さない）
+    const ck = q.toLowerCase().normalize('NFKC').replace(/\s+/g, ' '), memo = searchMemo.get(ck);
+    const r = memo && Date.now() - memo.at < 600000 ? { ok: true, json: async () => memo.d } : await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
+    searchMemo.set(ck, { d, at: memo ? memo.at : Date.now() });
     searchList = rankSearch(d.map(splitArtist), q);
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));

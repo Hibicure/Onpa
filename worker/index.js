@@ -545,8 +545,14 @@ export default {
       if (p === '/search') {
         const q = (url.searchParams.get('q') || '').trim();
         if (!q) return json({ error: 'q が必要です' }, 400, cors);
+        // 同じ言葉の検索は1時間みんなで使い回す（SoundCloudの検索の上限：アプリ全体で1時間3,000回）
+        const sk = new Request('https://cache.otocloud/search/' + encodeURIComponent(q.toLowerCase().normalize('NFKC').replace(/\s+/g, ' ')));
+        const sh = await caches.default.match(sk);
+        if (sh) return json(await sh.json(), 200, cors);
         const d = await scGet(`/tracks?q=${encodeURIComponent(q)}&limit=20&access=playable`, env, userToken);
-        return json(listOf(d).map(mapTrack), 200, cors);
+        const out = listOf(d).map(mapTrack);
+        await caches.default.put(sk, new Response(JSON.stringify(out), { headers: { 'Cache-Control': 'public, max-age=3600' } }));
+        return json(out, 200, cors);
       }
 
       // ---- 1曲の情報: /t/123（共有リンクから開いた時に使う）
