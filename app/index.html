@@ -897,6 +897,13 @@
   :root.mist .controls .pp, :root.mist .controls .skip { color: #FFF8EA !important;
     filter: drop-shadow(0 0 2px rgba(255,246,226,.9)) drop-shadow(0 0 9px rgba(255,232,190,.55)) drop-shadow(0 0 22px rgba(255,222,170,.35)) drop-shadow(0 2px 5px rgba(0,0,0,.2)); }
   :root.mist .controls .pp:active, :root.mist .controls .skip:active { filter: drop-shadow(0 0 2px rgba(255,246,226,1)) drop-shadow(0 0 12px rgba(255,232,190,.7)) drop-shadow(0 0 28px rgba(255,222,170,.45)); }
+  /* キュン：ハートが右に傾く時、右上にだけ短い線がピッと出て消える */
+  #heart .kyun { position: absolute; left: 74%; top: 22%; width: 0; height: 0; pointer-events: none; }
+  #heart .kyun i { position: absolute; left: -1.5px; top: -10px; width: 3px; height: 8px; border-radius: 2px; background: currentColor; opacity: 0; transform-origin: 50% 10px;
+    transform: rotate(var(--a)) translateY(0) scaleY(.3); animation: kyun .42s cubic-bezier(.2,.9,.3,1) .16s forwards; }
+  #heart .kyun i:nth-child(2) { height: 10px; top: -12px; transform-origin: 50% 12px; }
+  @keyframes kyun { 0% { opacity: 0; transform: rotate(var(--a)) translateY(0) scaleY(.3); } 30% { opacity: 1; transform: rotate(var(--a)) translateY(-5px) scaleY(1); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(-11px) scaleY(.4); } }
+  @media (prefers-reduced-motion: reduce) { #heart .kyun { display: none; } }
 </style>
 </head>
 <body>
@@ -2341,6 +2348,11 @@ $('heart').addEventListener('click', async () => {
     hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
     setTimeout(() => hb.classList.remove('pop'), 600);
     setTimeout(() => hap('rigid'), 140); // ドクン（2回目）
+    // キュン：傾いた右上にだけ、短い線が3本ピッと飛ぶ
+    hb.querySelector('.kyun')?.remove();
+    const k = document.createElement('span'); k.className = 'kyun';
+    k.innerHTML = '<i style="--a:-8deg"></i><i style="--a:32deg"></i><i style="--a:72deg"></i>';
+    hb.appendChild(k); setTimeout(() => k.remove(), 800);
   }
   try {
     await scApi('/sc/like?id=' + id, like ? 'POST' : 'DELETE');
