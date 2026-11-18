@@ -169,6 +169,8 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                                                name: AVAudioSession.routeChangeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(interrupted(_:)),
                                                name: AVAudioSession.interruptionNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(becameActive),
+                                               name: UIApplication.didBecomeActiveNotification, object: nil)
         setupRemoteCommands()
     }
 
@@ -183,12 +185,20 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
             // 止まる直前まで鳴っていたか（ページの「止まった」が先に届くこともあるので、2秒以内なら鳴っていたとみなす）
             resumeAfterInterruption = isPlayingNow || Date().timeIntervalSince(pausedAt) < 2
         } else if type == .ended, resumeAfterInterruption {
-            resumeAfterInterruption = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-                try? AVAudioSession.sharedInstance().setActive(true)
-                self?.webView?.evaluateJavaScript("window.__otoRemote && window.__otoRemote('play')", completionHandler: nil)
-            }
+            revive()
         }
+    }
+    // 画面に「再生中」と出ていても音が止まっていることがあるので、同じ曲を同じ位置から読み込み直して鳴らす
+    private func revive() {
+        resumeAfterInterruption = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            try? AVAudioSession.sharedInstance().setActive(true)
+            self?.webView?.evaluateJavaScript("window.__otoRevive ? window.__otoRevive() : (window.__otoRemote && window.__otoRemote('play'))", completionHandler: nil)
+        }
+    }
+    // 「終わった」の知らせが来ないまま戻ってきたとき（アプリを開き直したとき）も、鳴っていたなら戻す
+    @objc private func becameActive() {
+        if resumeAfterInterruption { revive() }
     }
 
     // ページの中の埋め込み（SoundCloud）が、あとから「10秒送り」に戻してしまうので、鳴っている間は2秒ごとに「次の曲・前の曲」に戻し続ける
