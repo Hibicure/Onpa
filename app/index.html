@@ -974,6 +974,17 @@
   .send-it .nm { font-size: 11.5px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .send-it.done .avatar { opacity: .45; transform: scale(.9); }
   .send-it.done .nm::after { content: ' ✓'; }
+  /* 送る相手の丸：CDの右のふちに沿って、ポポポと出てくる（CDに少し重なってOK） */
+  .stage { position: relative; }
+  .orbit { position: absolute; inset: 0; pointer-events: none; z-index: 8; touch-action: none; }
+  .orbit[hidden] { display: none; }
+  .orbit .orb-it { position: absolute; width: var(--s, 52px); height: var(--s, 52px); padding: 0; pointer-events: auto; transform: scale(0); transition-property: left, top, opacity; }
+  .orbit.in .orb-it { animation: orbpop .42s cubic-bezier(.34,1.6,.64,1) var(--d) forwards; }
+  .orbit .orb-it .avatar { width: 100%; height: 100%; display: block; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 6px 14px -4px rgba(0,0,0,.45); }
+  .orbit .orb-it.done .avatar { box-shadow: 0 0 0 2px var(--live, #34c759), 0 0 14px rgba(52,199,89,.6); }
+  .orbit .orb-it.done::after { content: '✓'; position: absolute; right: -2px; bottom: -2px; width: 18px; height: 18px; border-radius: 50%; background: var(--live, #34c759); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+  @keyframes orbpop { from { transform: scale(0); } to { transform: scale(1); } }
+  @media (prefers-reduced-motion: reduce) { .orbit.in .orb-it { animation: none; transform: none; } }
 </style>
 </head>
 <body>
@@ -1196,6 +1207,7 @@
     </div>
     <div class="stage">
             <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div><div class="pick" id="discPick" hidden><div class="pick-rail" id="pickRail"></div></div><div class="pick-name" id="pickName" hidden></div></div>
+      <div class="orbit" id="sendOrbit" hidden></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
     <div class="titlebar">
@@ -2904,7 +2916,7 @@ $('npPP').addEventListener('click', () => {
   if ($('np').classList.contains('endmode')) { setEndMode(false); $('cbEnd').click(); return; }
   if ($('np').classList.contains('joinmode')) { listenWith(); return; }
   if ($('np').classList.contains('peekmode')) { playTheirs(); return; }
-  if ($('np').classList.contains('sendmode')) { openSendSheet(); return; }
+  if ($('np').classList.contains('sendmode')) { setSelfMode(''); return; }
   if ($('np').classList.contains('pinmode')) { pinMood(); return; }
   unlockAudio(); togglePlay();
 });
@@ -3407,8 +3419,9 @@ function setSelfMode(m) {
   const np = $('np'), cur = pk.list.length ? pickAt(pk.i) : null;
   if (!cur || !cur.self || call.state !== 'idle' || !track) m = '';
   np.classList.toggle('sendmode', m === 'send'); np.classList.toggle('pinmode', m === 'pin');
+  if (m !== 'send') hideOrbit();
   if (m) { np.classList.remove('joinmode', 'peekmode'); }
-  if (m === 'send') { $('npPP').innerHTML = ICON.send; $('npPP').setAttribute('aria-label', 'Send this song'); $('pickName').innerHTML = 'You<small class="pk-on">Send to a friend</small>'; $('pickName').classList.remove('fade'); }
+  if (m === 'send') { $('npPP').innerHTML = ICON.send; $('npPP').setAttribute('aria-label', 'Close'); $('pickName').innerHTML = 'You<small class="pk-on">Tap a friend to send</small>'; $('pickName').classList.remove('fade'); showOrbit(); }
   else if (m === 'pin') { const on = myMood() && myMood().trackId === track.trackId; $('npPP').innerHTML = ICON.pin; $('npPP').setAttribute('aria-label', on ? 'Unpin from your profile' : 'Pin to your profile'); $('pickName').innerHTML = `You<small class="pk-on">${on ? 'Pinned · tap to remove' : 'Pin as your mood · 24h'}</small>`; $('pickName').classList.remove('fade'); }
   else if (!np.classList.contains('joinmode') && !np.classList.contains('peekmode')) { $('npPP').setAttribute('aria-label', 'Play or pause'); setPP(loading ? 'load' : (player.paused ? 'play' : 'pause')); }
 }
@@ -3423,6 +3436,59 @@ function pinMood() {
   else { const v = { trackId: track.trackId, title: track.title || '', artist: track.artist || '', artwork: track.artwork || '', at: Date.now() }; db.ref(`users/${me.uid}/mood`).set({ ...v, at: TS }); me.mood = v; toast('Pinned to your profile for 24 hours'); }
   hap('success'); setSelfMode('');
 }
+// 送る相手：CDの右のふちに沿って、友達の丸がポポポと並ぶ。上下に回せて、タップした人にすぐ送る
+const orb = { rot: 0, items: [], drag: null, tick: 0 };
+const ORB_STEP = 26; // 丸どうしの角度
+function showOrbit() {
+  const o = $('sendOrbit');
+  const list = [...friends.entries()].map(([uid, f]) => ({ uid, f })).concat(dummyFriends());
+  if (!list.length) { toast('Add a friend first'); return; }
+  orb.items = list; orb.rot = 0;
+  o.innerHTML = list.map((it, k) => `<button class="orb-it${it.dummy ? ' dummy' : ''}" data-k="${k}" style="--d:${Math.min(k, 6) * 45}ms" aria-label="Send to ${esc(it.f.name || it.f.handle)}"><span class="avatar">${face(it.f)}</span></button>`).join('');
+  o.hidden = false; placeOrbit(false);
+  requestAnimationFrame(() => o.classList.add('in'));
+}
+function hideOrbit() { const o = $('sendOrbit'); if (!o || o.hidden) return; o.classList.remove('in'); setTimeout(() => { if (!o.classList.contains('in')) o.hidden = true; }, 260); }
+function placeOrbit(anim) {
+  const o = $('sendOrbit'), d = $('disc'), st = o.parentElement;
+  const dr = d.getBoundingClientRect(), sr = st.getBoundingClientRect();
+  const R = dr.width / 2, cx = dr.left - sr.left + R, cy = dr.top - sr.top + R;
+  const S = Math.round(Math.max(40, Math.min(58, dr.width * 0.17)));
+  const maxX = sr.width - 6 - S / 2; // 画面の右からはみ出さない
+  o.style.setProperty('--s', S + 'px');
+  [...o.children].forEach((el, k) => {
+    const a = (-ORB_STEP * 2 + k * ORB_STEP + orb.rot) * Math.PI / 180;
+    const deg = a * 180 / Math.PI, vis = Math.abs(deg) <= 78;
+    const x = Math.min(maxX, cx + R * 0.96 * Math.cos(a)), y = cy + R * 0.96 * Math.sin(a);
+    el.style.transition = anim ? 'left .3s cubic-bezier(.34,1.4,.64,1), top .3s cubic-bezier(.34,1.4,.64,1), opacity .2s' : 'opacity .2s';
+    el.style.left = (x - S / 2) + 'px'; el.style.top = (y - S / 2) + 'px';
+    el.style.opacity = vis ? String(Math.max(.25, 1 - Math.max(0, Math.abs(deg) - 55) / 23)) : '0';
+    el.style.pointerEvents = vis ? '' : 'none';
+  });
+}
+(() => {
+  const o = $('sendOrbit');
+  o.addEventListener('pointerdown', (e) => { e.stopPropagation(); orb.drag = { y: e.clientY, r: orb.rot, moved: false, id: e.pointerId }; orb.tick = 0; try { o.setPointerCapture(e.pointerId); } catch {} });
+  o.addEventListener('pointermove', (e) => {
+    if (!orb.drag || e.pointerId !== orb.drag.id) return; e.stopPropagation();
+    const dy = e.clientY - orb.drag.y; if (Math.abs(dy) > 6) orb.drag.moved = true;
+    const minR = -(orb.items.length - 3) * ORB_STEP, maxR = 2 * ORB_STEP; // 端まで行ったら止まる
+    orb.rot = Math.max(Math.min(minR, 0), Math.min(maxR, orb.drag.r - dy * 0.35));
+    const t = Math.round(orb.rot / ORB_STEP); if (t !== orb.tick) { orb.tick = t; hap('rigid'); }
+    placeOrbit(false);
+  });
+  const end = (e) => {
+    if (!orb.drag) return; e.stopPropagation();
+    const moved = orb.drag.moved; orb.drag = null;
+    if (moved) { orb.rot = Math.round(orb.rot / ORB_STEP) * ORB_STEP; placeOrbit(true); return; }
+    const b = document.elementFromPoint(e.clientX, e.clientY)?.closest('.orb-it'); if (!b || b.classList.contains('done')) return;
+    const it = orb.items[+b.dataset.k]; if (!it) return;
+    if (it.dummy) { toast('Test friend · nothing to send'); return; }
+    shareTrack(it.uid); b.classList.add('done'); hap('success'); toast(`Sent to ${it.f.name || '@' + it.f.handle}`);
+  };
+  o.addEventListener('pointerup', end); o.addEventListener('pointercancel', () => { orb.drag = null; });
+  addEventListener('resize', () => { if (!o.hidden) placeOrbit(false); });
+})();
 // 送る相手を選ぶ（顔をタップした人に、すぐ送る）
 function openSendSheet() {
   const list = [...friends.entries()];
@@ -3503,7 +3569,7 @@ function placePick(off, anim) {
     // 最初に動いた向きで、縦か横かを決めたら、最後までその向きだけ（迷ったら縦）
     // 顔が止まって落ち着くまでは、横は受け付けない（縦のあとすぐの横ぶれで切り替わらないように）
     if (!axis && Math.hypot(mx, my) > 9) axis = (Math.abs(mx) > Math.abs(my) * 1.6 && performance.now() > (pk.settleUntil || 0)) ? 'x' : 'y';
-    if (axis === 'x') { dx = mx; dy = 0; $('pickRail').style.transform = `translateX(${Math.max(-26, Math.min(26, dx * .35))}px)`; return; }
+    if (axis === 'x') { dx = mx; dy = 0; const r = $('pickRail'); r.style.transition = 'none'; r.style.transform = `translateX(${dx}px)`; return; } // 横は指にぴったりついてくる（穴の外は見えない）
     if (axis !== 'y') return;
     dx = 0; dy = my;
     if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); if (dy > 0 && pickStep(pk.i, -1) < 0) dy *= 0.25; paintPick(dy, false);
@@ -3511,11 +3577,18 @@ function placePick(off, anim) {
   const up = (e) => {
     stop(e); if (e.pointerId !== id) return; id = null;
     const h = box.offsetHeight, fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.35;
-    $('pickRail').style.transform = 'none';
-    // 横にスライド：真ん中のボタンを「再生」⇔「一緒に聴く」に切り替える（友達の時だけ）
-    // 右へ：一緒に聴く ／ 左へ：その人が今聴いている曲。反対へもう一回で、ふつうの再生ボタンに戻る
+    const rail = $('pickRail');
+    if (axis !== 'x') rail.style.transform = 'none';
+    // 横にスライド：顔が端から抜けて、反対の端から戻ってくる。そのあいだに真ん中のボタンが切り替わる
+    // 友達：右へ＝一緒に聴く ／ 左へ＝その人の気分の曲・今の曲。自分：右へ＝送る ／ 左へ＝気分に出す
     if (axis === 'x') {
-      if (Math.abs(dx) < 34) { armPick(); return; }
+      if (Math.abs(dx) < 34) { rail.style.transition = 'transform .32s cubic-bezier(.34,1.5,.64,1)'; rail.style.transform = 'none'; armPick(); return; }
+      const dir = dx > 0 ? 1 : -1, W = box.offsetWidth * 1.15;
+      rail.style.transition = 'transform .14s cubic-bezier(.4,0,1,1)'; rail.style.transform = `translateX(${dir * W}px)`;
+      setTimeout(() => {
+        rail.style.transition = 'none'; rail.style.transform = `translateX(${-dir * W}px)`; void rail.offsetWidth;
+        rail.style.transition = 'transform .36s cubic-bezier(.34,1.45,.64,1)'; rail.style.transform = 'none';
+      }, 140);
       const cur = pickAt(pk.i), np = $('np');
       if (!cur.self) {
         if (dx > 0) { if (np.classList.contains('peekmode')) setPeekMode(false); else setJoinMode(!np.classList.contains('joinmode')); }
