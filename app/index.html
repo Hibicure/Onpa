@@ -921,6 +921,11 @@
   body.artist-mode { --ah-page: color-mix(in srgb, var(--ah-tint, var(--paper)) 32%, var(--paper)); background: var(--ah-page) !important; transition: background .4s ease; }
   body.artist-mode .nav, body.artist-mode .mini { background: var(--ah-page) !important; }
   .head .right .mark-ic.far { width: 26px; height: 26px; flex: none; color: var(--ink); }
+  /* 一緒に聴くモード：真ん中のボタンが少しだけ違う光（あたたかい白のまま、ふわっと脈打つ） */
+  .np.joinmode .controls .pp svg { width: 46px !important; height: 46px !important; animation: joinpulse 1.8s ease-in-out infinite; }
+  @keyframes joinpulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  #cbMute.nudge { animation: joinpulse 1s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .np.joinmode .controls .pp svg, #cbMute.nudge { animation: none; } }
 </style>
 </head>
 <body>
@@ -1148,7 +1153,7 @@
       </div></div></div>
     <div class="ringrow" id="ringRow">
       <div class="rb"><button class="ringbtn glass" id="ringNo" aria-label="Decline"></button><span id="ringNoLbl">Decline</span></div>
-      <div class="rb" id="ringYesWrap"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span>Accept</span></div>
+      <div class="rb" id="ringYesWrap"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span id="ringYesLbl">Accept</span></div>
     </div>
     <div class="upnext">
       <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
@@ -1323,6 +1328,7 @@ function bootOut() {
 }
 function setFace(el, u) { el.innerHTML = face(u); }
 const ICON = {
+  together: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 15.5v-3a8.5 8.5 0 0 1 17 0v3"/><rect x="2.6" y="13.6" width="4.8" height="7" rx="2" fill="currentColor"/><rect x="16.6" y="13.6" width="4.8" height="7" rx="2" fill="currentColor"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M8 5.6v12.8l10.6-6.4z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="5.6" y="4.4" width="4.6" height="15.2" rx="1"/><rect x="13.8" y="4.4" width="4.6" height="15.2" rx="1"/></svg>',
   load: '<svg class="spin" viewBox="0 0 24 24"><path d="M12 4.2a7.8 7.8 0 1 1-7.8 7.8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></svg>',
@@ -2656,7 +2662,7 @@ function seekTo(t) {
 function setPP(s) {
   const html = s === 'load' ? ICON.load : s === 'pause' ? ICON.pause : ICON.play;
   $('miniPP').innerHTML = html;
-  if (!$('np').classList.contains('endmode')) $('npPP').innerHTML = html;
+  if (!$('np').classList.contains('endmode') && !$('np').classList.contains('joinmode')) $('npPP').innerHTML = html;
 }
 function renderTrack() {
   $('scSrc').hidden = !track;
@@ -2796,7 +2802,7 @@ function setEndMode(on) {
   if (on) { $('npPP').innerHTML = ICON.end; return; }
   setPP(loading ? 'load' : (player.paused ? 'play' : 'pause'));
   // 通話中は「終了ボタン」がふつうの状態。相手のアイコンをタップすると少しの間だけ再生/停止になって、また終了ボタンに戻る
-  if (call.state === 'live') endModeTimer = setTimeout(() => { if (call.state === 'live') setEndMode(true); }, 6000);
+  if (call.state === 'live' && call.lk) endModeTimer = setTimeout(() => { if (call.state === 'live' && call.lk) setEndMode(true); }, 6000);
 }
 $('discPeer').addEventListener('click', (e) => {
   if (call.state !== 'live') return;
@@ -2806,6 +2812,7 @@ $('discPeer').addEventListener('click', (e) => {
 $('npPP').addEventListener('click', () => {
   hap('rigid');
   if ($('np').classList.contains('endmode')) { setEndMode(false); $('cbEnd').click(); return; }
+  if ($('np').classList.contains('joinmode')) { listenWith(); return; }
   unlockAudio(); togglePlay();
 });
 $('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
@@ -3233,9 +3240,30 @@ function openPick(quiet) {
   paintPick(0, false);
   if (!quiet) hap('rigid');
 }
+// 真ん中のボタンを「一緒に聴く」に（ディスクの中の友達と）
+function setJoinMode(on) {
+  const np = $('np'), cur = pk.list.length ? pickAt(pk.i) : null;
+  on = !!on && !!cur && !cur.self && call.state === 'idle';
+  np.classList.toggle('joinmode', on);
+  if (on) {
+    $('npPP').innerHTML = ICON.together; $('npPP').setAttribute('aria-label', `Listen with ${cur.f.name || cur.f.handle}`);
+    $('pickName').innerHTML = esc(cur.f.name || '@' + cur.f.handle) + `<small class="pk-on">${cur.f.online ? 'Listen together' : 'Offline'}</small>`;
+    $('pickName').classList.remove('fade');
+  } else {
+    $('npPP').setAttribute('aria-label', 'Play or pause');
+    setPP(loading ? 'load' : (player.paused ? 'play' : 'pause'));
+  }
+}
+function listenWith() {
+  const cur = pickAt(pk.i);
+  if (!cur || cur.self) { setJoinMode(false); return; }
+  if (!cur.f.online) { toast(`${cur.f.name || '@' + cur.f.handle} is offline`); return; }
+  setJoinMode(false);
+  startCall(cur.uid, false);
+}
 function closePick() {
   clearTimeout(pk.timer);
-  $('discPick').hidden = true; $('pickName').hidden = true;
+  $('discPick').hidden = true; $('pickName').hidden = true; setJoinMode(false);
   $('disc').classList.remove('picking');
 }
 function armPick() {} // 顔は自動で消さない（置いたまま）
@@ -3268,17 +3296,21 @@ function placePick(off, anim) {
   }
 }
 (() => {
-  const box = $('discPick'); let id = null, sy = 0, dy = 0, t0 = 0;
+  const box = $('discPick'); let id = null, sy = 0, dy = 0, sx = 0, dx = 0, t0 = 0;
   const stop = (e) => e.stopPropagation(); // CDのスライドや下に引いて閉じる動きと混ざらないように
   let slideT = 0; const sliding = (on, ms = 0) => { clearTimeout(slideT); if (on) box.classList.add('sliding'); else slideT = setTimeout(() => box.classList.remove('sliding'), ms); };
-  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; dy = 0; tickAt = 0; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
+  box.addEventListener('pointerdown', (e) => { stop(e); id = e.pointerId; sy = e.clientY; sx = e.clientX; dx = 0; dy = 0; tickAt = 0; t0 = performance.now(); box.setPointerCapture(id); armPick(); });
   let tickAt = 0;
-  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy;
+  box.addEventListener('pointermove', (e) => { stop(e); if (e.pointerId !== id) return; dy = e.clientY - sy; dx = e.clientX - sx;
+    if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 8) { $('pickRail').style.transform = `translateX(${Math.max(-26, Math.min(26, dx * .35))}px)`; return; }
     if (pk.list.length > 1) { if (Math.abs(dy) > 4) sliding(true); paintPick(dy, false);
       const t = Math.trunc(dy / (box.offsetHeight * 0.32)); if (t !== tickAt) { tickAt = t; hap('rigid'); } } });
   const up = (e) => {
     stop(e); if (e.pointerId !== id) return; id = null;
     const h = box.offsetHeight, fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.35;
+    $('pickRail').style.transform = 'none';
+    // 横にスライド：真ん中のボタンを「再生」⇔「一緒に聴く」に切り替える（友達の時だけ）
+    if (Math.abs(dx) > 34 && Math.abs(dx) > Math.abs(dy) * 1.2) { const cur = pickAt(pk.i); if (!cur.self) { setJoinMode(!$('np').classList.contains('joinmode')); hap('rigid'); } return; }
     if (Math.abs(dy) < 6) { // タップ
       // タップ：その人のページへ（顔はCDの中に置いたまま。電話はかけない）
       const cur = pickAt(pk.i), sc = cur.self ? me.scId : cur.f.scId, nm = cur.self ? me.name : (cur.f.name || cur.f.handle);
@@ -3291,7 +3323,7 @@ function placePick(off, anim) {
       // 次の人がはまる時、少し行きすぎて戻る（ダイヤルの反動）
       placePick(-d, true);
       hap('rigid');
-      setTimeout(() => { pk.i += d; paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} }, 430);
+      setTimeout(() => { pk.i += d; paintPick(0, false); try { localStorage.setItem('otocloud_pick', pickAt(pk.i).uid); } catch {} if (pickAt(pk.i).self) setJoinMode(false); else if ($('np').classList.contains('joinmode')) setJoinMode(true); }, 430);
       sliding(false, 470);
     } else { paintPick(0, true); sliding(false, 480); }
     armPick();
@@ -3607,25 +3639,26 @@ function earGate(kind) {
   });
 }
 let earGateClose = null;
-const call = { state: 'idle', room: null, peer: null, lk: null, startedAt: 0, timer: null, ringTimer: null, statusRef: null, muted: false };
+const call = { state: 'idle', voice: true, room: null, peer: null, lk: null, startedAt: 0, timer: null, ringTimer: null, statusRef: null, muted: false };
 let roomState = null, stateRef = null;
 
 function newRoomId() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
 
-async function startCall(peerUid) {
+async function startCall(peerUid, voice = true) {
   if (call.state !== 'idle') return;
   unlockAudio();
-  if (!(await earGate('call')) || call.state !== 'idle') return;
+  if (voice && (!(await earGate('call')) || call.state !== 'idle')) return;
   const f = friends.get(peerUid);
+  call.voice = !!voice;
   call.state = 'ringing'; call.caller = true; call.room = newRoomId(); call.peer = { uid: peerUid, name: f.name, handle: f.handle, avatar: safeImg(f.avatar) || f.avatar || '' };
   showOutgoing();
   showCallbar();
   await db.ref(`rooms/${call.room}/call`).set({ from: me.uid, to: peerUid, status: 'ringing', at: TS });
-  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, fromAvatar: safeImg(me.avatar) || null, room: call.room, at: TS });
+  await db.ref('calls/' + peerUid).set({ from: me.uid, fromName: me.name, fromHandle: me.handle, fromAvatar: safeImg(me.avatar) || null, room: call.room, at: TS, kind: voice ? 'call' : 'listen' });
   watchCallStatus();
-  startRingback(peerUid);
+  if (voice) startRingback(peerUid);
   call.ringTimer = setTimeout(() => {
-    if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(`@${f.handle} didn't answer`); }
+    if (call.state === 'ringing') { db.ref(`rooms/${call.room}/call/status`).set('missed'); db.ref('calls/' + peerUid).remove(); endCall(call.voice ? `@${f.handle} didn't answer` : `@${f.handle} didn't join`); }
   }, 35000);
 }
 
@@ -3634,7 +3667,7 @@ function watchCallStatus() {
   call.statusRef.on('value', (s) => {
     const st = s.val();
     if (st === 'accepted' && call.state === 'ringing') joinCall();
-    if (st === 'declined' && call.state !== 'idle') endCall(`@${call.peer.handle} can't talk right now`);
+    if (st === 'declined' && call.state !== 'idle') endCall(call.voice ? `@${call.peer.handle} can't talk right now` : `@${call.peer.handle} can't listen right now`);
     if (st === 'ended' && call.state !== 'idle') endCall('Call ended');
   });
 }
@@ -3646,10 +3679,11 @@ function showRinging(c) {
   if (!np.classList.contains('ringing')) ringWasOpen = np.classList.contains('open');
   np.style.transform = ''; np.classList.add('open', 'ringing'); np.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
   $('npT').textContent = c.fromName || ('@' + c.fromHandle);
-  $('npS').textContent = '@' + c.fromHandle + ' is calling';
+  $('npS').textContent = c.kind === 'listen' ? '@' + c.fromHandle + ' wants to listen together' : '@' + c.fromHandle + ' is calling';
   closePick(); $('disc').classList.add('incall'); $('discPeer').hidden = false;
   setFace($('discPeerInitial'), { name: c.fromName, avatar: c.fromAvatar });
-  $('ringNo').innerHTML = ICON.end; $('ringYes').innerHTML = ICON.phone; $('ringNoLbl').textContent = 'Decline';
+  $('ringNo').innerHTML = ICON.end; $('ringYes').innerHTML = c.kind === 'listen' ? ICON.together : ICON.phone; $('ringNoLbl').textContent = c.kind === 'listen' ? 'Not now' : 'Decline';
+  $('ringYesLbl').textContent = c.kind === 'listen' ? 'Listen' : 'Accept';
 }
 // かける側も、着信と同じCDの画面で「呼び出し中」を大きく出す
 function showOutgoing() {
@@ -3657,7 +3691,7 @@ function showOutgoing() {
   if (!np.classList.contains('ringing')) ringWasOpen = np.classList.contains('open');
   np.style.transform = ''; np.classList.add('open', 'ringing', 'outgoing'); np.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
   $('npT').textContent = call.peer.name || ('@' + call.peer.handle);
-  $('npS').textContent = 'Calling @' + call.peer.handle + '…';
+  $('npS').textContent = (call.voice ? 'Calling @' : 'Asking @') + call.peer.handle + (call.voice ? '…' : ' to listen together…');
   closePick(); $('disc').classList.add('incall'); $('discPeer').hidden = false;
   setFace($('discPeerInitial'), call.peer);
   $('ringNo').innerHTML = ICON.end; $('ringNoLbl').textContent = 'Cancel';
@@ -3683,15 +3717,17 @@ function watchIncoming() {
     incomingData = c;
     setFace($('inAvatar'), { name: c.fromName, avatar: c.fromAvatar });
     $('inName').textContent = c.fromName;
-    $('inHandle').textContent = '@' + c.fromHandle + ' is calling';
+    $('inHandle').textContent = c.kind === 'listen' ? '@' + c.fromHandle + ' wants to listen together' : '@' + c.fromHandle + ' is calling';
     showRinging(c);
   });
 }
 $('inYes').addEventListener('click', async () => {
   if (!incomingData) return;
   unlockAudio();
-  if (!(await earGate('answer'))) return; // 呼び出しは鳴ったまま（あとから出られる）
+  const voiceIn = incomingData.kind !== 'listen';
+  if (voiceIn && !(await earGate('answer'))) return; // 呼び出しは鳴ったまま（あとから出られる）
   const c = incomingData; if (!c) return;
+  call.voice = voiceIn;
   incomingData = null; ringWasOpen = true; hideRinging();
   db.ref('calls/' + me.uid).remove();
   call.state = 'ringing'; call.caller = false; call.room = c.room; call.peer = { uid: c.from, name: c.fromName, handle: c.fromHandle, avatar: safeImg(c.fromAvatar) };
@@ -3842,6 +3878,17 @@ async function joinCall() {
   clearTimeout(call.ringTimer);
   showCallbar();
   try {
+    if (call.voice) await connectVoice();
+    else db.ref(`rooms/${call.room}/call/status`).onDisconnect().set('ended'); // 声なし：相手のアプリが閉じたら終わる
+    afterJoin();
+  } catch (e) {
+    console.error(e);
+    db.ref(`rooms/${call.room}/call/status`).set('ended');
+    endCall(e.name === 'NotAllowedError' ? 'Allow microphone access to call' : "Couldn't connect the call");
+  }
+}
+// 声をつなぐ（電話）。一緒に聴いている途中から「話す」を押した時も、ここ
+async function connectVoice() {
     const idToken = await firebase.auth().currentUser.getIdToken();
     const r = await fetch(`${WORKER}/livekit-token?room=${call.room}&name=${encodeURIComponent(me.name)}`, { headers: { Authorization: 'Bearer ' + idToken } });
     const { token, error } = await r.json();
@@ -3869,17 +3916,24 @@ async function joinCall() {
     await room.startAudio().catch(() => {});
     if (audioCtx && audioCtx.state !== 'running') toast('Tap anywhere to hear your friend');
     }
-    call.state = 'live';
-    call.startedAt = Date.now();
-    if (NATIVE_CALL) { watchRec(); paintRec(); }
-    if ($('np').classList.contains('outgoing')) { ringWasOpen = true; hideRinging(); }
-    call.timer = setInterval(showCallbar, 1000);
-    showCallbar();
+    call.voice = true;
     $('volVoice').disabled = false;
     $('mixNote').textContent = isIOS ? 'Voice volume here, music with the side buttons' : 'Balance voice and music';
     $('volVoice').max = NATIVE_CALL ? 600 : 100;
     if (NATIVE_CALL && !voiceTouched) $('volVoice').value = 250;
     applyVoiceVolume();
+    if (NATIVE_CALL) { watchRec(); paintRec(); }
+    showCallbar();
+}
+function afterJoin() {
+    call.state = 'live';
+    call.startedAt = Date.now();
+    if ($('np').classList.contains('outgoing')) { ringWasOpen = true; hideRinging(); }
+    call.timer = setInterval(showCallbar, 1000);
+    showCallbar();
+    // 相手が「話す」を押したら知らせる
+    call.voiceRef = db.ref(`rooms/${call.room}/voice`);
+    call.voiceRef.on('value', (s) => { const v = s.val(); if (v && v.by !== me.uid && !call.lk && call.peer) { toast(`${call.peer.name} wants to talk · tap the mic`); $('cbMute').classList.add('nudge'); } });
     // 一緒に聴く：ルームの再生状態を見る
     stateRef = db.ref(`rooms/${call.room}/state`);
     stateRef.on('value', (s) => applyRoomState(s.val()));
@@ -3904,11 +3958,6 @@ async function joinCall() {
       }, 2500);
     }
     renderFriends();
-  } catch (e) {
-    console.error(e);
-    db.ref(`rooms/${call.room}/call/status`).set('ended');
-    endCall(e.name === 'NotAllowedError' ? 'Allow microphone access to call' : "Couldn't connect the call");
-  }
 }
 
 function endCall(msg) {
@@ -3918,6 +3967,8 @@ function endCall(msg) {
   call.state = 'idle';
   clearTimeout(call.ringTimer); clearInterval(call.timer);
   if (call.statusRef) call.statusRef.off();
+  if (call.voiceRef) { call.voiceRef.off(); call.voiceRef = null; }
+  $('cbMute').classList.remove('nudge');
   if (stateRef) stateRef.off();
   if (queueRef) { queueRef.off(); queueRef = null; upNext = []; renderUpNext(); }
   stateRef = null; roomState = null;
@@ -3927,7 +3978,7 @@ function endCall(msg) {
   $('np').classList.remove('oncall'); $('volPop').hidden = true; $('npVol').setAttribute('aria-expanded', 'false');
   if (recRef) { recRef.off(); recRef = null; }
   if (recording) stopRec();
-  call.room = null; call.peer = null; call.muted = false;
+  call.room = null; call.peer = null; call.muted = false; call.voice = true;
   paintRec();
   if ($('np').classList.contains('outgoing')) hideRinging();
   setEndMode(false);
@@ -3942,17 +3993,18 @@ function endCall(msg) {
 
 function showCallbar() {
   $('np').classList.toggle('oncall', call.state === 'live');
-  if (call.state === 'live' && !call.endInit) { call.endInit = true; setEndMode(true); } // つながったら、まん中のボタンは「通話を終える」から
+  if (call.state === 'live' && !call.endInit) { call.endInit = true; if (call.lk) setEndMode(true); } // つながったら、まん中のボタンは「通話を終える」から
   if (call.state !== 'live') call.endInit = false;
   if (call.state === 'live') { $('np').classList.remove('square'); if ($('np').classList.contains('full')) setFull(false); } // 電話中はCDの表示に固定
   if (call.state === 'idle') return;
   $('callbar').hidden = $('np').classList.contains('outgoing');
   $('callbar').classList.toggle('ringing', call.state !== 'live');
   $('cbName').textContent = call.peer ? `${call.peer.name}  @${call.peer.handle}` : '';
-  $('cbSub').textContent = call.state === 'live' ? `On call ${fmt((Date.now() - call.startedAt) / 1000)}` : call.state === 'joining' ? 'Connecting…' : 'Ringing…';
+  $('cbSub').textContent = call.state === 'live' ? (call.lk ? `On call ${fmt((Date.now() - call.startedAt) / 1000)}` : `Listening together ${fmt((Date.now() - call.startedAt) / 1000)}`) : call.state === 'joining' ? 'Connecting…' : (call.voice ? 'Ringing…' : 'Waiting…');
   $('cbMute').hidden = call.state !== 'live';
-  $('cbMute').innerHTML = call.muted ? ICON.micOff : ICON.mic;
-  $('cbMute').classList.toggle('off', call.muted);
+  $('cbMute').innerHTML = !call.lk ? ICON.micOff : call.muted ? ICON.micOff : ICON.mic;
+  $('cbMute').classList.toggle('off', !call.lk || call.muted);
+  $('cbMute').setAttribute('aria-label', call.lk ? 'Mute' : 'Talk');
   $('cbEnd').innerHTML = ICON.end;
   if (call.state === 'live') { $('npTogether').hidden = false; $('npTogether').textContent = `Listening with ${call.peer.name}`; }
   const live = call.state === 'live' && call.peer;
@@ -3961,6 +4013,14 @@ function showCallbar() {
   if (live) { setFace($('discPeerInitial'), call.peer); $('discPeer').title = call.peer.name; }
 }
 $('cbMute').addEventListener('click', async () => {
+  // 一緒に聴いているだけの時：マイクを押すと声もつながる（相手にも知らせる）
+  if (!call.lk && call.state === 'live') {
+    unlockAudio();
+    if (!(await earGate('call')) || call.state !== 'live') return;
+    $('cbMute').classList.remove('nudge');
+    try { await db.ref(`rooms/${call.room}/voice`).set({ by: me.uid, at: TS }); await connectVoice(); } catch (e) { console.error(e); toast(e.name === 'NotAllowedError' ? 'Allow microphone access to talk' : "Couldn't connect your voice"); }
+    return;
+  }
   if (!call.lk) return;
   call.muted = !call.muted;
   await call.lk.localParticipant.setMicrophoneEnabled(!call.muted);
