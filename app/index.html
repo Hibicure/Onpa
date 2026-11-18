@@ -3836,7 +3836,7 @@ $('asSC').addEventListener('click', () => { $('moreSheet').hidden = true; openIn
 $('npMore').addEventListener('click', () => {
   if (!track) return;
   // SoundCloudの決まり：アップロードした人と、SoundCloudが出どころだと分かるように（小さく）
-  const by = $('asBy'); if (by) by.textContent = track.trackId && !String(track.trackId).startsWith('am:') ? `Uploaded by ${track.uploader || track.artist || 'unknown'} on SoundCloud` : '';
+  const by = $('asBy'); if (by) by.textContent = track.trackId && !String(track.trackId).startsWith('am:') ? `Uploaded by ${track.uploader || track.artist || 'unknown'}` : '';
   $('moreSheet').hidden = false;
 });
 $('asClose').addEventListener('click', () => { $('moreSheet').hidden = true; });
