@@ -67,6 +67,9 @@ struct WebShell: UIViewRepresentable {
                                                name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.willResign),
                                                name: UIApplication.willResignActiveNotification, object: nil)
+        // 画面収録・ミラーリング中は、画面の角の丸みを消す（収録した動画に角のふちが映らないように）
+        NotificationCenter.default.addObserver(context.coordinator, selector: #selector(Coordinator.captureChanged),
+                                               name: UIScreen.capturedDidChangeNotification, object: nil)
         return web
     }
 
@@ -81,6 +84,13 @@ struct WebShell: UIViewRepresentable {
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { nil }
 
         @objc func willResign() { leftAt = Date() }
+
+        @objc func captureChanged() { tellCapture() }
+        func tellCapture() {
+            let on = UIScreen.main.isCaptured
+            webView?.evaluateJavaScript("document.documentElement.classList.toggle('captured', \(on ? "true" : "false"))", completionHandler: nil)
+        }
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { tellCapture() }
 
         @objc func didBecomeActive() {
             // 10分以上たっていて、通話中でなければ読み直す（通話中に切れないように）
