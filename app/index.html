@@ -2025,7 +2025,9 @@ const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</di
 // 検索窓に Bandcamp のアルバム・曲のリンクを貼ると、その曲が並ぶ（Bandcamp 公式の埋め込みプレーヤーで再生）
 // 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
 function songKey(t) {
-  const n = (x) => String(x || '').toLowerCase().normalize('NFKC').replace(/\(.*?\)|\[.*?\]|【.*?】/g, ' ').replace(/\s(feat|ft|prod)\.?\s.*$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+  // カッコの中は「Official Audio」などの飾りだけ消す（Remix・Live などは別の曲として残す）
+  const NOISE = /official|audio|video|lyric|visuali[sz]er|\bmv\b|\bhd\b|\bhq\b|original mix|explicit|clean|remaster|free download|out now/;
+  const n = (x) => String(x || '').toLowerCase().normalize('NFKC').replace(/\(([^)]*)\)|\[([^\]]*)\]|【([^】]*)】/g, (m, a, b, c) => (NOISE.test(a || b || c || '') ? ' ' : ' ' + (a || b || c) + ' ')).replace(/\s(feat|ft|prod)\.?\s[^()]*$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
   const a = n(t.artist), ti = n(t.title);
   return a && ti ? a + '|' + ti : '';
 }
