@@ -448,8 +448,6 @@
   .np.square #disc .platter, .np.square #discPeek .platter { background: transparent; }
   /* 四角の時：ふちに細い線（下の色のすき間）が出ないように、ジャケットを少しだけ大きくして、ふちの線や光を全部消す */
   .np.square #disc .face, .np.square #discPeek .face { transform: scale(1.02); }
-  /* iPhoneの傾きに合わせて、ジャケットがカードのように少し傾く（横スライド中は指の動きが優先） */
-  .np.square #disc { transform: perspective(900px) rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)); transition: transform .18s ease-out; }
   .np.square #disc::before, .np.square #disc::after, .np.square #discPeek::before, .np.square #discPeek::after { display: none; }
   .np.square #disc .edge::before, .np.square #disc .edge::after, .np.square #discPeek .edge::before, .np.square #discPeek .edge::after { display: none; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
@@ -2193,36 +2191,38 @@ function neighborMeta(dir) {
     if (side) pk.style.transform = pose(x + side * span(), sq);
   };
   const reset = () => { cancelAnimationFrame(tw); clearTimeout(timer); timer = null; side = 0; anim(false); pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; requestAnimationFrame(() => { el.style.transition = ''; pk.style.transition = ''; }); };
-  // 四角いジャケット：iPhoneを傾けると、カードのようにジャケットも少し傾く（光沢は付けない）
-  let tilting = false, tiltTimer = 0; const endTilt = () => {};
-  (() => {
-    let base = null, on = false, raf = 0, tx = 0, ty = 0;
-    const apply = () => { raf = 0; el.style.setProperty('--tx', tx.toFixed(2) + 'deg'); el.style.setProperty('--ty', ty.toFixed(2) + 'deg'); };
-    const onOri = (e) => {
-      if (!$('np').classList.contains('square') || e.beta == null) { base = null; return; }
-      if (!base) base = { b: e.beta, g: e.gamma };
-      // 持ち方が変わったら、ゆっくりそこを新しい「まっすぐ」にする
-      base.b += (e.beta - base.b) * 0.02; base.g += (e.gamma - base.g) * 0.02;
-      const cl = (v) => Math.max(-12, Math.min(12, v));
-      tx = cl(-(e.beta - base.b) * 0.6); ty = cl((e.gamma - base.g) * 0.6);
-      if (!raf) raf = requestAnimationFrame(apply);
-    };
-    const start = async () => {
-      if (on) return;
-      try { if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') { const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') return; } } catch { return; }
-      on = true; window.addEventListener('deviceorientation', onOri);
-    };
-    // 傾きを読むには一度タップが必要（iPhoneの決まり）。四角にした時のタップで始める
-    el.addEventListener('pointerup', () => { setTimeout(() => { if ($('np').classList.contains('square')) start(); }, 0); });
-    new MutationObserver(() => { if (!$('np').classList.contains('square')) { base = null; tx = ty = 0; apply(); } }).observe($('np'), { attributes: true, attributeFilter: ['class'] });
-  })();
+  // 四角いジャケット：指で押したまま動かすと、押したところが沈むようにカードが傾く（光沢なし）。離すとポインと戻る
+  let tilting = false, tiltTimer = 0;
+  const tiltTo = (cx, cy) => {
+    const r = el.getBoundingClientRect();
+    const px = Math.min(1, Math.max(0, (cx - r.left) / r.width)), py = Math.min(1, Math.max(0, (cy - r.top) / r.height));
+    el.style.transition = 'transform .1s ease-out';
+    el.style.transform = `perspective(800px) rotateY(${((px - 0.5) * 24).toFixed(2)}deg) rotateX(${((0.5 - py) * 24).toFixed(2)}deg) scale(.985)`;
+  };
+  const endTilt = () => {
+    clearTimeout(tiltTimer);
+    if (!tilting) return;
+    tilting = false;
+    el.style.transition = 'transform .7s cubic-bezier(.18,1.9,.4,1)'; el.style.transform = '';
+    setTimeout(() => { if (!tilting) el.style.transition = ''; }, 720);
+  };
   el.addEventListener('pointerdown', (e) => {
     if (busy || loading) { id = null; return; } // 曲が切り替わる途中は次のスライドを受け付けない（ジャケットがダブらないように）
     if (timer) reset(); // 戻る途中なら、すぐ元の位置にしてから
     id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; hist = [[performance.now(), 0]];
+    clearTimeout(tiltTimer);
+    if ($('np').classList.contains('square')) {
+      // 押したまま少し止めたら「傾けるモード」。すぐ横に払えば今まで通り次の曲へ
+      tiltTimer = setTimeout(() => {
+        if (id !== e.pointerId || horizontal !== null) return;
+        tilting = true; try { el.setPointerCapture(id); } catch {}
+        hap('light'); tiltTo(sx, sy);
+      }, 180);
+    }
   });
   el.addEventListener('pointermove', (e) => {
     if (e.pointerId !== id) return;
+    if (tilting) { tiltTo(e.clientX, e.clientY); return; }
     const mx = e.clientX - sx, my = e.clientY - sy;
     if (Math.hypot(mx, my) > 8) clearTimeout(tiltTimer);
     if (horizontal === null && Math.hypot(mx, my) > 8) {
