@@ -305,6 +305,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         Task { @MainActor in
             self.log("route changed reason=\(reason.map { String($0.rawValue) } ?? "?")")
             self.send(self.earphones()) // イヤホンをつけた・外したを画面に知らせる（通話前の「イヤホンをつけて」画面用）
+            if self.room != nil { self.updateMicBoost() }
             guard self.room != nil, self.wantHeadphones, !self.usingHFP else { return }
             if !self.headphonesConnected() && self.bluetoothAvailable() {
                 self.usingHFP = true
@@ -455,6 +456,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         do { try AudioManager.shared.setPlatformVoiceProcessingAllowed(!hp) } catch { log("vp allow failed: \(error)") }
         capture = AudioCaptureOptions(echoCancellation: !hp, autoGainControl: true, noiseSuppression: true)
         configureSession()
+        updateMicBoost()
         // 喋っても音楽をできるだけ下げない
         AudioManager.shared.duckingLevel = .min
         AudioManager.shared.isAdvancedDuckingEnabled = false
@@ -511,6 +513,17 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
         let wired: [AVAudioSession.Port] = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .usbAudio]
         let out = AVAudioSession.sharedInstance().currentRoute.outputs.first { wired.contains($0.portType) }
         return ["type": "route", "ok": true, "hp": out != nil, "name": out?.portName ?? ""]
+    }
+
+    /// 有線イヤホンのマイクを確実に使い、声が小さいので持ち上げる（それ以外のマイクはそのまま）
+    private let micBoost = MicBoost()
+    private func updateMicBoost() {
+        let s = AVAudioSession.sharedInstance()
+        if let wired = s.availableInputs?.first(where: { $0.portType == .headsetMic }) { try? s.setPreferredInput(wired) }
+        let wiredMic = s.currentRoute.inputs.contains { $0.portType == .headsetMic }
+        micBoost.gain = wiredMic ? 2.8 : 1
+        if AudioManager.shared.capturePostProcessingDelegate == nil { AudioManager.shared.capturePostProcessingDelegate = micBoost }
+        log("mic boost \(micBoost.gain)")
     }
 
     private func headphonesConnected() -> Bool {
@@ -1078,4 +1091,20 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         guard let d = try? JSONSerialization.data(withJSONObject: st), let j = String(data: d, encoding: .utf8) else { return }
         host?.evaluateJavaScript("window.__otoBC && window.__otoBC(\(j))")
     }
+}
+
+
+/// 送る前の声を持ち上げる。大きすぎる所は割れないよう、やわらかく抑える（tanh）
+final class MicBoost: NSObject, AudioCustomProcessingDelegate, @unchecked Sendable {
+    var gain: Float = 1
+    func audioProcessingInitialize(sampleRate sampleRateHz: Int, channels: Int) {}
+    func audioProcessingProcess(audioBuffer: LKAudioBuffer) {
+        let g = gain
+        if g == 1 { return }
+        for ch in 0..<audioBuffer.channels {
+            let p = audioBuffer.rawBuffer(forChannel: ch)
+            for i in 0..<audioBuffer.frames { p[i] = tanhf(p[i] * g / 32768) * 32767 }
+        }
+    }
+    func audioProcessingRelease() {}
 }

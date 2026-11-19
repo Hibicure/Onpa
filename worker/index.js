@@ -182,6 +182,27 @@ async function scGet(path, env, userToken = '') {
 }
 
 // ユーザー本人の合鍵でSoundCloudを呼ぶ
+// 街の名前（と国）から緯度・経度を出す（Open-Meteo の無料の地名検索）。30日覚えておく
+async function geocode(city, country, allowFetch = true) {
+  const name = city || country;
+  if (!name) return null;
+  const ck = new Request('https://cache.otocloud/geo/' + encodeURIComponent((city + '|' + country).toLowerCase()));
+  const hit = await caches.default.match(ck);
+  if (hit) return hit.json();
+  if (!allowFetch) return null;
+  let g = { lat: null };
+  try {
+    const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&format=json&name=' + encodeURIComponent(name));
+    const d = await r.json();
+    const res = (d && d.results) || [];
+    const c = country.toLowerCase();
+    const pick = (c && res.find((x) => String(x.country || '').toLowerCase() === c || String(x.country_code || '').toLowerCase() === c)) || (c ? null : res[0]) || (!city ? null : res[0]);
+    if (pick) g = { lat: Math.round(pick.latitude * 100) / 100, lng: Math.round(pick.longitude * 100) / 100, name: [pick.name, pick.country].filter(Boolean).join(', ') };
+  } catch {}
+  await caches.default.put(ck, new Response(JSON.stringify(g), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=2592000' } }));
+  return { ...g, fresh: true };
+}
+
 async function scUser(path, userToken, method = 'GET') {
   const res = await fetch(`${API}${path}`, {
     method,
@@ -924,6 +945,38 @@ export default {
           }
           const seen = new Set();
           return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
+        }
+
+        // フォローしているアーティスト（地球儀用）。プロフィールの街・国から場所（緯度・経度）を出す
+        if (p === '/sc/followings') {
+          let r = await scUser('/me/followings?limit=200&linked_partitioning=true', userToken);
+          if (!r.ok) return json({ error: 'followings ' + r.status }, r.status, cors);
+          const all = listOf(r.body);
+          for (let i = 0; i < 4 && r.ok && r.body && r.body.next_href && all.length < 1000; i++) {
+            const next = String(r.body.next_href);
+            if (!next.startsWith(API)) break;
+            r = await scUser(next.slice(API.length), userToken);
+            if (r.ok) all.push(...listOf(r.body));
+          }
+          const people = all.filter((u) => u && u.id).map((u) => ({
+            id: String(u.id), name: u.username || u.full_name || '', avatar: u.avatar_url || '',
+            city: String(u.city || '').trim(), country: String(u.country || u.country_code || '').trim(), followers: u.followers_count || 0,
+          }));
+          // 同じ街はまとめて1回だけ調べる（1回で調べる数には上限。残りは次に開いた時に）
+          const places = new Map();
+          for (const u of people) if (u.city || u.country) places.set((u.city + '|' + u.country).toLowerCase(), null);
+          let budget = 30;
+          for (const k of places.keys()) {
+            const [city, country] = k.split('|');
+            const g = await geocode(city, country, budget > 0);
+            if (g && g.fresh) budget--;
+            places.set(k, g);
+          }
+          const out = people.map((u) => {
+            const g = places.get((u.city + '|' + u.country).toLowerCase());
+            return g && g.lat != null ? { ...u, lat: g.lat, lng: g.lng, place: g.name } : null;
+          }).filter(Boolean);
+          return json({ total: people.length, located: out.length, artists: out }, 200, cors);
         }
 
         // SoundCloudでその人をフォローしているか／フォローする／外す: /sc/follow?id=123（GET / PUT / DELETE）
