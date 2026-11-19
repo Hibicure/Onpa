@@ -310,6 +310,7 @@
   .disc.incall .hole { display: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* ジャケットを左右にスワイプして曲送り */
+  .np .disc, .np .disc img { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
   .np .disc { touch-action: none; cursor: grab; transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .28s; }
   .np .disc.dragging { transition: none; cursor: grabbing; }
   /* 横にスライドした分だけ、となりの曲のCDが出てくる */
