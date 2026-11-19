@@ -377,7 +377,7 @@
   .np .top .np-src .glyph { width: 24px; height: 24px; }
   .np .top .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
-  .np .top #recBtn:not([hidden]) ~ .np-src { display: none; }
+  .np .top:has(#npSrc:not([hidden])) #recBtn { left: 54px; } /* 録音中もロゴは隠さず、録音ボタンをその右へ */
   .np .top #themeBtn { position: absolute; right: 34px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
@@ -3057,8 +3057,12 @@ async function syncScAvatar() {
     setFace($('myAvatar'), me);
   } catch { /* 取れなくても困らない */ }
 }
+// いいねは1つの一覧にまとめる：SoundCloudのいいね＋Otocloudの中のいいね（Bandcampなど、SoundCloudにない曲）
+const isScId = (id) => /^\d+$/.test(String(id));
 async function loadLikes() {
-  likesList = (await scApi('/sc/likes')).map(splitArtist);
+  const scList = (await scApi('/sc/likes')).map(splitArtist);
+  const extra = ownLikes().filter((t) => !isScId(t.id)).map(splitArtist);
+  likesList = [...extra, ...scList];
   likedIds.clear();
   likesList.forEach((t) => likedIds.add(String(t.id)));
   paintHeart();
@@ -3100,7 +3104,9 @@ function toggleOwnLike(t, like) {
   let list = ownLikes().filter((x) => String(x.id) !== row.id);
   if (like) list.unshift(row);
   saveOwnLikes(list);
-  likesList = list.map(splitArtist);
+  // SoundCloudをつないでいる人は、まとめた一覧の先頭に足す／消す（SoundCloud側のいいねは消さない）
+  if (sc) { if (likesList) { likesList = likesList.filter((x) => String(x.id) !== row.id); if (like) likesList.unshift(splitArtist(row)); } }
+  else likesList = list.map(splitArtist);
 }
 function initOwnLikes() {
   if (sc) return;
