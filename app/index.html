@@ -757,8 +757,8 @@
   .np .stage { position: relative; }
 
   /* 地球儀：ディスクの場所が、本物っぽい地球になる。指で回して、友達のいる場所に顔が出る */
-  .np .top .globe-btn { position: absolute; right: 68px; top: 1px; width: 30px; height: 30px; display: grid; place-items: center; }
-  .np .globe-btn svg { width: 22px; height: 22px; }
+  .np .top .globe-btn { position: absolute; right: 65px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; } /* 地球・電球・三原色を同じ高さ・同じ間かくで */
+  .np .globe-btn svg { width: 24px; height: 24px; }
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
   .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
@@ -897,6 +897,10 @@
   #results .row .add, #results .row .rheart { width: 36px; height: 36px; display: grid; place-items: center; color: var(--ink); flex-shrink: 0; background: none; }
   #results .row .rheart svg { width: 20px; height: 20px; fill: none; }
   #results .row .rheart[aria-pressed="true"] svg { fill: currentColor; }
+  #results .row .srcs { display: flex; gap: 4px; margin-left: 2px; flex-shrink: 0; }
+  #results .row .srclogo { width: 22px; height: 36px; display: grid; place-items: center; padding: 0; background: none; }
+  #results .row .srclogo img { width: 18px; height: 18px; border-radius: 5px; display: block; box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--ink) 14%, transparent); }
+  #results .row .srclogo:active img { transform: scale(.88); }
   #results .row .add { margin-right: -6px; }
   .np #disc { z-index: 1; }
   /* 再生ボタンまわり：大きく、角が丸く、押し込んだ手ごたえ */
@@ -1997,13 +2001,17 @@ function rowHTML(t, i) {
   // どこの曲か（検索では全部の行に小さく）：SoundCloud / Bandcamp / Apple Music / Spotify
   const sid = String(t.id || '');
   const src = sid.startsWith('bc:') ? 'Bandcamp' : sid.startsWith('am:') ? 'Apple Music' : sid.startsWith('sp:') || t.spuri ? 'Spotify' : 'SoundCloud';
-  const tag = mode === 'search' ? `<span class="srctag" data-src="${src}">${src}</span>` : '';
+  const tag = '';
+  // 一番右に出どころのロゴ（同じ曲が複数の場所にある時は並べる。ロゴを押すとその場所で流す）
+  const LOGO = { SoundCloud: 'sc', Bandcamp: 'bc', 'Apple Music': 'am', Spotify: 'sp' };
+  const srcOf = (x) => { const d = String(x.id || ''); return d.startsWith('bc:') ? 'Bandcamp' : d.startsWith('am:') ? 'Apple Music' : d.startsWith('sp:') || x.spuri ? 'Spotify' : 'SoundCloud'; };
+  const logos = mode === 'search' ? `<span class="srcs">${[t, ...(t.alts || [])].map((x, k) => { const n = srcOf(x); return `<button class="srclogo" data-src="${i}:${k}" aria-label="Play on ${n}"><img src="${WORKER}/logo/${LOGO[n]}" alt="${n}" onerror="this.parentNode.remove()"></button>`; }).join('')}</span>` : '';
   return `
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <span class="artw"><img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i></span>
       <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}<span class="dur">${t.duration ? fmt(t.duration / 1000) : ''}</span>${tag}</div></div>
       <button class="add" data-q="${i}" aria-label="Add to Up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      ${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}
+      ${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}${logos}
     </div>`;
 }
 function renderTracks(list, emptyHTML) {
@@ -2015,6 +2023,12 @@ function renderTracks(list, emptyHTML) {
 const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</div>`;
 
 // 検索窓に Bandcamp のアルバム・曲のリンクを貼ると、その曲が並ぶ（Bandcamp 公式の埋め込みプレーヤーで再生）
+// 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
+function songKey(t) {
+  const n = (x) => String(x || '').toLowerCase().normalize('NFKC').replace(/\(.*?\)|\[.*?\]|【.*?】/g, ' ').replace(/\s(feat|ft|prod)\.?\s.*$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+  const a = n(t.artist), ti = n(t.title);
+  return a && ti ? a + '|' + ti : '';
+}
 async function searchBandcamp(link) {
   $('results').innerHTML = msg('Opening Bandcamp…');
   try {
@@ -2043,11 +2057,19 @@ async function search(q) {
     searchList = rankSearch(d.map(splitArtist), q);
     const scCount = searchList.length;
     const bcList = (await bcP || []).filter((t) => t && t.id).map((t) => ({ ...t, provider: 'bandcamp' }));
-    searchList = [...searchList, ...bcList];
+    // 同じ曲は1行にまとめる（SoundCloud の行に Bandcamp をぶら下げる）。違う曲だけ下に足す
+    const byKey = new Map();
+    for (const t of searchList) { const k = songKey(t); if (k && !byKey.has(k)) byKey.set(k, t); }
+    const bcOnly = [];
+    for (const b of bcList) {
+      const m = byKey.get(songKey(b));
+      const close = m && (!m.duration || !b.duration || Math.abs(m.duration - b.duration) < 8000);
+      if (close && !(m.alts || []).length) m.alts = [b]; else bcOnly.push(b);
+    }
+    searchList = [...searchList, ...bcOnly];
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));
       // Bandcamp の結果は、SoundCloud の下にまとめて（区切りに「Bandcamp」）
-      if (bcList.length) { const rows = $('results').querySelectorAll('.row'); const first = rows[scCount]; if (first) first.insertAdjacentHTML('beforebegin', `<div class="src-sec">Bandcamp${IN_APP ? '' : ' · plays in the iPhone app'}</div>`); }
       // 出どころ：SoundCloudのロゴ（黒か白のまま。色は変えない）→ SoundCloudの検索ページへ
       if (searchList.length) $('results').insertAdjacentHTML('afterbegin', `<a class="src-by" href="https://soundcloud.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" aria-label="Results from SoundCloud"><img class="sc-logo dark-hide" src="sc_black.png" alt="SoundCloud"><img class="sc-logo light-hide" src="sc_white.png" alt="SoundCloud"></a>`);
     }
@@ -2105,6 +2127,8 @@ $('results').addEventListener('click', (e) => {
   if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
   const lk = e.target.closest('[data-like]');
   if (lk) { toggleRowLike(lk); return; }
+  const sl = e.target.closest('.srclogo');
+  if (sl) { const [ri, k] = sl.dataset.src.split(':').map(Number); const base = lastResults[ri]; const x = k ? (base.alts || [])[k - 1] : base; if (x) { hap('light'); playFrom([x], 0); } return; }
   const add = e.target.closest('[data-q]');
   if (add) { addToUpNext(lastResults[Number(add.dataset.q)]); return; }
   const sq = e.target.closest('.sq');
@@ -2237,6 +2261,8 @@ function globePeople() {
   dummyFriends().forEach((d, i) => { const [la, ln] = DUMMY_PLACES[i % DUMMY_PLACES.length]; const [a, b] = jitter(d.uid); list.push({ ...d, lat: la + a, lng: ln + b }); });
   return list;
 }
+// 地球がジャケットとちょうど同じ大きさに見えるカメラの距離（画角30°）と、いつもの回る速さ（1ミリ秒あたり）
+const GLOBE_FAR = 1 / Math.sin(15 * Math.PI / 180), GLOBE_SPIN = 0.00011;
 async function openGlobe() {
   const box = $('globe'), disc = $('disc');
   const r = disc.getBoundingClientRect(), st = disc.parentElement.getBoundingClientRect();
@@ -2251,10 +2277,11 @@ async function openGlobe() {
   gl.renderer.setSize(size, size, false);
   gl.people = globePeople(); renderPins();
   const c = me && me.place ? me.place : { lat: 36, lng: 138 };
-  gl.yaw = -c.lng * Math.PI / 180 - Math.PI / 2; gl.pitch = c.lat * Math.PI / 180 * 0.85; gl.vy = 0.004; gl.vp = 0;
+  gl.yaw = -c.lng * Math.PI / 180 - Math.PI / 2; gl.pitch = c.lat * Math.PI / 180 * 0.85; gl.vy = GLOBE_SPIN; gl.vp = 0; gl.cam.position.z = GLOBE_FAR; $('globe').classList.remove('near');
   loopGlobe();
 }
 function closeGlobe() {
+  gl.last = 0;
   gl.on = false; cancelAnimationFrame(gl.raf);
   $('globe').hidden = true; $('np').classList.remove('globe-on'); $('globeBtn').setAttribute('aria-pressed', 'false');
 }
@@ -2262,7 +2289,7 @@ function buildGlobe() {
   const T = gl.three, cv = $('globeCv');
   const R = new T.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
   R.setPixelRatio(Math.min(3, window.devicePixelRatio || 2));
-  const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.1, 100); cam.position.set(0, 0, 4.25);
+  const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.1, 100); cam.position.set(0, 0, GLOBE_FAR);
   const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.4/example/img/';
   const ld = new T.TextureLoader(); ld.setCrossOrigin('anonymous');
   const map = ld.load(IMG + 'earth-blue-marble.jpg'); map.colorSpace = T.SRGBColorSpace; map.anisotropy = 8;
@@ -2271,10 +2298,10 @@ function buildGlobe() {
   const earth = new T.Mesh(new T.SphereGeometry(1, 96, 96), new T.MeshPhongMaterial({ map, bumpMap: bump, bumpScale: 0.035, specularMap: water, specular: new T.Color(0x3a4a5a), shininess: 14 }));
   scene.add(earth);
   // うっすら青い大気のふち
-  const atm = new T.Mesh(new T.SphereGeometry(1.06, 64, 64), new T.ShaderMaterial({
-    side: T.BackSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
+  const atm = new T.Mesh(new T.SphereGeometry(1.002, 64, 64), new T.ShaderMaterial({
+    side: T.FrontSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'varying vec3 n; void main(){ float i = pow(0.62 - dot(n, vec3(0.0,0.0,1.0)), 3.0); gl_FragColor = vec4(0.45,0.7,1.0,1.0) * i * 1.6; }',
+    fragmentShader: 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 3.0); gl_FragColor = vec4(0.45,0.7,1.0,1.0) * i * 0.9; }',
   }));
   scene.add(atm);
   scene.add(new T.AmbientLight(0xffffff, 0.95));
@@ -2284,7 +2311,7 @@ function buildGlobe() {
   const box = $('globe');
   // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
   const pts = new Map(); let pinch = null;
-  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(4.25, z)); $('globe').classList.toggle('near', gl.cam.position.z < 3.1); };
+  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z)); $('globe').classList.toggle('near', gl.cam.position.z < 3.1); };
   box.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: gl.cam.position.z }; gl.drag = null; return; }
@@ -2294,9 +2321,9 @@ function buildGlobe() {
     if (pts.has(e.pointerId)) pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pinch && pts.size === 2) { const [a, b] = [...pts.values()]; zoomTo(pinch.z * pinch.d / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1]))); return; }
     if (!gl.drag) return;
-    const k = 2.6 / gl.size * ((gl.cam.position.z - 1) / 3.25), dx = e.clientX - gl.drag.x, dy = e.clientY - gl.drag.y, dt = Math.max(8, performance.now() - gl.drag.t);
+    const k = 2.6 / gl.size * ((gl.cam.position.z - 1) / (GLOBE_FAR - 1)), dx = e.clientX - gl.drag.x, dy = e.clientY - gl.drag.y, dt = Math.max(8, performance.now() - gl.drag.t);
     gl.yaw += dx * k; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + dy * k));
-    gl.vy = dx * k / dt * 16; gl.vp = dy * k / dt * 16;
+    gl.vy = dx * k / dt; gl.vp = dy * k / dt; // 1ミリ秒あたり
     gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
   const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; gl.drag = null; };
@@ -2304,7 +2331,7 @@ function buildGlobe() {
   box.addEventListener('wheel', (e) => { e.preventDefault(); zoomTo(gl.cam.position.z * (1 + e.deltaY * 0.002)); }, { passive: false });
   // ダブルタップで、寄る／戻る
   let lastTap = 0;
-  box.addEventListener('pointerup', (e) => { if (e.target.closest('.gpin')) return; const n = performance.now(); if (n - lastTap < 300) zoomTo(gl.cam.position.z > 3 ? 2.1 : 4.25); lastTap = n; });
+  box.addEventListener('pointerup', (e) => { if (e.target.closest('.gpin')) return; const n = performance.now(); if (n - lastTap < 300) zoomTo(gl.cam.position.z > 3 ? 2.1 : GLOBE_FAR); lastTap = n; });
 }
 function renderPins() {
   $('globePins').innerHTML = gl.people.map((p, i) => `<button class="gpin${p.self ? ' self' : ''}${p.f && p.f.online ? ' on' : ''}" data-gi="${i}">${face(p.f)}</button><span class="gpin-l" data-gl="${i}">${esc(p.self ? 'You' : (p.f.name || '@' + (p.f.handle || '')))}</span>`).join('');
@@ -2323,7 +2350,13 @@ function loopGlobe() {
   const T = gl.three, v = new T.Vector3();
   const step = () => {
     if (!gl.on) return;
-    if (!gl.drag) { gl.yaw += gl.vy; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + gl.vp)); gl.vy = gl.vy * 0.95 + 0.0006 * 0.05; gl.vp *= 0.92; }
+    // 時間で回す（60Hzでも120Hzでも同じ速さ）。指で回した勢いは、なめらかにいつもの速さへ戻る
+    const now = performance.now(), dt = Math.min(50, now - (gl.last || now)); gl.last = now;
+    if (!gl.drag) {
+      const ease = 1 - Math.exp(-dt / 900);
+      gl.vy += (GLOBE_SPIN - gl.vy) * ease; gl.vp += (0 - gl.vp) * (1 - Math.exp(-dt / 350));
+      gl.yaw += gl.vy * dt; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + gl.vp * dt));
+    }
     gl.earth.rotation.set(gl.pitch, gl.yaw, 0, 'XYZ');
     gl.renderer.render(gl.scene, gl.cam);
     // 顔の位置：地球の表面の点を画面に写す。裏側に回ったら消す
