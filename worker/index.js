@@ -826,9 +826,18 @@ export default {
 
         // 自分のいいね一覧
         if (p === '/sc/likes') {
-          const r = await scUser('/me/likes/tracks?limit=200&linked_partitioning=true&access=playable', userToken);
+          // いいねが多い人のために、続きのページもたどる（最大3,000曲。それより古いものは出ない）
+          let r = await scUser('/me/likes/tracks?limit=200&linked_partitioning=true&access=playable', userToken);
           if (!r.ok) return json({ error: 'likes ' + r.status }, r.status, cors);
-          return json(listOf(r.body).map(mapTrack), 200, cors);
+          const all = listOf(r.body);
+          for (let i = 0; i < 14 && r.ok && r.body && r.body.next_href && all.length < 3000; i++) {
+            const next = String(r.body.next_href);
+            if (!next.startsWith(API)) break;
+            r = await scUser(next.slice(API.length), userToken);
+            if (r.ok) all.push(...listOf(r.body));
+          }
+          const seen = new Set();
+          return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
         }
 
         // 自分がアップロードした曲

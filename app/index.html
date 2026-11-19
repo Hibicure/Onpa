@@ -2601,7 +2601,14 @@ function saveSc(v) {
 (function readReturn() {
   const h = location.hash;
   if (h.startsWith('#sc=')) {
-    try { saveSc(JSON.parse(atob(h.slice(4).replace(/-/g, '+').replace(/_/g, '/')))); setTimeout(() => toast('SoundCloud connected'), 600); } catch { /* 無視 */ }
+    try {
+      saveSc(JSON.parse(atob(h.slice(4).replace(/-/g, '+').replace(/_/g, '/')))); setTimeout(() => toast('SoundCloud connected'), 600);
+      // つなぐ前にOtocloudの中で付けていたいいねを、SoundCloudにも送る（上限に当たったら、あとで少しずつ）
+      try {
+        const own = JSON.parse(localStorage.getItem('oto_likes') || '[]') || [];
+        if (own.length) { const q = JSON.parse(localStorage.getItem('otocloud_like_queue') || '{}'); own.forEach((t) => { if (t && t.id && !String(t.id).startsWith('am:')) q[String(t.id)] = true; }); localStorage.setItem('otocloud_like_queue', JSON.stringify(q)); setTimeout(() => { flushLikes().catch(() => {}); }, 3000); }
+      } catch { /* 無視 */ }
+    } catch { /* 無視 */ }
     history.replaceState(null, '', location.pathname + location.search);
   } else if (h.startsWith('#sc_error=')) {
     setTimeout(() => toast("SoundCloud wasn't connected"), 600);
