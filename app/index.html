@@ -897,7 +897,8 @@
   #results .row .add, #results .row .rheart { width: 36px; height: 36px; display: grid; place-items: center; color: var(--ink); flex-shrink: 0; background: none; }
   #results .row .rheart svg { width: 20px; height: 20px; fill: none; }
   #results .row .rheart[aria-pressed="true"] svg { fill: currentColor; }
-  #results .row .srcs { display: flex; gap: 4px; margin-left: 2px; flex-shrink: 0; }
+  /* ロゴは♡の左。2つまで入る幅を決めておき、右（♡側）に寄せる＝ロゴの数で♡の位置がずれない */
+  #results .row .srcs { display: flex; justify-content: flex-end; gap: 4px; width: 48px; margin-right: 2px; flex-shrink: 0; }
   #results .row .srclogo { width: 22px; height: 36px; display: grid; place-items: center; padding: 0; background: none; }
   #results .row .srclogo img { width: 18px; height: 18px; border-radius: 5px; display: block; box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--ink) 14%, transparent); }
   #results .row .srclogo:active img { transform: scale(.88); }
@@ -2010,8 +2011,7 @@ function rowHTML(t, i) {
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <span class="artw"><img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i></span>
       <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}<span class="dur">${t.duration ? fmt(t.duration / 1000) : ''}</span>${tag}</div></div>
-      <button class="add" data-q="${i}" aria-label="Add to Up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      ${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}${logos}
+      ${logos}${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}
     </div>`;
 }
 function renderTracks(list, emptyHTML) {
@@ -2019,6 +2019,20 @@ function renderTracks(list, emptyHTML) {
   $('results').classList.remove('stack');
   $('results').innerHTML = list.length ? list.map(rowHTML).join('') : emptyHTML;
   markNow();
+  swipeHint();
+}
+// 「右へスライドで次に再生」を、まだ一度も使っていない人にだけ、最初の行を少しずらして見せる（1日1回・最大4回）
+function swipeHint() {
+  let n = 0, last = 0;
+  try { if (localStorage.getItem('oto_swiped')) return; n = Number(localStorage.getItem('oto_swhint') || 0); last = Number(localStorage.getItem('oto_swhint_at') || 0); } catch { return; }
+  if (n >= 4 || Date.now() - last < 864e5) return;
+  const r = $('results').querySelector('.row[data-id]'); if (!r) return;
+  try { localStorage.setItem('oto_swhint', String(n + 1)); localStorage.setItem('oto_swhint_at', String(Date.now())); } catch {}
+  setTimeout(() => {
+    if (!r.isConnected) return;
+    r.style.transition = 'transform .5s cubic-bezier(.2,.8,.2,1)'; r.style.transform = 'translateX(86px)';
+    setTimeout(() => { r.style.transform = ''; setTimeout(() => { r.style.transition = ''; }, 520); }, 1100);
+  }, 700);
 }
 const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</div>`;
 
@@ -2117,7 +2131,7 @@ $('results').addEventListener('keydown', (e) => {
     const go = dx >= TH && e.type === 'pointerup';
     r.classList.remove('swiping'); r.style.transform = '';
     setTimeout(() => r.classList.remove('armed'), 260);
-    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) { hap('rigid'); playNextUp(t); } }
+    if (go) { const t = lastResults[Number(r.dataset.i)]; if (t) { hap('rigid'); playNextUp(t); try { localStorage.setItem('oto_swiped', '1'); } catch {} } }
   };
   box.addEventListener('pointerup', end);
   box.addEventListener('pointercancel', end);
