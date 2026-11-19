@@ -724,6 +724,7 @@
   .np .stage { position: relative; }
 
   /* 地球儀：ディスクの場所が、本物っぽい地球になる。指で回して、友達のいる場所に顔が出る */
+  .np .top .globe-btn { position: absolute; right: 68px; top: 1px; width: 30px; height: 30px; display: grid; place-items: center; }
   .np .globe-btn svg { width: 22px; height: 22px; }
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
@@ -2181,8 +2182,8 @@ function buildGlobe() {
     fragmentShader: 'varying vec3 n; void main(){ float i = pow(0.62 - dot(n, vec3(0.0,0.0,1.0)), 3.0); gl_FragColor = vec4(0.45,0.7,1.0,1.0) * i * 1.6; }',
   }));
   scene.add(atm);
-  scene.add(new T.AmbientLight(0xffffff, 0.55));
-  const sun = new T.DirectionalLight(0xffffff, 1.6); sun.position.set(-3, 2, 4); scene.add(sun);
+  scene.add(new T.AmbientLight(0xffffff, 0.95));
+  const sun = new T.DirectionalLight(0xffffff, 1.25); sun.position.set(-1.5, 1.2, 4); scene.add(sun);
   Object.assign(gl, { renderer: R, scene, cam, earth });
   // 指で回す（離したあとも少し回り続ける）
   const box = $('globe');
