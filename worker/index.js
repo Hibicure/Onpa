@@ -232,7 +232,7 @@ async function geocode(city, country, allowFetch = true) {
     const same = (x) => String(x.country || '').toLowerCase() === c || String(x.country_code || '').toLowerCase() === c;
     const pick = !city ? (res.find((x) => /^PCL/.test(x.feature_code || '') && same(x)) || res.find((x) => /^PCL/.test(x.feature_code || '')))
       : (c && res.find(same)) || (c ? null : res[0]);
-    if (pick) g = { lat: Math.round(pick.latitude * 100) / 100, lng: Math.round(pick.longitude * 100) / 100, name: [pick.name, pick.country].filter(Boolean).join(', ') };
+    if (pick) g = { lat: Math.round(pick.latitude * 100) / 100, lng: Math.round(pick.longitude * 100) / 100, name: [...new Set([pick.name, pick.country].filter(Boolean))].join(', ') };
   } catch {}
   await caches.default.put(ck, new Response(JSON.stringify(g), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=2592000' } }));
   return { ...g, fresh: true };
