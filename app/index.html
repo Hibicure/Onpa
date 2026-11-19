@@ -372,7 +372,7 @@
   .np.ringing .lyrbtn, .np .lyrbtn[hidden] { display: none; }
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
   /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
-  :root.mist .lyr { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(34px) saturate(1.4); backdrop-filter: blur(34px) saturate(1.4); border-radius: 54px;
+  :root.mist .lyr { background: rgba(255,255,255,.14); -webkit-backdrop-filter: blur(34px) saturate(1.4); backdrop-filter: blur(34px) saturate(1.4); border-radius: var(--scr-r, 54px);
     box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
   :root.mist[data-theme="dark"] .lyr { background: rgba(0,0,0,.14);
     box-shadow: inset 0 0 4px 2px rgba(255,255,255,.85), inset 0 0 16px 5px rgba(255,255,255,.62), inset 0 0 34px 8px rgba(255,255,255,.34), inset 0 0 74px 10px rgba(255,255,255,.12); }
@@ -398,7 +398,7 @@
   .disc.picking .hole { display: block; }
   @keyframes pickin { from { transform: scale(.6); opacity: 0; } }
   /* ===== 新しい見た目（お試し）：ミルクのすりガラス＋ジャケットの色がにじむ ===== */
-  :root.mist .np { background: #E7E4EC; border-radius: 54px; overflow: hidden; clip-path: inset(0 round 54px); -webkit-clip-path: inset(0 round 54px); }
+  :root.mist .np { background: #E7E4EC; border-radius: var(--scr-r, 54px); overflow: hidden; clip-path: inset(0 round var(--scr-r, 54px)); -webkit-clip-path: inset(0 round var(--scr-r, 54px)); }
   :root.mist[data-theme="dark"] .np { background: #15141A; }
   :root.mist .np.amb-on .amb { opacity: 1 !important; }
   /* 色ボタンを切ったら：ホームと同じ無地（昼は明るいグレー、夜はほぼ黒） */
@@ -412,7 +412,7 @@
   :root.mist .np::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: .16; mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
   /* ミルクのすりガラスの板：曲の情報のうしろに */
-  :root.mist .np .in::before { content: ""; position: fixed; inset: 0; z-index: -1; border-radius: 54px; pointer-events: none; /* 画面いっぱいのガラス（角は iPhone の画面の丸みに合わせる） */
+  :root.mist .np .in::before { content: ""; position: fixed; inset: 0; z-index: -1; border-radius: var(--scr-r, 54px); pointer-events: none; /* 画面いっぱいのガラス（角は iPhone の画面の丸みに合わせる） */
     background: linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.12) 100%);
     /* 背景はもうぼけているので、ガラスのぼかし（重い）は使わない */
     /* 線は引かない。ふちに近いほどミルクっぽく明るい＝ガラスの厚み。厚みのぶんだけ、くっきり白く */
@@ -879,7 +879,7 @@
   :root.mist[data-theme="dark"] { --paper: #2B2C30; --surface: #34353A; --line: #3D3E43; --chip: #36373C; --nav: rgba(43,44,48,.94); }
   :root.mist body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.07) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist[data-theme="dark"] body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
-  :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: 54px; box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
+  :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: var(--scr-r, 54px); box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
   :root.mist[data-theme="dark"] #app::after { box-shadow: inset 0 0 5px 2px rgba(255,255,255,.8), inset 0 0 18px 6px rgba(255,255,255,.55), inset 0 0 38px 9px rgba(255,255,255,.28), inset 0 0 80px 11px rgba(255,255,255,.1); }
   :root.mist .nav { background: linear-gradient(180deg, rgba(159,160,164,0) 0%, rgba(159,160,164,.88) 45%); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; box-shadow: none; }
   :root.mist[data-theme="dark"] .nav { background: linear-gradient(180deg, rgba(43,44,48,0) 0%, rgba(43,44,48,.9) 45%); }
@@ -1018,6 +1018,15 @@
   :root[data-theme="dark"] .src-by .light-hide { display: block; }
   :root[data-theme="dark"] .src-by .dark-hide { display: none; }
 </style>
+<script>
+// iPhoneの機種ごとに、画面の角の丸さが違う。白い縁や再生画面の角を、その機種の角にぴったり合わせる（画面の大きさから機種を見分ける）
+(() => {
+  const w = Math.min(screen.width, screen.height), h = Math.max(screen.width, screen.height);
+  const R = { '375x812': 39, '414x896': 41.5, '390x844': 47.3, '428x926': 53.3, '393x852': 55, '430x932': 55, '402x874': 62, '440x956': 62, '420x912': 62, '375x667': 0, '414x736': 0, '320x568': 0 };
+  const r = R[w + 'x' + h];
+  if (r != null) document.documentElement.style.setProperty('--scr-r', r + 'px');
+})();
+</script>
 </head>
 <body>
 
