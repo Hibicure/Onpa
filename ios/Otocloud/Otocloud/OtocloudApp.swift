@@ -112,6 +112,15 @@ struct WebShell: UIViewRepresentable {
             decisionHandler(origin.host == "on-pa.net" || origin.host == "otocloud.app" ? .grant : .prompt)
         }
 
+        // iPhoneの傾き（四角いジャケットが傾きに合わせて動く）：Otocloud のページなら、聞かずに許可する
+        @available(iOS 15.0, *)
+        func webView(_ webView: WKWebView,
+                     requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin,
+                     initiatedByFrame frame: WKFrameInfo,
+                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+            decisionHandler(origin.host == "on-pa.net" || origin.host == "otocloud.app" ? .grant : .prompt)
+        }
+
         // 新しいタブで開こうとするリンクは、同じ画面で開く
         func webView(_ webView: WKWebView,
                      createWebViewWith configuration: WKWebViewConfiguration,
