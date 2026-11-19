@@ -722,6 +722,20 @@
   /* ---------- 再生画面の背景（ジャケットの色が広がる） ---------- */
   .np .in { position: relative; z-index: 1; }
   .np .stage { position: relative; }
+
+  /* 地球儀：ディスクの場所が、本物っぽい地球になる。指で回して、友達のいる場所に顔が出る */
+  .np .globe-btn svg { width: 22px; height: 22px; }
+  .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
+  .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
+  .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+  .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
+  .gpins { position: absolute; inset: 0; pointer-events: none; }
+  .gpin { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
+    box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 4px 10px rgba(0,0,0,.45); overflow: hidden; background: #8E8F93; }
+  .gpin > * { width: 100% !important; height: 100% !important; }
+  .gpin.self { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(255,255,255,.35), 0 4px 10px rgba(0,0,0,.45); }
+  .gpin.on::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 8px; height: 8px; border-radius: 50%; background: #3BD16F; box-shadow: 0 0 0 1.5px #fff; }
+  .gpin-l { position: absolute; transform: translate(-50%, 21px); font: 700 11px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
   .amb { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
   .np.amb-on .amb.ready { opacity: 1; }
   .amb .spin { position: absolute; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; will-change: transform; animation: ambspin 48s linear infinite; }
@@ -1250,11 +1264,13 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
+      <button class="theme globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
       <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
     </div>
     <div class="stage">
             <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div><div class="pick" id="discPick" hidden><div class="pick-rail" id="pickRail"></div></div><div class="pick-name" id="pickName" hidden></div></div>
+      <div class="globe" id="globe" hidden><canvas id="globeCv"></canvas><div class="gpins" id="globePins"></div></div>
       <div class="orbit" id="sendOrbit" hidden></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
@@ -1724,6 +1740,7 @@ function startApp() {
   });
   watchFriends();
   initOwnLikes();
+  setTimeout(updatePlace, 3000);
   // 好みがまだ無ければ、最近聴いた曲から作っておく
   setTimeout(() => { try { if (!Object.keys(loadTaste()).length) [...recent].reverse().forEach((t) => noteTaste(t.artist)); } catch {} publishTaste(); }, 4000);
   watchIncoming();
@@ -2095,6 +2112,129 @@ function playPrev() {
 }
 $('npNext').addEventListener('click', () => { hap('rigid'); noteSkip(); unlockAudio(); if (!playNext(false)) playRelated(false); });
 
+
+// ===================== 地球儀（Geo） =====================
+// 自分のだいたいの場所（市くらい）を、1日1回だけ自分のデータに置く。設定で切れる
+async function updatePlace() {
+  if (!me) return;
+  let on = true; try { on = localStorage.getItem('oto_place') !== '0'; } catch {}
+  if (!on) { db.ref('users/' + me.uid + '/place').remove().catch(() => {}); return; }
+  try {
+    const last = Number(localStorage.getItem('oto_place_at') || 0);
+    if (Date.now() - last < 864e5 && me.place) return;
+    const w = await (await fetch(WORKER + '/where')).json();
+    if (w.lat == null || w.lng == null) return;
+    const v = { lat: w.lat, lng: w.lng, city: w.city || '', country: w.country || '' };
+    me.place = v; db.ref('users/' + me.uid + '/place').set(v).catch(() => {});
+    localStorage.setItem('oto_place_at', String(Date.now()));
+  } catch {}
+}
+const DUMMY_PLACES = [[35.7, 139.7], [34.7, 135.5], [43.1, 141.4], [33.6, 130.4], [35.2, 136.9], [38.3, 140.9], [26.2, 127.7], [34.4, 132.5]];
+const gl = { on: false, three: null, renderer: null, scene: null, cam: null, earth: null, yaw: 0, pitch: 0, vy: 0, vp: 0, drag: null, raf: 0, size: 0, people: [] };
+// 同じ場所に何人もいても重ならないよう、その人ごとに少しだけずらす（いつも同じずれ方）
+function jitter(uid) { let h = 0; for (const c of String(uid)) h = (h * 31 + c.charCodeAt(0)) | 0; const a = (h % 360) * Math.PI / 180, r = 0.25 + ((h >>> 8) % 100) / 100 * 0.45; return [Math.sin(a) * r, Math.cos(a) * r]; }
+function globePeople() {
+  const list = [];
+  if (me && me.place) list.push({ uid: me.uid, f: me, self: true, lat: me.place.lat, lng: me.place.lng });
+  for (const [uid, f] of friends) if (f && f.place && f.place.lat != null) { const [a, b] = jitter(uid); list.push({ uid, f, lat: f.place.lat + a, lng: f.place.lng + b }); }
+  dummyFriends().forEach((d, i) => { const [la, ln] = DUMMY_PLACES[i % DUMMY_PLACES.length]; const [a, b] = jitter(d.uid); list.push({ ...d, lat: la + a, lng: ln + b }); });
+  return list;
+}
+async function openGlobe() {
+  const box = $('globe'), disc = $('disc');
+  const r = disc.getBoundingClientRect(), st = disc.parentElement.getBoundingClientRect();
+  const size = Math.round(r.width); gl.size = size;
+  box.style.width = box.style.height = size + 'px'; box.style.top = Math.round(r.top - st.top) + 'px';
+  box.hidden = false; $('np').classList.add('globe-on'); $('globeBtn').setAttribute('aria-pressed', 'true'); gl.on = true;
+  if (!gl.three) {
+    try { gl.three = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js'); }
+    catch { toast("Couldn't load the globe"); closeGlobe(); return; }
+  }
+  if (!gl.renderer) buildGlobe();
+  gl.renderer.setSize(size, size, false);
+  gl.people = globePeople(); renderPins();
+  const c = me && me.place ? me.place : { lat: 36, lng: 138 };
+  gl.yaw = -c.lng * Math.PI / 180 - Math.PI / 2; gl.pitch = c.lat * Math.PI / 180 * 0.85; gl.vy = 0.004; gl.vp = 0;
+  loopGlobe();
+}
+function closeGlobe() {
+  gl.on = false; cancelAnimationFrame(gl.raf);
+  $('globe').hidden = true; $('np').classList.remove('globe-on'); $('globeBtn').setAttribute('aria-pressed', 'false');
+}
+function buildGlobe() {
+  const T = gl.three, cv = $('globeCv');
+  const R = new T.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+  R.setPixelRatio(Math.min(3, window.devicePixelRatio || 2));
+  const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.1, 100); cam.position.set(0, 0, 4.25);
+  const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.4/example/img/';
+  const ld = new T.TextureLoader(); ld.setCrossOrigin('anonymous');
+  const map = ld.load(IMG + 'earth-blue-marble.jpg'); map.colorSpace = T.SRGBColorSpace; map.anisotropy = 8;
+  const bump = ld.load(IMG + 'earth-topology.png');
+  const water = ld.load(IMG + 'earth-water.png');
+  const earth = new T.Mesh(new T.SphereGeometry(1, 96, 96), new T.MeshPhongMaterial({ map, bumpMap: bump, bumpScale: 0.035, specularMap: water, specular: new T.Color(0x3a4a5a), shininess: 14 }));
+  scene.add(earth);
+  // うっすら青い大気のふち
+  const atm = new T.Mesh(new T.SphereGeometry(1.06, 64, 64), new T.ShaderMaterial({
+    side: T.BackSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
+    vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'varying vec3 n; void main(){ float i = pow(0.62 - dot(n, vec3(0.0,0.0,1.0)), 3.0); gl_FragColor = vec4(0.45,0.7,1.0,1.0) * i * 1.6; }',
+  }));
+  scene.add(atm);
+  scene.add(new T.AmbientLight(0xffffff, 0.55));
+  const sun = new T.DirectionalLight(0xffffff, 1.6); sun.position.set(-3, 2, 4); scene.add(sun);
+  Object.assign(gl, { renderer: R, scene, cam, earth });
+  // 指で回す（離したあとも少し回り続ける）
+  const box = $('globe');
+  box.addEventListener('pointerdown', (e) => { if (e.target.closest('.gpin')) return; gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() }; gl.vy = gl.vp = 0; try { box.setPointerCapture(e.pointerId); } catch {} });
+  box.addEventListener('pointermove', (e) => {
+    if (!gl.drag) return;
+    const k = 2.6 / gl.size, dx = e.clientX - gl.drag.x, dy = e.clientY - gl.drag.y, dt = Math.max(8, performance.now() - gl.drag.t);
+    gl.yaw += dx * k; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + dy * k));
+    gl.vy = dx * k / dt * 16; gl.vp = dy * k / dt * 16;
+    gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() };
+  });
+  const up = () => { gl.drag = null; };
+  box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+}
+function renderPins() {
+  $('globePins').innerHTML = gl.people.map((p, i) => `<button class="gpin${p.self ? ' self' : ''}${p.f && p.f.online ? ' on' : ''}" data-gi="${i}">${face(p.f)}</button><span class="gpin-l" data-gl="${i}">${esc(p.self ? 'You' : (p.f.name || '@' + (p.f.handle || '')))}</span>`).join('');
+}
+$('globePins').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-gi]'); if (!b) return;
+  const p = gl.people[Number(b.dataset.gi)]; if (!p) return;
+  hap('light');
+  if (p.self) { toast(p.f.place && p.f.place.city ? `You · ${p.f.place.city}` : 'You'); return; }
+  const n = moodOf(p.f) || p.f.now;
+  if (n && n.trackId) { unlockAudio(); playFrom([{ id: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork }], 0); toast(`From ${p.f.name || '@' + p.f.handle}`); }
+  else toast(`${p.f.name || '@' + p.f.handle}${p.f.place && p.f.place.city ? ' · ' + p.f.place.city : ''}`);
+});
+function loopGlobe() {
+  cancelAnimationFrame(gl.raf);
+  const T = gl.three, v = new T.Vector3();
+  const step = () => {
+    if (!gl.on) return;
+    if (!gl.drag) { gl.yaw += gl.vy; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + gl.vp)); gl.vy = gl.vy * 0.95 + 0.0006 * 0.05; gl.vp *= 0.92; }
+    gl.earth.rotation.set(gl.pitch, gl.yaw, 0, 'XYZ');
+    gl.renderer.render(gl.scene, gl.cam);
+    // 顔の位置：地球の表面の点を画面に写す。裏側に回ったら消す
+    const half = gl.size / 2;
+    gl.people.forEach((p, i) => {
+      const la = p.lat * Math.PI / 180, ln = p.lng * Math.PI / 180;
+      v.set(Math.cos(la) * Math.cos(ln), Math.sin(la), -Math.cos(la) * Math.sin(ln)).applyEuler(gl.earth.rotation);
+      const front = v.z > 0.08;
+      const s = v.clone().project(gl.cam);
+      const el = $('globePins').querySelector(`[data-gi="${i}"]`), lb = $('globePins').querySelector(`[data-gl="${i}"]`);
+      if (!el) return;
+      const x = half + s.x * half, y = half - s.y * half;
+      el.style.left = lb.style.left = x + 'px'; el.style.top = lb.style.top = y + 'px';
+      el.style.opacity = lb.style.opacity = front ? String(Math.min(1, (v.z - 0.08) * 6)) : '0';
+      el.style.pointerEvents = front ? 'auto' : 'none';
+    });
+    gl.raf = requestAnimationFrame(step);
+  };
+  step();
+}
+$('globeBtn').addEventListener('click', () => { hap('light'); if (gl.on) closeGlobe(); else openGlobe(); });
 // ===================== おすすめを、自分で育てる =====================
 // 「Fewer like this」を押したアーティストや、毎回すぐ飛ばされる曲は、自動で流れる曲に出にくくする。
 // ゼロにはしない（たまには出る）＝出会いはなくさない

@@ -622,6 +622,12 @@ export default {
         const seen = new Set();
         return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
       }
+      // ---- だいたいの場所（地球儀用）: /where。ネットの接続元から、市くらいの粗さで（GPSは使わない）
+      if (p === '/where') {
+        const cf = request.cf || {};
+        const r1 = (v) => (v == null || v === '' ? null : Math.round(Number(v) * 10) / 10);
+        return json({ city: cf.city || '', country: cf.country || '', lat: r1(cf.latitude), lng: r1(cf.longitude) }, 200, cors);
+      }
       // ---- その人のアルバム（EP・シングルも）: /user/123/albums
       m = p.match(/^\/user\/(\d{1,20})\/albums$/);
       if (m) {
