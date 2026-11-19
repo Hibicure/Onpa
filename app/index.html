@@ -460,7 +460,7 @@
   .np.square #disc.tilting .holo { opacity: 1; }
   .np.square #disc.tilting { will-change: transform; }
   .np.square #disc::before, .np.square #disc::after, .np.square #discPeek::before, .np.square #discPeek::after { display: none; }
-  .np.square #disc .edge::before, .np.square #disc .edge::after { display: none; }
+  .np.square #disc .edge::before, .np.square #disc .edge::after, .np.square #discPeek .edge::before, .np.square #discPeek .edge::after { display: none; }
   .times { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--display); font-size: 11px; line-height: 1.2; color: var(--mute); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
   .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); align-items: center; gap: 10px; margin: 16px 0 6px; }
   .modes { display: flex; justify-content: flex-start; }
@@ -817,7 +817,7 @@
   /* 四角いジャケットの時は、となりのCDも四角で */
   .np.square #discPeek, .np.square #discPeek .platter { border-radius: 0; }
   .np.square #discPeek .platter { -webkit-mask-image: none; mask-image: none; }
-  .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine, .np.square #discPeek .edge { display: none; }
+  .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine { display: none; }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
   .np.full .amb { display: none; }
   .np.full #disc, .np.full #discPeek { visibility: hidden; }
@@ -868,14 +868,14 @@
   .controls .pp svg.spin { width: 46px; height: 46px; }
   /* 四角い時：レコードのジャケット（紙のスリーブ）っぽい厚みと、ふちの光 */
   /* 四角いジャケット＝CDの紙ジャケット。入れ口は右（右のふちだけ、すき間の影）。ほかの3辺は折り返しで、ぷっくり丸い。光は上から：下ほど影 */
-  .np.square #disc .edge { display: block !important; border-radius: 2px; pointer-events: none; z-index: 3; opacity: 1;
+  .np.square #disc .edge, .np.square #discPeek .edge { display: block !important; border-radius: 2px; pointer-events: none; z-index: 3; opacity: 1;
     -webkit-mask-image: none !important; mask-image: none !important;
     background:
       linear-gradient(270deg, rgba(0,0,0,.26) 0, rgba(0,0,0,.12) 1.2px, rgba(0,0,0,.04) 3px, rgba(0,0,0,0) 7px),
       radial-gradient(ellipse 125% 125% at 46% 38%, rgba(255,255,255,.05) 0%, rgba(0,0,0,0) 52%, rgba(0,0,0,.12) 100%),
       linear-gradient(180deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 30%, rgba(0,0,0,0) 65%, rgba(0,0,0,.08) 100%) !important;
     box-shadow: inset 0 0 5px rgba(0,0,0,.14), inset 0 -4px 6px -2px rgba(0,0,0,.24), inset 4px 0 6px -3px rgba(0,0,0,.12), inset 0 3px 5px -3px rgba(0,0,0,.08) !important; }
-  .np.square #disc { border-radius: 2px; box-shadow: 0 1px 1.5px rgba(0,0,0,.30), 0 3px 4px -1px rgba(0,0,0,.22), 0 14px 22px -10px rgba(0,0,0,.35), 0 36px 60px -24px rgba(0,0,0,.5), 7px 2px 14px -10px rgba(0,0,0,.28), -7px 2px 14px -10px rgba(0,0,0,.28); }
+  .np.square #disc, .np.square #discPeek { border-radius: 2px; box-shadow: 0 1px 1.5px rgba(0,0,0,.30), 0 3px 4px -1px rgba(0,0,0,.22), 0 14px 22px -10px rgba(0,0,0,.35), 0 36px 60px -24px rgba(0,0,0,.5), 7px 2px 14px -10px rgba(0,0,0,.28), -7px 2px 14px -10px rgba(0,0,0,.28); }
   /* ホームなど全部のページ：同じ白い厚みの縁。曲が流れていない時も、色が抜けきらないやわらかい地 */
   /* ホーム側の地：明るすぎず暗すぎないグレー（昼）／ほぼ黒（夜）。どちらも白い厚みの縁 */
   :root.mist:not([data-theme="dark"]) {
