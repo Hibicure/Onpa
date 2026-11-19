@@ -376,6 +376,14 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 // ---- 触った感じ（ハプティクス）：スライドや切りかえの「ククッ」
                 case "nowPlaying":
                     setNowPlaying(body)
+                // ---- Bandcamp：公式の埋め込みプレーヤーを見えないところで開いて、その中の音を操作する
+                case "bcLoad":
+                    BandcampEngine.shared.host = webView
+                    result = ["ok": BandcampEngine.shared.load(body["url"] as? String ?? "", autoplay: body["play"] as? Bool ?? true)]
+                case "bcPlay": BandcampEngine.shared.play()
+                case "bcPause": BandcampEngine.shared.pause()
+                case "bcSeek": BandcampEngine.shared.seek(body["t"] as? Double ?? 0)
+                case "bcStop": BandcampEngine.shared.stop()
                 case "haptic":
                     Haptics.play(body["k"] as? String ?? "tick")
                 case "review":
@@ -386,7 +394,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
-                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") {
+                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") {
                         await UIApplication.shared.open(u)
                         result = ["ok": true, "opened": true]
                     }
@@ -932,5 +940,116 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         case "success": note.notificationOccurred(.success)
         default: sel.selectionChanged()
         }
+    }
+}
+
+
+// MARK: - Bandcamp（公式の埋め込みプレーヤー）
+// Bandcamp の埋め込みには、SoundCloud のような外から操作する仕組みがない。
+// そこで、埋め込みプレーヤーを見えない WKWebView で直接開き、その中の <audio> を小さなスクリプトで操作して、
+// 0.5秒ごとに状態（止まっているか・何秒か・長さ・終わったか）を読む。
+// 考え方は Parachord（MIT License, Copyright (c) 2026 Jason Herskowitz）の bandcamp-embed-control.js を参考にした。
+// 音は Bandcamp の公式プレーヤーがそのまま鳴らす（音を取り出したり保存したりはしない）。
+@MainActor final class BandcampEngine: NSObject, WKNavigationDelegate {
+    static let shared = BandcampEngine()
+    weak var host: WKWebView?           // 状態を知らせる先（Otocloud のページ）
+    private var web: WKWebView?
+    private var timer: Timer?
+    private var url = ""
+    private var loaded = false, installed = false, clicked = false, autoplay = true
+    private var startedAt = Date()
+
+    private static let control = """
+    (function(){ if (window.__oto) return true;
+      function a(){ return document.querySelector('audio'); }
+      var w = { el: null, ended: false, src: '' };
+      function watch(el){ if (!el || w.el === el) return; w.el = el; w.ended = false; w.src = ''; el.addEventListener('ended', function(){ w.ended = true; }); }
+      window.__oto = {
+        start: function(){ var b = document.querySelector('#big_play_button'); if (!b) return false; watch(a()); b.click(); return true; },
+        state: function(){ var el = a(); if (!el) return JSON.stringify({ audio:false, paused:true, ended:false, t:0, dur:0, err:null });
+          watch(el);
+          if (el.src) { if (!w.src) w.src = el.src; else if (w.src !== el.src && !w.ended) { w.ended = true; el.pause(); } }
+          return JSON.stringify({ audio:true, hasSrc: !!el.src, paused: !!el.paused, ended: !!(w.ended || el.ended), t: Number(el.currentTime)||0, dur: Number(el.duration)||0, err: el.error ? el.error.code : null }); },
+        play: function(){ var el = a(); if (el) el.play(); return !!el; },
+        pause: function(){ var el = a(); if (el) el.pause(); return !!el; },
+        seek: function(s){ var el = a(); if (el) el.currentTime = s; return !!el; }
+      };
+      return true; })()
+    """
+
+    private func ensure() -> WKWebView? {
+        if let web { return web }
+        let c = WKWebViewConfiguration()
+        c.allowsInlineMediaPlayback = true
+        c.mediaTypesRequiringUserActionForPlayback = []
+        let v = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 470), configuration: c)
+        v.navigationDelegate = self
+        v.alpha = 0.01; v.isUserInteractionEnabled = false
+        // 画面のどこかにいないと止められることがあるので、Otocloud の画面の裏にそっと置く
+        host?.superview?.insertSubview(v, at: 0)
+        web = v
+        return v
+    }
+
+    /// Bandcamp の埋め込みの URL だけを受け付ける
+    private static func valid(_ s: String) -> URL? {
+        guard let u = URL(string: s), u.scheme == "https", u.host == "bandcamp.com",
+              u.path.hasPrefix("/EmbeddedPlayer/track=") else { return nil }
+        return u
+    }
+
+    func load(_ s: String, autoplay: Bool) -> Bool {
+        guard let u = Self.valid(s), let v = ensure() else { return false }
+        try? AVAudioSession.sharedInstance().setActive(true)
+        url = u.absoluteString; loaded = false; installed = false; clicked = false; self.autoplay = autoplay; startedAt = Date()
+        v.load(URLRequest(url: u))
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in Task { @MainActor in await self?.poll() } }
+        return true
+    }
+    func play() { if !clicked { autoplay = true; return }; web?.evaluateJavaScript("window.__oto && __oto.play()") }
+    func pause() { autoplay = false; web?.evaluateJavaScript("window.__oto && __oto.pause()") }
+    func seek(_ t: Double) { guard t.isFinite else { return }; web?.evaluateJavaScript("window.__oto && __oto.seek(\(max(0, t)))") }
+    func stop() {
+        timer?.invalidate(); timer = nil; url = ""
+        web?.evaluateJavaScript("window.__oto && __oto.pause()")
+        web?.loadHTMLString("", baseURL: nil)
+    }
+
+    nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        Task { @MainActor in self.loaded = true }
+    }
+    // 埋め込みのページの中で、bandcamp 以外の場所へ移動させない
+    nonisolated func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
+        let h = action.request.url?.host ?? ""
+        let ok = action.request.url?.absoluteString == "about:blank" || h == "bandcamp.com" || h.hasSuffix(".bandcamp.com") || h.hasSuffix(".bcbits.com")
+        let sub = action.targetFrame != nil && action.targetFrame?.isMainFrame == false
+        Task { @MainActor in decisionHandler(ok || sub ? .allow : .cancel) }
+    }
+
+    private func poll() async {
+        guard let v = web, loaded, v.url?.absoluteString == url else {
+            if Date().timeIntervalSince(startedAt) > 20 { report(["error": "timeout"]); stop() }
+            return
+        }
+        if !installed { installed = ((try? await v.evaluateJavaScript(Self.control)) as? Bool) == true }
+        if installed && !clicked && autoplay {
+            clicked = ((try? await v.evaluateJavaScript("__oto.start()")) as? Bool) == true
+        }
+        guard installed, let raw = (try? await v.evaluateJavaScript("__oto.state()")) as? String,
+              let d = raw.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        var st: [String: Any] = [:]
+        st["paused"] = (o["paused"] as? Bool) ?? true
+        st["ended"] = (o["ended"] as? Bool) ?? false
+        st["t"] = min(2_592_000, max(0, (o["t"] as? Double) ?? 0))
+        st["dur"] = min(2_592_000, max(0, (o["dur"] as? Double) ?? 0))
+        if let e = o["err"] as? Int { st["error"] = "media \(e)" }
+        report(st)
+        if (st["ended"] as? Bool) == true { timer?.invalidate(); timer = nil }
+    }
+
+    private func report(_ st: [String: Any]) {
+        guard let d = try? JSONSerialization.data(withJSONObject: st), let j = String(data: d, encoding: .utf8) else { return }
+        host?.evaluateJavaScript("window.__otoBC && window.__otoBC(\(j))")
     }
 }

@@ -127,6 +127,7 @@
   .list { margin: 4px 16px 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
   .row:last-child { border-bottom: none; }
+  .bc-by { display: block; font-size: 12px; font-weight: 700; color: var(--mute); padding: 6px 2px 10px; }
   /* ジャケットが無い・読めない時：グレーにOtocloudの印 */
   .row img.art:not([src]), .row img.art[src=""], .alb-art:empty { background: center / cover no-repeat url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%238E8F93%22/%3E%3Cpath%20fill%3D%22%23D8D9DC%22%20transform%3D%22translate%2830.0%2030.0%29%20scale%281.6666666666666667%29%22%20d%3D%22M16.4%2021.0L15.8%2021.1L15.2%2020.9L14.9%2020.8L14.6%2020.6L14.2%2020.2L14.0%2020.0L13.8%2019.7L13.7%2019.1L13.7%2018.6L13.8%2017.9L14.0%2017.3L14.2%2016.9L14.4%2016.6L14.9%2016.0L15.6%2015.5L16.2%2015.2L16.8%2015.0L17.2%2014.9L17.6%2014.9L18.6%2015.0L18.8%2014.9L18.9%2014.7L19.1%2014.5L19.1%2014.2L19.4%2012.7L19.5%2011.3L19.6%209.8L19.5%208.5L19.4%207.2L19.3%206.6L19.2%206.4L19.1%206.3L19.0%206.2L18.7%206.1L17.9%206.2L17.2%206.1L16.6%205.9L16.0%205.6L15.7%205.4L15.3%205.1L14.8%204.6L14.4%204.0L14.1%203.3L14.0%202.8L14.0%202.5L14.0%202.1L14.0%201.8L14.1%201.5L14.4%201.0L14.6%200.7L14.8%200.5L15.2%200.3L15.8%200.1L16.4%20-0.0L16.9%200.0L17.6%200.2L18.1%200.4L18.6%200.7L19.1%201.1L19.4%201.4L19.8%201.9L20.2%202.5L20.4%203.1L20.8%203.9L21.0%204.7L21.2%205.6L21.3%206.5L21.5%207.6L21.6%208.6L21.6%209.8L21.6%2010.7L21.5%2011.9L21.4%2013.1L21.2%2014.2L21.1%2015.0L20.8%2016.2L20.5%2017.1L20.1%2018.0L19.8%2018.6L19.4%2019.2L19.0%2019.7L18.6%2020.1L18.1%2020.5L17.5%2020.8L16.9%2021.0L16.4%2021.0ZM5.1%2024.0L4.4%2024.0L3.9%2023.8L3.4%2023.6L3.0%2023.2L2.7%2022.8L2.5%2022.4L2.4%2021.8L2.5%2021.2L2.6%2020.6L2.9%2019.9L3.4%2019.3L3.9%2018.8L4.6%2018.3L5.3%2018.0L5.9%2017.9L6.7%2017.8L6.9%2017.7L7.2%2017.6L7.3%2017.3L7.4%2016.7L7.4%206.6L7.4%206.1L7.5%205.7L7.6%205.4L7.9%205.2L8.1%204.9L8.5%204.7L12.1%202.7L12.5%202.5L12.7%202.5L12.8%202.5L13.0%202.6L13.2%202.9L13.6%204.0L14.0%204.7L14.2%205.0L14.6%205.5L15.4%206.2L15.6%206.4L15.8%206.7L15.7%206.9L15.6%207.2L15.3%207.4L9.7%2010.6L9.2%2010.9L9.0%2011.2L8.8%2011.6L8.7%2012.2L8.7%2018.4L8.8%2020.2L8.8%2020.7L8.7%2021.1L8.5%2021.7L8.2%2022.2L7.8%2022.7L7.4%2023.1L6.8%2023.4L6.3%2023.7L5.7%2023.9L5.1%2024.0Z%22/%3E%3C/svg%3E") !important; }
   /* アーティストのページ：アルバム・EPを横一列に（ジャケは角なしの正方形） */
@@ -1941,7 +1942,22 @@ function renderTracks(list, emptyHTML) {
 }
 const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</div>`;
 
+// 検索窓に Bandcamp のアルバム・曲のリンクを貼ると、その曲が並ぶ（Bandcamp 公式の埋め込みプレーヤーで再生）
+async function searchBandcamp(link) {
+  $('results').innerHTML = msg('Opening Bandcamp…');
+  try {
+    const r = await fetch(`${WORKER}/bc/album?url=${encodeURIComponent(link)}`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    searchList = (d.tracks || []).map((t) => ({ ...t, provider: 'bandcamp' }));
+    if (mode !== 'search') return;
+    renderTracks(searchList, msg('No playable tracks', 'This page has no tracks Bandcamp lets us play'));
+    $('results').insertAdjacentHTML('afterbegin', `<a class="src-by bc-by" href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.album || d.artist)} · Bandcamp ↗</a>`);
+    if (!IN_APP) toast('Bandcamp tracks play in the Otocloud iPhone app');
+  } catch (e) { if (mode === 'search') $('results').innerHTML = msg("Couldn't open this Bandcamp link", esc(e.message)); }
+}
 async function search(q) {
+  if (/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/(album|track)\//i.test(q.trim())) return searchBandcamp(q.trim());
   $('results').innerHTML = msg('Searching…');
   try {
     // 同じ言葉は、この端末でも10分は覚えておく（打ち直し・戻った時にSoundCloudに聞き直さない）
@@ -2911,7 +2927,7 @@ function paintHeart() {
 }
 async function toggleRowLike(btn) {
   const t = lastResults[Number(btn.dataset.like)]; if (!t) return;
-  if (!sc) {
+  if (!sc || String(t.id).startsWith('bc:')) {
     const id = String(t.id), like = !likedIds.has(id);
     if (like) likedIds.add(id); else likedIds.delete(id);
     btn.setAttribute('aria-pressed', String(like)); paintHeart(); toggleOwnLike(t, like);
@@ -2930,7 +2946,7 @@ $('heart').addEventListener('click', async () => {
   const like = !likedIds.has(id);
   if (like) likedIds.add(id); else likedIds.delete(id);
   paintHeart();
-  const own = !sc; // SoundCloudなし：Otocloudの中のいいねとして貯める
+  const own = !sc || id.startsWith('bc:'); // SoundCloudなし（または Bandcamp の曲）：Otocloudの中のいいねとして貯める
   if (own) toggleOwnLike(track, like);
   if (like) {
     const hb = $('heart');
@@ -3172,7 +3188,81 @@ class WidgetMedia extends EventTarget {
 }
 // アプリの中では2台のプレーヤーで先読みする（Safariでは自動再生の制限があるので1台）
 const IN_APP = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall);
-const player = new WidgetMedia(IN_APP ? [document.getElementById('scw'), document.getElementById('scw2')] : [document.getElementById('scw')]);
+// ===================== Bandcamp（iPhoneアプリの中だけ） =====================
+// Bandcamp の公式埋め込みプレーヤーを、アプリが見えないところで開いて操作する（BandcampEngine）。
+// こちらは SoundCloud のプレーヤーと同じ使い方（play / pause / currentTime / duration / paused / load）ができるようにした窓口
+class BandcampMedia extends EventTarget {
+  constructor() {
+    super(); this._paused = true; this._t = 0; this._at = performance.now(); this._dur = 0; this._ended = false; this._id = null; this._wantPlay = false; this.volume = 1;
+    window.__otoBC = (st) => this._state(st || {});
+    setInterval(() => { if (!this._paused) this.fire('timeupdate'); }, 250);
+  }
+  fire(n) { this.dispatchEvent(new Event(n)); }
+  post(m) { try { window.webkit.messageHandlers.otoCall.postMessage(m); } catch {} }
+  get paused() { return this._paused; }
+  get duration() { return this._dur; }
+  get currentTime() { return this._paused ? this._t : Math.min(this._dur || 1e9, this._t + (performance.now() - this._at) / 1000); }
+  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); this.post({ op: 'bcSeek', t: this._t }); this.fire('timeupdate'); }
+  isPreloaded() { return false; }
+  preload() {}
+  async load(trackId, autoplay = false) {
+    const id = String(trackId).replace(/^bc:/, '');
+    if (!/^[1-9]\d*$/.test(id)) throw new Error('bad bandcamp id');
+    this._id = id; this._paused = true; this._t = 0; this._dur = 0; this._ended = false; this._wantPlay = autoplay;
+    this.fire('timeupdate');
+    this.post({ op: 'bcLoad', url: `https://bandcamp.com/EmbeddedPlayer/track=${id}/size=large/bgcol=333333/linkcol=ffffff/tracklist=false/artwork=small/transparent=true/`, play: !!autoplay });
+  }
+  play() { this._wantPlay = true; this.post({ op: 'bcPlay' }); return Promise.resolve(); }
+  pause() { this._wantPlay = false; this.post({ op: 'bcPause' }); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
+  stop() { this._id = null; this.post({ op: 'bcStop' }); if (!this._paused) { this._paused = true; this.fire('pause'); } }
+  _state(st) {
+    if (!this._id) return;
+    if (st.error) { this.fire('error'); return; }
+    if (st.dur && Math.abs(st.dur - this._dur) > 0.5) { this._dur = st.dur; this.fire('durationchange'); this.fire('loadedmetadata'); }
+    if (typeof st.t === 'number' && Math.abs(st.t - this.currentTime) > 0.6) { this._t = st.t; this._at = performance.now(); }
+    else if (typeof st.t === 'number') { this._t = st.t; this._at = performance.now(); }
+    if (st.paused === false && this._paused) { this._paused = false; this.fire('play'); this.fire('playing'); }
+    else if (st.paused === true && !this._paused && !st.ended) { this._paused = true; this.fire('pause'); }
+    this.fire('timeupdate');
+    if (st.ended && !this._ended) { this._ended = true; this._paused = true; this.fire('ended'); }
+  }
+}
+// 曲ごとに、SoundCloud のプレーヤーと Bandcamp のプレーヤーを切り替える窓口（ほかのコードは今まで通り player だけを見ればいい）
+class MediaRouter extends EventTarget {
+  constructor(sc, bc) {
+    super(); this.sc = sc; this.bc = bc; this.active = sc;
+    for (const b of [sc, bc]) {
+      if (!b) continue;
+      const orig = b.dispatchEvent.bind(b);
+      b.dispatchEvent = (ev) => {
+        const r = orig(ev);
+        if (this.active === b) EventTarget.prototype.dispatchEvent.call(this, ev instanceof CustomEvent ? new CustomEvent(ev.type, { detail: ev.detail }) : new Event(ev.type));
+        return r;
+      };
+    }
+  }
+  get paused() { return this.active.paused; }
+  get duration() { return this.active.duration; }
+  get currentTime() { return this.active.currentTime; }
+  set currentTime(v) { this.active.currentTime = v; }
+  get volume() { return this.sc.volume; }
+  set volume(v) { this.sc.volume = v; if (this.bc) this.bc.volume = v; }
+  fire(n) { this.active.fire(n); }
+  play() { return this.active.play(); }
+  pause() { return this.active.pause(); }
+  isPreloaded(id) { return this.active === this.sc && this.sc.isPreloaded ? this.sc.isPreloaded(id) : false; }
+  preload(t) { if (t && String(t.id || t.trackId || '').startsWith('bc:')) return; return this.sc.preload(t); }
+  async load(id, autoplay, secret) {
+    if (String(id).startsWith('bc:')) {
+      if (!this.bc) throw new Error('Bandcamp plays in the Otocloud app');
+      try { this.sc.pause(); } catch {}
+      this.active = this.bc; return this.bc.load(id, autoplay);
+    }
+    if (this.bc && this.active === this.bc) this.bc.stop();
+    this.active = this.sc; return this.sc.load(id, autoplay, secret);
+  }
+}
+const player = new MediaRouter(new WidgetMedia(IN_APP ? [document.getElementById('scw'), document.getElementById('scw2')] : [document.getElementById('scw')]), IN_APP ? new BandcampMedia() : null);
 let track = null, loadedId = null, loadToken = 0, loading = false;
 
 function setMusicVol() { player.volume = volMusic(); }
@@ -3278,6 +3368,8 @@ function renderTrack() {
   $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
   $('npT').textContent = track.title; $('npS').textContent = track.artist;
   // 再生画面は大きい画像（SoundCloudは-large=100px、-t500x500=500px）
+  // 出どころ（SoundCloud か Bandcamp か）の表示
+  { const bc = String(track.trackId || '').startsWith('bc:'); $('scSrc').firstChild.textContent = bc ? 'on Bandcamp ' : 'on SoundCloud '; $('scSrc').setAttribute('aria-label', bc ? 'Open in Bandcamp' : 'Open in SoundCloud'); const a = $('asSC').querySelector('.as-col > span'); if (a) a.textContent = bc ? 'Open in Bandcamp' : 'Open in SoundCloud'; }
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').src = NO_ART; $('npArt').src = NO_ART_DISC; }
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
@@ -4380,6 +4472,7 @@ $('setRbReset').addEventListener('click', async () => {
 async function openInSC() {
   if (!track) return;
   let url = track.permalink || '';
+  if (!url && String(track.trackId).startsWith('bc:')) { toast("Couldn't find this song on Bandcamp"); return; }
   if (!url) {
     try { const r = await fetch(`${WORKER}/t/${track.trackId}` + (track.secret ? '?st=' + encodeURIComponent(track.secret) : '')); const d = r.ok ? await r.json() : null; url = d && d.permalink_url ? String(d.permalink_url).split('?')[0] : ''; } catch { /* 無視 */ }
   }
