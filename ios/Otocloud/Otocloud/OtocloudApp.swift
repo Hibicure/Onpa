@@ -6,6 +6,7 @@ import WebKit
 import ObjectiveC
 import MusicKit
 import SpotifyiOS
+import StoreKit
 
 // Otocloud のアプリ本体。
 // 画面とふるまいは https://otocloud.app/app/ と同じものを、アプリの中でそのまま表示する。
@@ -377,6 +378,11 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     setNowPlaying(body)
                 case "haptic":
                     Haptics.play(body["k"] as? String ?? "tick")
+                case "review":
+                    // App Store の評価のお願い（出すかどうか・回数はiPhoneが決める。TestFlightでは出ない）
+                    if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                        AppStore.requestReview(in: scene)
+                    }
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,

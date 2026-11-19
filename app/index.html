@@ -939,6 +939,8 @@
   .artist-head .ah-name { font-family: var(--display); font-weight: 800; font-size: 27px; line-height: 1.1; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
   .artist-head .ah-handle { font-size: 13px; font-weight: 600; color: var(--mute); margin-top: 2px; }
   .artist-head .ah-sub { font-size: 12px; color: var(--mute); margin-top: 2px; }
+  .ah-follow { margin-top: 10px; height: 32px; padding: 0 16px; border-radius: 999px; font-weight: 700; font-size: 13px; background: var(--ink); color: var(--paper); align-self: flex-start; }
+  .ah-follow.on { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 35%, transparent); }
   body.artist-mode #libbar { position: sticky; top: var(--ahH, 160px); z-index: 5; background: var(--ah-page, var(--paper)); margin: 0; padding: 4px 16px 6px; }
   body.artist-mode { --ah-page: color-mix(in srgb, var(--ah-tint, var(--paper)) 32%, var(--paper)); background: var(--ah-page) !important; transition: background .4s ease; }
   body.artist-mode .nav, body.artist-mode .mini { background: var(--ah-page) !important; }
@@ -1135,7 +1137,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       
     </div>
-    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-handle" id="ahHandle"></div><div class="ah-sub" id="ahSub"></div></div></div></div>
+    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-handle" id="ahHandle"></div><div class="ah-sub" id="ahSub"></div><button class="ah-follow" id="ahFollow" hidden></button></div></div></div>
     <div class="libbar" id="libbar" hidden>
       <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
       <div class="libtitle" id="libTitle"></div>
@@ -2502,6 +2504,7 @@ async function openArtist(userId, name) {
   $('libTitle').textContent = '';
   // 検索欄とタブは隠して、いちばん上をその人のヘッダーに
   document.body.classList.add('artist-mode');
+  $('ahFollow').hidden = true;
   $('ahName').textContent = name || ''; $('ahHandle').textContent = ''; $('ahSub').textContent = ''; $('ahPic').innerHTML = ''; $('ahBg').style.backgroundImage = ''; $('artistHead').classList.remove('banner');
   document.body.style.setProperty('--headH', (document.querySelector('.head').offsetHeight || 70) + 'px');
   $('artistHead').hidden = false; window.scrollTo(0, 0); measureAH();
@@ -2550,6 +2553,22 @@ async function openAlbum(id, title, artistId, artistName) {
 }
 function measureAH() { requestAnimationFrame(() => document.body.style.setProperty('--ahH', $('artistHead').offsetHeight + 'px')); }
 // その人のヘッダー：プロフィール画像・名前・場所・フォロワー。背景は画像を大きくぼかしたもの、ページの色もその画像の色に
+// アーティストのフォロー：SoundCloudをつないでいれば、ここでそのままSoundCloudのフォロー。つないでいなければ、SoundCloudのページを開く
+async function artistFollow(userId, handle) {
+  const b = $('ahFollow'); b.hidden = false; b.dataset.id = userId; b.dataset.handle = handle || '';
+  const paint = (on) => { b.classList.toggle('on', !!on); b.textContent = sc ? (on ? 'Following' : 'Follow') : 'Follow on SoundCloud'; };
+  paint(false);
+  if (!sc) return;
+  try { const r = await scApi('/sc/follow?id=' + userId); if (b.dataset.id === String(userId)) paint(r.following); } catch { /* 分からなければ「Follow」のまま */ }
+}
+$('ahFollow').addEventListener('click', async () => {
+  const b = $('ahFollow'), id = b.dataset.id;
+  if (!sc) { const u = 'https://soundcloud.com/' + (b.dataset.handle || ''); if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall) window.webkit.messageHandlers.otoCall.postMessage({ op: 'open', url: u }); else window.open(u, '_blank'); return; }
+  const on = !b.classList.contains('on');
+  b.classList.toggle('on', on); b.textContent = on ? 'Following' : 'Follow';
+  try { await scApi('/sc/follow?id=' + id, on ? 'PUT' : 'DELETE'); if (on) { toast('Following on SoundCloud'); maybeAskReview(); } }
+  catch { b.classList.toggle('on', !on); b.textContent = !on ? 'Following' : 'Follow'; toast("Couldn't update the follow"); }
+});
 async function artistPlace(userId) {
   try {
     const u = await (await fetch(`${WORKER}/user/${userId}`, { headers: await scHeaders() })).json();
@@ -2561,6 +2580,7 @@ async function artistPlace(userId) {
     $('ahSub').textContent = [place, fol].filter(Boolean).join('  ·  ');
     if (u.name) $('ahName').textContent = u.name; // 曲に出ているアーティスト名（SoundCloudの名前）と同じに
     $('ahHandle').textContent = u.handle ? '@' + u.handle : '';
+    artistFollow(userId, u.handle);
     measureAH();
     const banner = u.banner ? u.banner.replace(/-(original|t\d+x\d+)\./, '-t2480x520.') : '';
     const img = banner || u.avatar || ($('results').querySelector('img') || {}).src || '';
@@ -2715,6 +2735,22 @@ function initOwnLikes() {
     initOwnLikes();
   }).catch(() => {});
 }
+// アプリの評価のお願い：ちゃんと使い込んで、うれしい瞬間（通話が終わった、いいねした、フォローした）にだけ。
+// 実際に出すかどうかと回数はiPhoneが決める（1年に3回まで）。こちらは4日以上使って、前回から4か月たっていたら頼むだけ
+function noteUseDay() {
+  try { const d = new Date().toISOString().slice(0, 10), k = 'oto_days'; const a = JSON.parse(localStorage.getItem(k) || '[]'); if (!a.includes(d)) { a.push(d); localStorage.setItem(k, JSON.stringify(a.slice(-60))); } } catch {}
+}
+noteUseDay();
+function maybeAskReview() {
+  try {
+    if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.otoCall)) return;
+    const days = JSON.parse(localStorage.getItem('oto_days') || '[]').length;
+    const last = Number(localStorage.getItem('oto_review_at') || 0);
+    if (days < 4 || Date.now() - last < 120 * 864e5) return;
+    localStorage.setItem('oto_review_at', String(Date.now()));
+    setTimeout(() => window.webkit.messageHandlers.otoCall.postMessage({ op: 'review' }), 1200);
+  } catch {}
+}
 function paintHeart() {
   $('heart').setAttribute('aria-pressed', String(!!track && likedIds.has(String(track.trackId))));
 }
@@ -2752,6 +2788,7 @@ $('heart').addEventListener('click', async () => {
     k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('');
     hb.appendChild(k); setTimeout(() => k.remove(), 600);
   }
+  if (like) maybeAskReview();
   if (own) { toast(like ? 'Liked' : 'Removed from your likes'); return; }
   try {
     const how = await sendLike(id, like);
@@ -3720,6 +3757,8 @@ $('found').addEventListener('click', async (e) => {
   await db.ref(`friends/${me.uid}/${b.dataset.add}`).set(true);
   b.textContent = 'Added'; b.className = 'btn ghost';
   toast('Friend added');
+  // 2人ともSoundCloudをつないでいたら、SoundCloudでもフォローしておく（外す時はSoundCloudの方はそのまま）
+  if (sc) db.ref(`users/${b.dataset.add}/scId`).once('value').then((v) => { const id = v.val(); if (id) scApi('/sc/follow?id=' + id, 'PUT').catch(() => {}); }).catch(() => {});
 });
 
 
@@ -4702,6 +4741,7 @@ function endCall(msg) {
   if (call.state === 'idle') return;
   stopRingback();
   const wasLive = call.state === 'live';
+  if (wasLive && call.startedAt && Date.now() - call.startedAt > 3 * 60000) maybeAskReview(); // 3分以上ちゃんと話せた後
   call.state = 'idle';
   clearTimeout(call.ringTimer); clearInterval(call.timer);
   if (call.statusRef) call.statusRef.off();

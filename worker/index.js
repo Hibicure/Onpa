@@ -840,6 +840,17 @@ export default {
           return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
         }
 
+        // SoundCloudでその人をフォローしているか／フォローする／外す: /sc/follow?id=123（GET / PUT / DELETE）
+        if (p === '/sc/follow') {
+          const id = url.searchParams.get('id') || '';
+          if (!/^\d{1,20}$/.test(id)) return json({ error: 'bad id' }, 400, cors);
+          const method = request.method === 'PUT' ? 'PUT' : request.method === 'DELETE' ? 'DELETE' : 'GET';
+          const r = await scUser(`/me/followings/${id}`, userToken, method);
+          if (method === 'GET') return json({ following: r.ok }, 200, cors);
+          if (!r.ok && r.status !== 404) return json({ error: 'follow ' + r.status }, r.status, cors);
+          return json({ ok: true, following: method === 'PUT' }, 200, cors);
+        }
+
         // 自分がアップロードした曲
         if (p === '/sc/tracks') {
           const r = await scUser('/me/tracks?limit=50&linked_partitioning=true', userToken);
