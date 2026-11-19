@@ -370,6 +370,14 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     hookSP()
                     let ok = await SpotifyBridge.shared.play(uri: body["uri"] as? String ?? "", at: body["at"] as? Double ?? 0)
                     result = ["ok": ok]
+                case "spSetClient":
+                    // 自分の Client ID を保存（空なら Otocloud の鍵に戻す）。次にアプリを開いた時から効く
+                    let v = (body["id"] as? String ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+                    if v.isEmpty { UserDefaults.standard.removeObject(forKey: "spClientID") } else { UserDefaults.standard.set(v, forKey: "spClientID") }
+                    UserDefaults.standard.removeObject(forKey: "spSession")
+                    result = ["ok": true, "id": SpotifyBridge.customClientID ?? ""]
+                case "spGetClient":
+                    result = ["ok": true, "id": SpotifyBridge.customClientID ?? "", "redirect": SpotifyBridge.redirect.absoluteString]
                 case "spPause": SpotifyBridge.shared.pause()
                 case "spResume": SpotifyBridge.shared.resume()
                 case "spSeek": SpotifyBridge.shared.seek(body["t"] as? Double ?? 0)
@@ -786,7 +794,13 @@ final class AppleMusic {
 // Spotify アプリが止まっている時だけ、一瞬 Spotify を開いて起こしてから戻ってくる。
 final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDelegate, SPTAppRemotePlayerStateDelegate {
     static let shared = SpotifyBridge()
-    static let clientID = "1ff4e8ebb2f94fb5a20149d697df21fc"
+    static let defaultClientID = "1ff4e8ebb2f94fb5a20149d697df21fc"
+    /// 試験用（Labs）：自分の Spotify 開発者の Client ID を入れた人は、それで使う（鍵の交換はPKCE。Otocloud のサーバーは通さない）
+    static var customClientID: String? {
+        let v = (UserDefaults.standard.string(forKey: "spClientID") ?? "").trimmingCharacters(in: .whitespaces)
+        return v.range(of: "^[0-9a-f]{32}$", options: .regularExpression) != nil ? v : nil
+    }
+    static var clientID: String { customClientID ?? defaultClientID }
     static let redirect = URL(string: "app.otocloud://spotify-callback")!
     private let config: SPTConfiguration
     private lazy var sessionManager = SPTSessionManager(configuration: config, delegate: self)
@@ -801,8 +815,10 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
 
     override init() {
         config = SPTConfiguration(clientID: SpotifyBridge.clientID, redirectURL: SpotifyBridge.redirect)
-        config.tokenSwapURL = URL(string: "https://geocloud.icchasong.workers.dev/spotify/swap")
-        config.tokenRefreshURL = URL(string: "https://geocloud.icchasong.workers.dev/spotify/refresh")
+        if SpotifyBridge.customClientID == nil {
+            config.tokenSwapURL = URL(string: "https://geocloud.icchasong.workers.dev/spotify/swap")
+            config.tokenRefreshURL = URL(string: "https://geocloud.icchasong.workers.dev/spotify/refresh")
+        }
         config.playURI = ""
         super.init()
         if let d = UserDefaults.standard.data(forKey: "spSession"),

@@ -128,6 +128,9 @@
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
   .row:last-child { border-bottom: none; }
   /* どこの曲かの小さな札（色はサービスの雰囲気だけ。ロゴはいじらない） */
+  .set-labs small { display: block; font-size: 11px; color: var(--mute); margin-top: 3px; line-height: 1.4; font-weight: 500; }
+  .set-labs .labs-in { display: flex; gap: 6px; align-items: center; }
+  .set-labs input { width: 128px; height: 32px; border-radius: 8px; padding: 0 8px; font: 500 12px/1 ui-monospace, monospace; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); border: 0; }
   .srctag { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .01em; vertical-align: 1px;
     color: var(--mute); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent); }
   .srctag[data-src="SoundCloud"] { color: #FF5500; box-shadow: inset 0 0 0 1px rgba(255,85,0,.45); }
@@ -1233,6 +1236,7 @@
       <div class="set-row"><span>Logo mark</span><button class="btn ghost" id="setMark">Left</button></div>
       <div class="set-row"><span>Show friends what I'm playing</span><button class="btn ghost" id="setShareNow">On</button></div>
       <div class="set-row"><span>Test friends</span><button class="btn ghost" id="setDummy">Off</button></div>
+      <div class="set-row set-labs" id="setSpLabs" hidden><span>Spotify · Labs<small>Your own Spotify developer Client ID, for testing. Add <b id="spRedir">app.otocloud://spotify-callback</b> as a Redirect URI in your Spotify dashboard, then reopen Otocloud.</small></span><span class="labs-in"><input id="spClientIn" placeholder="Client ID" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32"><button class="btn ghost" id="spClientSave">Save</button></span></div>
     </div>
 
     <div class="set-group" id="setSpGroup" hidden>
@@ -4064,6 +4068,16 @@ $('picFile').addEventListener('change', async (e) => {
 // ===================== CDの真ん中：自分と友達 =====================
 // まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
 const PICK_BG_JACKET = false;
+// Spotify（試験用・Labs）：自分の開発者の Client ID を入れて試す。アプリの中だけ
+if (IN_APP) setTimeout(() => {
+  $('setSpLabs').hidden = false;
+  nat('spGetClient').then((r) => { if (r && r.id) $('spClientIn').value = r.id; if (r && r.redirect) $('spRedir').textContent = r.redirect; }).catch(() => {});
+  $('spClientSave').addEventListener('click', async () => {
+    const v = $('spClientIn').value.trim().toLowerCase();
+    if (v && !/^[0-9a-f]{32}$/.test(v)) { toast('A Client ID is 32 letters and numbers'); return; }
+    try { await nat('spSetClient', { id: v }); toast(v ? 'Saved · reopen Otocloud to use it' : 'Back to the Otocloud key · reopen Otocloud'); } catch { toast("Couldn't save"); }
+  });
+}, 0);
 // お試し用のダミーの友達（設定の Test friends で出す／消す）。ディスクの中の並びだけに入る
 function dummyFriends() {
   let on = false; try { on = localStorage.getItem('otocloud_dummies') === '1'; } catch {}
