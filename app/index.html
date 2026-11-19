@@ -127,6 +127,13 @@
   .list { margin: 4px 16px 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
   .row:last-child { border-bottom: none; }
+  /* どこの曲かの小さな札（色はサービスの雰囲気だけ。ロゴはいじらない） */
+  .srctag { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .01em; vertical-align: 1px;
+    color: var(--mute); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent); }
+  .srctag[data-src="SoundCloud"] { color: #FF5500; box-shadow: inset 0 0 0 1px rgba(255,85,0,.45); }
+  .srctag[data-src="Bandcamp"] { color: #1DA0C3; box-shadow: inset 0 0 0 1px rgba(29,160,195,.5); }
+  .srctag[data-src="Apple Music"] { color: #FA2D48; box-shadow: inset 0 0 0 1px rgba(250,45,72,.45); }
+  .srctag[data-src="Spotify"] { color: #1DB954; box-shadow: inset 0 0 0 1px rgba(29,185,84,.5); }
   .src-sec { font-size: 12px; font-weight: 700; color: var(--mute); padding: 18px 2px 6px; }
   .bc-by { display: block; font-size: 12px; font-weight: 700; color: var(--mute); padding: 6px 2px 10px; }
   /* ジャケットが無い・読めない時：グレーにOtocloudの印 */
@@ -1927,10 +1934,14 @@ function rowHTML(t, i) {
   // 四角いジャケット・アーティスト名の横に小さく長さ・右に「＋」とハート（いいねの一覧とプレイリストではハートなし）
   const heart = mode === 'search' || mode === 'artist';
   const liked = likedIds.has(String(t.id));
+  // どこの曲か（検索では全部の行に小さく）：SoundCloud / Bandcamp / Apple Music / Spotify
+  const sid = String(t.id || '');
+  const src = sid.startsWith('bc:') ? 'Bandcamp' : sid.startsWith('am:') ? 'Apple Music' : sid.startsWith('sp:') || t.spuri ? 'Spotify' : 'SoundCloud';
+  const tag = mode === 'search' ? `<span class="srctag" data-src="${src}">${src}</span>` : '';
   return `
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <span class="artw"><img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i></span>
-      <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}<span class="dur">${t.duration ? fmt(t.duration / 1000) : ''}</span></div></div>
+      <div class="txt"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.artist)}<span class="dur">${t.duration ? fmt(t.duration / 1000) : ''}</span>${tag}</div></div>
       <button class="add" data-q="${i}" aria-label="Add to Up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       ${heart ? `<button class="rheart" data-like="${i}" aria-label="Like" aria-pressed="${liked}"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button>` : ''}
     </div>`;
