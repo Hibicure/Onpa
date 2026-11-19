@@ -127,6 +127,8 @@
   .list { margin: 4px 16px 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
   .row:last-child { border-bottom: none; }
+  /* ジャケットが無い・読めない時：グレーにOtocloudの印 */
+  .row img.art:not([src]), .row img.art[src=""], .alb-art:empty { background: center / cover no-repeat url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%238E8F93%22/%3E%3Cpath%20fill%3D%22%23D8D9DC%22%20transform%3D%22translate%2830.0%2030.0%29%20scale%281.6666666666666667%29%22%20d%3D%22M16.4%2021.0L15.8%2021.1L15.2%2020.9L14.9%2020.8L14.6%2020.6L14.2%2020.2L14.0%2020.0L13.8%2019.7L13.7%2019.1L13.7%2018.6L13.8%2017.9L14.0%2017.3L14.2%2016.9L14.4%2016.6L14.9%2016.0L15.6%2015.5L16.2%2015.2L16.8%2015.0L17.2%2014.9L17.6%2014.9L18.6%2015.0L18.8%2014.9L18.9%2014.7L19.1%2014.5L19.1%2014.2L19.4%2012.7L19.5%2011.3L19.6%209.8L19.5%208.5L19.4%207.2L19.3%206.6L19.2%206.4L19.1%206.3L19.0%206.2L18.7%206.1L17.9%206.2L17.2%206.1L16.6%205.9L16.0%205.6L15.7%205.4L15.3%205.1L14.8%204.6L14.4%204.0L14.1%203.3L14.0%202.8L14.0%202.5L14.0%202.1L14.0%201.8L14.1%201.5L14.4%201.0L14.6%200.7L14.8%200.5L15.2%200.3L15.8%200.1L16.4%20-0.0L16.9%200.0L17.6%200.2L18.1%200.4L18.6%200.7L19.1%201.1L19.4%201.4L19.8%201.9L20.2%202.5L20.4%203.1L20.8%203.9L21.0%204.7L21.2%205.6L21.3%206.5L21.5%207.6L21.6%208.6L21.6%209.8L21.6%2010.7L21.5%2011.9L21.4%2013.1L21.2%2014.2L21.1%2015.0L20.8%2016.2L20.5%2017.1L20.1%2018.0L19.8%2018.6L19.4%2019.2L19.0%2019.7L18.6%2020.1L18.1%2020.5L17.5%2020.8L16.9%2021.0L16.4%2021.0ZM5.1%2024.0L4.4%2024.0L3.9%2023.8L3.4%2023.6L3.0%2023.2L2.7%2022.8L2.5%2022.4L2.4%2021.8L2.5%2021.2L2.6%2020.6L2.9%2019.9L3.4%2019.3L3.9%2018.8L4.6%2018.3L5.3%2018.0L5.9%2017.9L6.7%2017.8L6.9%2017.7L7.2%2017.6L7.3%2017.3L7.4%2016.7L7.4%206.6L7.4%206.1L7.5%205.7L7.6%205.4L7.9%205.2L8.1%204.9L8.5%204.7L12.1%202.7L12.5%202.5L12.7%202.5L12.8%202.5L13.0%202.6L13.2%202.9L13.6%204.0L14.0%204.7L14.2%205.0L14.6%205.5L15.4%206.2L15.6%206.4L15.8%206.7L15.7%206.9L15.6%207.2L15.3%207.4L9.7%2010.6L9.2%2010.9L9.0%2011.2L8.8%2011.6L8.7%2012.2L8.7%2018.4L8.8%2020.2L8.8%2020.7L8.7%2021.1L8.5%2021.7L8.2%2022.2L7.8%2022.7L7.4%2023.1L6.8%2023.4L6.3%2023.7L5.7%2023.9L5.1%2024.0Z%22/%3E%3C/svg%3E") !important; }
   /* アーティストのページ：アルバム・EPを横一列に（ジャケは角なしの正方形） */
   .albums { display: flex; gap: 12px; overflow-x: auto; margin: 4px -16px 10px; padding: 2px 16px 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .albums::-webkit-scrollbar { display: none; }
@@ -1152,7 +1154,7 @@
   <nav class="nav">
     <div class="in">
       <button id="tabHome" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>Home</button>
-      
+      <button id="tabSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>Search</button>
       <button id="tabFriends"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.5-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.7 2.5 3 5.2"/></svg>Friends</button>
     </div>
   </nav>
@@ -1796,7 +1798,7 @@ function showTab(which) {
   $('viewFriends').hidden = which !== 'friends';
   $('topSearch').hidden = which === 'friends';
   $('qCancel').hidden = which !== 'listen';
-  for (const [id, name] of [['tabHome', 'home'], ['tabFriends', 'friends']]) {
+  for (const [id, name] of [['tabHome', 'home'], ['tabSearch', 'listen'], ['tabFriends', 'friends']]) {
     if (which === name) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
   }
   if (which === 'home') renderHome();
@@ -1858,6 +1860,15 @@ $('signOut').addEventListener('click', async () => {
   await firebase.auth().signOut();
   location.reload();
 });
+// 下のバーの「Search」：どの画面からでも、検索を開いてすぐ打てるように
+$('tabSearch').addEventListener('click', () => {
+  if (typeof closeNp === 'function' && $('np').classList.contains('open')) closeNp();
+  showTab('listen'); if (mode !== 'search') setMode('search');
+  window.scrollTo(0, 0);
+  setTimeout(() => { try { $('q').focus(); } catch {} }, 60);
+});
+$('npArt').addEventListener('error', () => { if ($('npArt').getAttribute('src') !== NO_ART_DISC) $('npArt').src = NO_ART_DISC; });
+$('miniArt').addEventListener('error', () => { if ($('miniArt').getAttribute('src') !== NO_ART) $('miniArt').src = NO_ART; });
 $('q').addEventListener('focus', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
 $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); const v = e.target.value.trim(); if (v.length >= 1) search(v); e.target.blur(); } });
 $('qCancel').addEventListener('click', () => { $('q').value = ''; $('q').blur(); showTab('home'); });
@@ -2240,7 +2251,7 @@ function neighborMeta(dir) {
     glide(dx, dir * span(), 340);
     timer = setTimeout(() => {
       const src = pkArt.getAttribute('src');
-      if (src) $('npArt').src = src; else $('npArt').removeAttribute('src');
+      if (src) $('npArt').src = src; else $('npArt').src = NO_ART_DISC;
       reset();
       hap('rigid'); if (dir < 0) $('npNext').click(); else $('npPrev').click();
       setTimeout(() => { busy = false; }, 120);
@@ -2698,6 +2709,9 @@ function splitArtist(t) {
 // ===================== 音楽：再生のしくみ =====================
 // SoundCloud公式の埋め込みプレーヤーを、普通の<audio>と同じ使い方で操作できるようにする係。
 // Otocloudのサーバーを通さないので、アプリ全体の1日の再生回数の上限を使わない。
+// ジャケットが無い曲：グレーに、Otocloudの印（受話器と音符）。CDの時は真ん中の穴に隠れないよう上の方に
+const NO_ART = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%238E8F93%22/%3E%3Cpath%20fill%3D%22%23D8D9DC%22%20transform%3D%22translate%2830.0%2030.0%29%20scale%281.6666666666666667%29%22%20d%3D%22M16.4%2021.0L15.8%2021.1L15.2%2020.9L14.9%2020.8L14.6%2020.6L14.2%2020.2L14.0%2020.0L13.8%2019.7L13.7%2019.1L13.7%2018.6L13.8%2017.9L14.0%2017.3L14.2%2016.9L14.4%2016.6L14.9%2016.0L15.6%2015.5L16.2%2015.2L16.8%2015.0L17.2%2014.9L17.6%2014.9L18.6%2015.0L18.8%2014.9L18.9%2014.7L19.1%2014.5L19.1%2014.2L19.4%2012.7L19.5%2011.3L19.6%209.8L19.5%208.5L19.4%207.2L19.3%206.6L19.2%206.4L19.1%206.3L19.0%206.2L18.7%206.1L17.9%206.2L17.2%206.1L16.6%205.9L16.0%205.6L15.7%205.4L15.3%205.1L14.8%204.6L14.4%204.0L14.1%203.3L14.0%202.8L14.0%202.5L14.0%202.1L14.0%201.8L14.1%201.5L14.4%201.0L14.6%200.7L14.8%200.5L15.2%200.3L15.8%200.1L16.4%20-0.0L16.9%200.0L17.6%200.2L18.1%200.4L18.6%200.7L19.1%201.1L19.4%201.4L19.8%201.9L20.2%202.5L20.4%203.1L20.8%203.9L21.0%204.7L21.2%205.6L21.3%206.5L21.5%207.6L21.6%208.6L21.6%209.8L21.6%2010.7L21.5%2011.9L21.4%2013.1L21.2%2014.2L21.1%2015.0L20.8%2016.2L20.5%2017.1L20.1%2018.0L19.8%2018.6L19.4%2019.2L19.0%2019.7L18.6%2020.1L18.1%2020.5L17.5%2020.8L16.9%2021.0L16.4%2021.0ZM5.1%2024.0L4.4%2024.0L3.9%2023.8L3.4%2023.6L3.0%2023.2L2.7%2022.8L2.5%2022.4L2.4%2021.8L2.5%2021.2L2.6%2020.6L2.9%2019.9L3.4%2019.3L3.9%2018.8L4.6%2018.3L5.3%2018.0L5.9%2017.9L6.7%2017.8L6.9%2017.7L7.2%2017.6L7.3%2017.3L7.4%2016.7L7.4%206.6L7.4%206.1L7.5%205.7L7.6%205.4L7.9%205.2L8.1%204.9L8.5%204.7L12.1%202.7L12.5%202.5L12.7%202.5L12.8%202.5L13.0%202.6L13.2%202.9L13.6%204.0L14.0%204.7L14.2%205.0L14.6%205.5L15.4%206.2L15.6%206.4L15.8%206.7L15.7%206.9L15.6%207.2L15.3%207.4L9.7%2010.6L9.2%2010.9L9.0%2011.2L8.8%2011.6L8.7%2012.2L8.7%2018.4L8.8%2020.2L8.8%2020.7L8.7%2021.1L8.5%2021.7L8.2%2022.2L7.8%2022.7L7.4%2023.1L6.8%2023.4L6.3%2023.7L5.7%2023.9L5.1%2024.0Z%22/%3E%3C/svg%3E';
+const NO_ART_DISC = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%238E8F93%22/%3E%3Cpath%20fill%3D%22%23D8D9DC%22%20transform%3D%22translate%2839.0%2013.0%29%20scale%280.9166666666666666%29%22%20d%3D%22M16.4%2021.0L15.8%2021.1L15.2%2020.9L14.9%2020.8L14.6%2020.6L14.2%2020.2L14.0%2020.0L13.8%2019.7L13.7%2019.1L13.7%2018.6L13.8%2017.9L14.0%2017.3L14.2%2016.9L14.4%2016.6L14.9%2016.0L15.6%2015.5L16.2%2015.2L16.8%2015.0L17.2%2014.9L17.6%2014.9L18.6%2015.0L18.8%2014.9L18.9%2014.7L19.1%2014.5L19.1%2014.2L19.4%2012.7L19.5%2011.3L19.6%209.8L19.5%208.5L19.4%207.2L19.3%206.6L19.2%206.4L19.1%206.3L19.0%206.2L18.7%206.1L17.9%206.2L17.2%206.1L16.6%205.9L16.0%205.6L15.7%205.4L15.3%205.1L14.8%204.6L14.4%204.0L14.1%203.3L14.0%202.8L14.0%202.5L14.0%202.1L14.0%201.8L14.1%201.5L14.4%201.0L14.6%200.7L14.8%200.5L15.2%200.3L15.8%200.1L16.4%20-0.0L16.9%200.0L17.6%200.2L18.1%200.4L18.6%200.7L19.1%201.1L19.4%201.4L19.8%201.9L20.2%202.5L20.4%203.1L20.8%203.9L21.0%204.7L21.2%205.6L21.3%206.5L21.5%207.6L21.6%208.6L21.6%209.8L21.6%2010.7L21.5%2011.9L21.4%2013.1L21.2%2014.2L21.1%2015.0L20.8%2016.2L20.5%2017.1L20.1%2018.0L19.8%2018.6L19.4%2019.2L19.0%2019.7L18.6%2020.1L18.1%2020.5L17.5%2020.8L16.9%2021.0L16.4%2021.0ZM5.1%2024.0L4.4%2024.0L3.9%2023.8L3.4%2023.6L3.0%2023.2L2.7%2022.8L2.5%2022.4L2.4%2021.8L2.5%2021.2L2.6%2020.6L2.9%2019.9L3.4%2019.3L3.9%2018.8L4.6%2018.3L5.3%2018.0L5.9%2017.9L6.7%2017.8L6.9%2017.7L7.2%2017.6L7.3%2017.3L7.4%2016.7L7.4%206.6L7.4%206.1L7.5%205.7L7.6%205.4L7.9%205.2L8.1%204.9L8.5%204.7L12.1%202.7L12.5%202.5L12.7%202.5L12.8%202.5L13.0%202.6L13.2%202.9L13.6%204.0L14.0%204.7L14.2%205.0L14.6%205.5L15.4%206.2L15.6%206.4L15.8%206.7L15.7%206.9L15.6%207.2L15.3%207.4L9.7%2010.6L9.2%2010.9L9.0%2011.2L8.8%2011.6L8.7%2012.2L8.7%2018.4L8.8%2020.2L8.8%2020.7L8.7%2021.1L8.5%2021.7L8.2%2022.2L7.8%2022.7L7.4%2023.1L6.8%2023.4L6.3%2023.7L5.7%2023.9L5.1%2024.0Z%22/%3E%3C/svg%3E';
 class WidgetMedia extends EventTarget {
   // iframes が2つの時は、次の曲を裏のプレーヤーに先に読み込んでおき、曲送りで入れ替えるだけにする（待ち時間ほぼゼロ）
   constructor(iframes) {
@@ -2966,7 +2980,7 @@ function renderTrack() {
   $('npT').textContent = track.title; $('npS').textContent = track.artist;
   // 再生画面は大きい画像（SoundCloudは-large=100px、-t500x500=500px）
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
-  else { $('miniArt').removeAttribute('src'); $('npArt').removeAttribute('src'); }
+  else { $('miniArt').src = NO_ART; $('npArt').src = NO_ART_DISC; }
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
   $('np').classList.toggle('has-art', !!track.artwork);
   $('np').style.setProperty('--rad-art', track.artwork ? `url("${track.artwork.replace('-large.', '-t300x300.')}")` : 'none');
