@@ -128,6 +128,27 @@
   .row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
   .row:last-child { border-bottom: none; }
   /* どこの曲かの小さな札（色はサービスの雰囲気だけ。ロゴはいじらない） */
+  .sp-guide { z-index: 62; }
+  .spg-lead { color: var(--mute); font-size: 15px; line-height: 1.5; margin: 8px 0 22px; }
+  .spg { list-style: none; counter-reset: spg; padding: 0; margin: 0; }
+  .spg li { counter-increment: spg; position: relative; padding: 0 0 26px 40px; }
+  .spg li::before { content: counter(spg); position: absolute; left: 0; top: -1px; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--on-ink); font: 700 13px/26px var(--display, inherit); text-align: center; }
+  .spg li:not(:last-child)::after { content: ""; position: absolute; left: 12.5px; top: 32px; bottom: 6px; width: 1px; background: var(--line); }
+  .spg h3 { font-size: 17px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .spg p { color: var(--mute); font-size: 14px; line-height: 1.5; margin: 0 0 10px; }
+  .spg p b { color: var(--ink); }
+  .spg .btn { height: 42px; }
+  .spg .btn:disabled { opacity: .35; }
+  .spg-copy { display: grid; grid-template-columns: 1fr auto; align-items: center; width: 100%; text-align: left; padding: 9px 12px; margin: 0 0 8px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+  .spg-copy small { grid-column: 1; font-size: 11px; color: var(--mute); }
+  .spg-copy code { grid-column: 1; font: 600 13px/1.35 ui-monospace, monospace; overflow-wrap: anywhere; }
+  .spg-copy i { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 13px; font-weight: 700; color: var(--mute); padding-left: 10px; }
+  .spg-copy.ok i { color: var(--ink); }
+  .spg-in { display: flex; gap: 8px; }
+  .spg-in input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: 500 14px ui-monospace, monospace; outline: none; }
+  .spg-in input:focus { border-color: var(--ink); }
+  .spg-check { min-height: 20px; margin-top: 6px !important; font-size: 13px !important; }
+  .spg-reset { display: block; margin: 4px auto 0; color: var(--mute); font-size: 13px; text-decoration: underline; padding: 8px; }
   .set-labs small { display: block; font-size: 11px; color: var(--mute); margin-top: 3px; line-height: 1.4; font-weight: 500; }
   .set-labs .labs-in { display: flex; gap: 6px; align-items: center; }
   .set-labs input { width: 128px; height: 32px; border-radius: 8px; padding: 0 8px; font: 500 12px/1 ui-monospace, monospace; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); border: 0; }
@@ -1212,6 +1233,41 @@
 
 <!-- 再生画面 -->
 <!-- 設定：右上の @ID を押すと開く -->
+<section class="sheet sp-guide" id="spGuide" aria-hidden="true" aria-label="Connect Spotify">
+  <div class="sheet-in">
+    <div class="sheet-top"><b>Connect Spotify</b><button class="done" id="spGuideDone">Close</button></div>
+    <p class="spg-lead">Spotify asks for a one-time setup before another app can play your music. It takes about two minutes. You need Spotify Premium.</p>
+    <ol class="spg">
+      <li>
+        <h3>Open Spotify for Developers</h3>
+        <p>Log in with the Spotify account you listen on. Accept the terms if it asks.</p>
+        <button class="btn primary" id="spgDash">Open the Spotify page</button>
+      </li>
+      <li>
+        <h3>Create an app</h3>
+        <p>Tap <b>Create app</b> and fill it in like this. Tap a line to copy it.</p>
+        <button class="spg-copy" data-copy="Otocloud"><small>App name</small><code>Otocloud</code><i>Copy</i></button>
+        <button class="spg-copy" data-copy="Listening with friends in Otocloud"><small>App description</small><code>Listening with friends in Otocloud</code><i>Copy</i></button>
+        <button class="spg-copy" data-copy="app.otocloud://spotify-callback" id="spgRedir"><small>Redirect URI · must match exactly, then tap Add</small><code>app.otocloud://spotify-callback</code><i>Copy</i></button>
+        <p>Under “Which API/SDKs are you planning to use?”, tick <b>iOS</b> and <b>Web API</b>.</p>
+        <button class="spg-copy" data-copy="app.otocloud"><small>iOS bundle ID</small><code>app.otocloud</code><i>Copy</i></button>
+        <p>Tick the terms box and tap <b>Save</b>.</p>
+      </li>
+      <li>
+        <h3>Paste your Client ID</h3>
+        <p>On your new app’s page, copy the <b>Client ID</b> and paste it here.</p>
+        <div class="spg-in"><input id="spgId" placeholder="Client ID" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40"><button class="btn ghost" id="spgPaste">Paste</button></div>
+        <p class="spg-check" id="spgCheck"></p>
+      </li>
+      <li>
+        <h3>Connect</h3>
+        <p>Spotify opens and asks if Otocloud can play your music. Tap <b>Agree</b> to come back here.</p>
+        <button class="btn primary" id="spgGo" disabled>Connect Spotify</button>
+      </li>
+    </ol>
+    <button class="spg-reset" id="spgReset" hidden>Stop using my key</button>
+  </div>
+</section>
 <section class="sheet" id="settings" aria-hidden="true" aria-label="Settings">
   <div class="sheet-in">
     <div class="sheet-top"><b>Settings</b><button class="done" id="setDone">Done</button></div>
@@ -1236,7 +1292,7 @@
       <div class="set-row"><span>Logo mark</span><button class="btn ghost" id="setMark">Left</button></div>
       <div class="set-row"><span>Show friends what I'm playing</span><button class="btn ghost" id="setShareNow">On</button></div>
       <div class="set-row"><span>Test friends</span><button class="btn ghost" id="setDummy">Off</button></div>
-      <div class="set-row set-labs" id="setSpLabs" hidden><span>Spotify · Labs<small>Your own Spotify developer Client ID, for testing. Add <b id="spRedir">app.otocloud://spotify-callback</b> as a Redirect URI in your Spotify dashboard, then reopen Otocloud.</small></span><span class="labs-in"><input id="spClientIn" placeholder="Client ID" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32"><button class="btn ghost" id="spClientSave">Save</button></span></div>
+      <div class="set-row set-labs" id="setSpLabs" hidden><span>Spotify · Labs<small id="spLabsNote">Use your own Spotify key. One-time setup, about two minutes.</small></span><button class="btn ghost" id="spGuideOpen">Set up</button></div>
     </div>
 
     <div class="set-group" id="setSpGroup" hidden>
@@ -4068,14 +4124,48 @@ $('picFile').addEventListener('change', async (e) => {
 // ===================== CDの真ん中：自分と友達 =====================
 // まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
 const PICK_BG_JACKET = false;
-// Spotify（試験用・Labs）：自分の開発者の Client ID を入れて試す。アプリの中だけ
+// Spotify（試験用・Labs）：自分の開発者の Client ID を使う。手順を1画面で案内する。アプリの中だけ
 if (IN_APP) setTimeout(() => {
   $('setSpLabs').hidden = false;
-  nat('spGetClient').then((r) => { if (r && r.id) $('spClientIn').value = r.id; if (r && r.redirect) $('spRedir').textContent = r.redirect; }).catch(() => {});
-  $('spClientSave').addEventListener('click', async () => {
-    const v = $('spClientIn').value.trim().toLowerCase();
-    if (v && !/^[0-9a-f]{32}$/.test(v)) { toast('A Client ID is 32 letters and numbers'); return; }
-    try { await nat('spSetClient', { id: v }); toast(v ? 'Saved · reopen Otocloud to use it' : 'Back to the Otocloud key · reopen Otocloud'); } catch { toast("Couldn't save"); }
+  const g = $('spGuide'), idIn = $('spgId');
+  const valid = (v) => /^[0-9a-f]{32}$/.test(v);
+  const clean = (v) => (v || '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
+  const check = () => {
+    const raw = idIn.value.trim(), v = clean(raw);
+    $('spgGo').disabled = !valid(v);
+    $('spgCheck').textContent = !raw ? '' : valid(v) ? 'Looks right.' : `A Client ID is 32 letters and numbers. This one has ${v.length}.`;
+  };
+  const paint = (id) => {
+    $('spLabsNote').textContent = id ? 'Using your own Spotify key.' : 'Use your own Spotify key. One-time setup, about two minutes.';
+    $('spGuideOpen').textContent = id ? 'Change' : 'Set up';
+    $('spgReset').hidden = !id;
+    if (id && !idIn.value) { idIn.value = id; check(); }
+  };
+  nat('spGetClient').then((r) => { paint(r && r.id); if (r && r.redirect) { $('spgRedir').dataset.copy = r.redirect; $('spgRedir').querySelector('code').textContent = r.redirect; } }).catch(() => {});
+  $('spGuideOpen').addEventListener('click', () => { g.classList.add('open'); g.setAttribute('aria-hidden', 'false'); });
+  $('spGuideDone').addEventListener('click', () => { g.classList.remove('open'); g.setAttribute('aria-hidden', 'true'); });
+  $('spgDash').addEventListener('click', () => { nat('open', { url: 'https://developer.spotify.com/dashboard' }).catch(() => {}); });
+  g.addEventListener('click', async (e) => {
+    const b = e.target.closest('.spg-copy'); if (!b) return;
+    try { await navigator.clipboard.writeText(b.dataset.copy); } catch { const t = document.createElement('textarea'); t.value = b.dataset.copy; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    g.querySelectorAll('.spg-copy.ok').forEach((x) => { x.classList.remove('ok'); x.querySelector('i').textContent = 'Copy'; });
+    b.classList.add('ok'); b.querySelector('i').textContent = 'Copied';
+  });
+  idIn.addEventListener('input', check);
+  $('spgPaste').addEventListener('click', async () => {
+    try { idIn.value = (await navigator.clipboard.readText()).trim(); check(); } catch { idIn.focus(); toast('Press and hold the box, then Paste'); }
+  });
+  $('spgGo').addEventListener('click', async () => {
+    const v = clean(idIn.value); if (!valid(v)) return;
+    try { await nat('spSetClient', { id: v }); } catch { toast("Couldn't save"); return; }
+    paint(v);
+    const r = await nat('spLogin').catch(() => null);
+    if (r && r.ok) { toast('Spotify connected'); $('spGuideDone').click(); }
+    else toast("Spotify didn't connect. Check the Redirect URI, then try again");
+    paintSpotify();
+  });
+  $('spgReset').addEventListener('click', async () => {
+    try { await nat('spSetClient', { id: '' }); idIn.value = ''; check(); paint(''); toast('Back to the Otocloud key'); paintSpotify(); } catch { toast("Couldn't change"); }
   });
 }, 0);
 // お試し用のダミーの友達（設定の Test friends で出す／消す）。ディスクの中の並びだけに入る

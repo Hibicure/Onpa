@@ -375,6 +375,11 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     let v = (body["id"] as? String ?? "").trimmingCharacters(in: .whitespaces).lowercased()
                     if v.isEmpty { UserDefaults.standard.removeObject(forKey: "spClientID") } else { UserDefaults.standard.set(v, forKey: "spClientID") }
                     UserDefaults.standard.removeObject(forKey: "spSession")
+                    // その場で新しい鍵に切りかえる（開き直し不要）
+                    SpotifyBridge.shared.shutdown()
+                    SpotifyBridge.shared = SpotifyBridge()
+                    spHooked = false
+                    hookSP()
                     result = ["ok": true, "id": SpotifyBridge.customClientID ?? ""]
                 case "spGetClient":
                     result = ["ok": true, "id": SpotifyBridge.customClientID ?? "", "redirect": SpotifyBridge.redirect.absoluteString]
@@ -402,7 +407,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
-                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") {
+                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") || h == "developer.spotify.com" {
                         await UIApplication.shared.open(u)
                         result = ["ok": true, "opened": true]
                     }
@@ -793,7 +798,7 @@ final class AppleMusic {
 // 許可は最初の1回だけ（合鍵を保存して、期限が来たらサーバー経由で自動更新）。
 // Spotify アプリが止まっている時だけ、一瞬 Spotify を開いて起こしてから戻ってくる。
 final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDelegate, SPTAppRemotePlayerStateDelegate {
-    static let shared = SpotifyBridge()
+    static var shared = SpotifyBridge()
     static let defaultClientID = "1ff4e8ebb2f94fb5a20149d697df21fc"
     /// 試験用（Labs）：自分の Spotify 開発者の Client ID を入れた人は、それで使う（鍵の交換はPKCE。Otocloud のサーバーは通さない）
     static var customClientID: String? {
@@ -825,6 +830,11 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
            let s = try? NSKeyedUnarchiver.unarchivedObject(ofClass: SPTSession.self, from: d) {
             sessionManager.session = s
         }
+    }
+
+    func shutdown() {
+        onEvent = nil
+        if remote.isConnected { remote.disconnect() }
     }
 
     func status() -> [String: Any] {
