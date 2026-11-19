@@ -2719,7 +2719,7 @@ class WidgetMedia extends EventTarget {
         } else if (!this._paused && performance.now() - (this._selfAt || 0) > 2500) {
           // こちらが飛ばしていないのに、急に10秒前後ずれた＝ロック画面の「10秒送り／戻し」が押された。曲送り・戻しとして伝える
           const jump = p.currentPosition / 1000 - this.currentTime;
-          if (Math.abs(jump) >= 6 && Math.abs(jump) <= 20) { this._selfAt = performance.now(); this.dispatchEvent(new CustomEvent('remoteskip', { detail: jump > 0 ? 1 : -1 })); }
+          if (Math.abs(jump) >= 8.5 && Math.abs(jump) <= 11.5) { this._selfAt = performance.now(); this.dispatchEvent(new CustomEvent('remoteskip', { detail: jump > 0 ? 1 : -1 })); }
         }
         this._t = p.currentPosition / 1000; this._at = performance.now(); this.fire('timeupdate');
       }));
