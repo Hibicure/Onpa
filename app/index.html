@@ -74,7 +74,7 @@
   body { min-height: 100dvh; overflow-x: hidden; touch-action: manipulation; -webkit-text-size-adjust: 100%; }
   /* アプリらしく：長押しで画面全体が青く選択されないようにする。曲名・アーティスト名と入力欄だけはコピーできる */
   body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-  input, textarea, #npT, #npS { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+  input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   .shell, main { min-width: 0; max-width: 100%; }
   button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
   input { font: inherit; color: inherit; }
@@ -2912,6 +2912,18 @@ async function openTrackArtist() {
   if (id) openArtist(id, name); else toast("Couldn't open this artist");
 }
 $('npS').addEventListener('click', openTrackArtist);
+// 曲名・アーティスト名を長押しでコピー（青い選択は出さない）。コピーしたら「Copied」
+for (const id of ['npT', 'npS']) {
+  const el = $(id); let t = null, done = false;
+  el.addEventListener('pointerdown', () => { done = false; clearTimeout(t); t = setTimeout(async () => {
+    done = true; const txt = id === 'npT' && track ? `${track.title} — ${track.artist}` : el.textContent.trim(); if (!txt) return;
+    try { await navigator.clipboard.writeText(txt); } catch { const a = document.createElement('textarea'); a.value = txt; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); window.getSelection().removeAllRanges(); }
+    hap('rigid'); toast('Copied');
+  }, 520); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, () => clearTimeout(t));
+  el.addEventListener('click', (e) => { if (done) { e.stopImmediatePropagation(); done = false; } }, true);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+}
 
 // ===================== SoundCloud連携 =====================
 const SC_KEY = 'otocloud_sc';
