@@ -725,6 +725,22 @@ export default {
 
       // ---- ジャケット画像の中継: /img?u=（SoundCloudの画像だけ）
       // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする
+      // 出どころのロゴ（各サービスが自分のサイトで配っている公式アイコン）。1週間キャッシュ
+      m = p.match(/^\/logo\/(sc|bc|am|sp)$/);
+      if (m) {
+        const L = {
+          sc: 'https://m.sndcdn.com/_next/static/images/apple-touch-icon-180-dd8465ef631c16f24df540ad961c3d12.png',
+          bc: 'https://s4.bcbits.com/client-bundle/1/PageLayout_1/favicon-e91a942bb76c26f619d5945a00cf8e60.static/favicon/apple-touch-icon.png',
+          am: 'https://music.apple.com/assets/favicon/favicon-180.png',
+          sp: 'https://www.scdn.co/i/_global/touch-icon-144.png',
+        };
+        const r = await fetch(L[m[1]], { cf: { cacheTtl: 604800, cacheEverything: true } });
+        if (!r.ok) return json({ error: 'logo ' + r.status }, 502, cors);
+        const h = new Headers(cors);
+        h.set('Content-Type', 'image/png');
+        h.set('Cache-Control', 'public, max-age=604800');
+        return new Response(r.body, { status: 200, headers: h });
+      }
       // 各サービスの公式アイコン（ページに書かれている icon のリンク）を一覧で返す
       if (p === '/icons') {
         let u;
