@@ -371,6 +371,11 @@
   /* 三原色（背景の色）ボタンは、画面の右上に */
   .np .top #ambBtn { position: absolute; right: 2px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
   .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
+  /* 左上：今の曲がどこのサービスの曲か（公式ロゴ）。押すとそのサービスで開く。右の3つのボタンと同じ高さ */
+  .np .top .np-src { position: absolute; left: 12px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; }
+  .np .top .np-src img { width: 24px; height: 24px; border-radius: 6px; display: block; box-shadow: 0 0 0 0.5px color-mix(in srgb, var(--ink) 14%, transparent); }
+  .np .top .np-src:active img { transform: scale(.9); }
+  .np .top #recBtn:not([hidden]) ~ .np-src { display: none; }
   .np .top #themeBtn { position: absolute; right: 34px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
@@ -1340,6 +1345,7 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
+      <button class="np-src" id="npSrc" hidden aria-label="Open in SoundCloud"><img alt="" onerror="this.parentNode.hidden=true"></button>
       <button class="heart ambt globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
       <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
@@ -3491,12 +3497,17 @@ function setPP(s) {
 }
 function renderTrack() {
   $('scSrc').hidden = !track;
+  if (!track) $('npSrc').hidden = true;
   if (!track) return;
   $('mini').hidden = false;
   $('miniT').textContent = track.title; $('miniS').textContent = track.artist;
   $('npT').textContent = track.title; $('npS').textContent = track.artist;
   // 再生画面は大きい画像（SoundCloudは-large=100px、-t500x500=500px）
   // 出どころ（SoundCloud か Bandcamp か）の表示
+  { const id0 = String(track.trackId || ''), code = id0.startsWith('bc:') ? 'bc' : id0.startsWith('am:') ? 'am' : id0.startsWith('sp:') ? 'sp' : 'sc';
+    const name = { sc: 'SoundCloud', bc: 'Bandcamp', am: 'Apple Music', sp: 'Spotify' }[code], im = $('npSrc').querySelector('img');
+    if (im.dataset.code !== code) { im.dataset.code = code; im.src = `${WORKER}/logo/${code}`; }
+    $('npSrc').hidden = false; $('npSrc').setAttribute('aria-label', 'Open in ' + name); }
   { const bc = String(track.trackId || '').startsWith('bc:'); $('scSrc').firstChild.textContent = bc ? 'on Bandcamp ' : 'on SoundCloud '; $('scSrc').setAttribute('aria-label', bc ? 'Open in Bandcamp' : 'Open in SoundCloud'); const a = $('asSC').querySelector('.as-col > span'); if (a) a.textContent = bc ? 'Open in Bandcamp' : 'Open in SoundCloud'; }
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').src = NO_ART; $('npArt').src = NO_ART_DISC; }
@@ -3727,7 +3738,7 @@ $('npClose').addEventListener('click', closeNp);
 (() => {
   const np = $('np');
   let y0 = 0, t0 = 0, dy = 0, id = null;
-  const startOk = (e) => !e.target.closest('#recBtn, #ambBtn') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
+  const startOk = (e) => !e.target.closest('#recBtn, #ambBtn, #npSrc') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
   let x0 = 0, dx = 0, way = null, side = 0;
   const img = $('fullImg'), pk = $('fullPeek'), fa = $('fullArt'), card = $('fullCard'), pcard = $('fullPeekCard');
   const GAPF = 6; // ジャケットどうしの間の黒い柱
@@ -4661,6 +4672,7 @@ async function openInSC() {
   window.open(url, '_blank', 'noopener');
 }
 $('scSrc').addEventListener('click', openInSC);
+$('npSrc').addEventListener('click', () => { hap('light'); openInSC(); });
 $('asSC').addEventListener('click', () => { $('moreSheet').hidden = true; openInSC(); });
 
 // ---- 「…」メニューと、着信の時に流す範囲を選ぶ画面
