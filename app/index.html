@@ -730,12 +730,13 @@
   .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
   .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
   .gpins { position: absolute; inset: 0; pointer-events: none; }
-  .gpin { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
+  .gpin { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
     box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 4px 10px rgba(0,0,0,.45); overflow: hidden; background: #8E8F93; }
   .gpin > * { width: 100% !important; height: 100% !important; }
   .gpin.self { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(255,255,255,.35), 0 4px 10px rgba(0,0,0,.45); }
-  .gpin.on::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 8px; height: 8px; border-radius: 50%; background: #3BD16F; box-shadow: 0 0 0 1.5px #fff; }
-  .gpin-l { position: absolute; transform: translate(-50%, 21px); font: 700 11px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
+  .globe:not(.near) .gpin-l { display: none; }
+  .gpin.on::after { content: ""; position: absolute; right: 0; bottom: 0; width: 7px; height: 7px; border-radius: 50%; background: #3BD16F; box-shadow: 0 0 0 1.5px #fff; }
+  .gpin-l { position: absolute; transform: translate(-50%, 16px); font: 700 10px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
   .amb { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
   .np.amb-on .amb.ready { opacity: 1; }
   .amb .spin { position: absolute; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; will-change: transform; animation: ambspin 48s linear infinite; }
@@ -1264,7 +1265,7 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
-      <button class="theme globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
+      <button class="heart ambt globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
       <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
     </div>
@@ -2185,16 +2186,29 @@ function buildGlobe() {
   Object.assign(gl, { renderer: R, scene, cam, earth });
   // 指で回す（離したあとも少し回り続ける）
   const box = $('globe');
-  box.addEventListener('pointerdown', (e) => { if (e.target.closest('.gpin')) return; gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() }; gl.vy = gl.vp = 0; try { box.setPointerCapture(e.pointerId); } catch {} });
+  // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
+  const pts = new Map(); let pinch = null;
+  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(4.25, z)); $('globe').classList.toggle('near', gl.cam.position.z < 3.1); };
+  box.addEventListener('pointerdown', (e) => {
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: gl.cam.position.z }; gl.drag = null; return; }
+    if (e.target.closest('.gpin')) return; gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() }; gl.vy = gl.vp = 0; try { box.setPointerCapture(e.pointerId); } catch {}
+  });
   box.addEventListener('pointermove', (e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pinch && pts.size === 2) { const [a, b] = [...pts.values()]; zoomTo(pinch.z * pinch.d / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1]))); return; }
     if (!gl.drag) return;
-    const k = 2.6 / gl.size, dx = e.clientX - gl.drag.x, dy = e.clientY - gl.drag.y, dt = Math.max(8, performance.now() - gl.drag.t);
+    const k = 2.6 / gl.size * ((gl.cam.position.z - 1) / 3.25), dx = e.clientX - gl.drag.x, dy = e.clientY - gl.drag.y, dt = Math.max(8, performance.now() - gl.drag.t);
     gl.yaw += dx * k; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + dy * k));
     gl.vy = dx * k / dt * 16; gl.vp = dy * k / dt * 16;
     gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
-  const up = () => { gl.drag = null; };
+  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; gl.drag = null; };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+  box.addEventListener('wheel', (e) => { e.preventDefault(); zoomTo(gl.cam.position.z * (1 + e.deltaY * 0.002)); }, { passive: false });
+  // ダブルタップで、寄る／戻る
+  let lastTap = 0;
+  box.addEventListener('pointerup', (e) => { if (e.target.closest('.gpin')) return; const n = performance.now(); if (n - lastTap < 300) zoomTo(gl.cam.position.z > 3 ? 2.1 : 4.25); lastTap = n; });
 }
 function renderPins() {
   $('globePins').innerHTML = gl.people.map((p, i) => `<button class="gpin${p.self ? ' self' : ''}${p.f && p.f.online ? ' on' : ''}" data-gi="${i}">${face(p.f)}</button><span class="gpin-l" data-gl="${i}">${esc(p.self ? 'You' : (p.f.name || '@' + (p.f.handle || '')))}</span>`).join('');
