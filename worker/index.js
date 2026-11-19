@@ -725,10 +725,26 @@ export default {
 
       // ---- ジャケット画像の中継: /img?u=（SoundCloudの画像だけ）
       // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする
+      // 各サービスの公式アイコン（ページに書かれている icon のリンク）を一覧で返す
+      if (p === '/icons') {
+        let u;
+        try { u = new URL(url.searchParams.get('u') || ''); } catch { return json({ error: 'u が不正です' }, 400, cors); }
+        if (u.protocol !== 'https:' || !/(^|\.)(soundcloud\.com|bandcamp\.com|apple\.com|spotify\.com)$/.test(u.hostname)) return json({ error: 'このサイトは使えません' }, 400, cors);
+        const r = await fetch(u.toString(), { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' } });
+        const html = await r.text();
+        const out = [];
+        for (const m of html.matchAll(/<link[^>]+>/gi)) {
+          const t = m[0];
+          if (!/rel=["'][^"']*icon/i.test(t)) continue;
+          const h = (t.match(/href=["']([^"']+)/i) || [])[1];
+          if (h) out.push({ tag: t.slice(0, 200), href: new URL(h, u).toString() });
+        }
+        return json({ status: r.status, icons: out }, 200, cors);
+      }
       if (p === '/img') {
         let u;
         try { u = new URL(url.searchParams.get('u') || ''); } catch { return json({ error: 'u が不正です' }, 400, cors); }
-        if (u.protocol !== 'https:' || !/(^|\.)sndcdn\.com$/.test(u.hostname)) return json({ error: 'この画像は使えません' }, 400, cors);
+        if (u.protocol !== 'https:' || !/(^|\.)(sndcdn\.com|soundcloud\.com|bcbits\.com|bandcamp\.com|apple\.com|mzstatic\.com|scdn\.co|spotifycdn\.com|spotify\.com)$/.test(u.hostname)) return json({ error: 'この画像は使えません' }, 400, cors);
         const r = await fetch(u.toString(), { cf: { cacheTtl: 86400, cacheEverything: true } });
         if (!r.ok) return json({ error: 'img ' + r.status }, r.status, cors);
         const h = new Headers(cors);
