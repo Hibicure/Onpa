@@ -622,6 +622,24 @@ export default {
         const seen = new Set();
         return json(all.filter((t) => t && !seen.has(t.id) && seen.add(t.id)).map(mapTrack), 200, cors);
       }
+      // ---- Bandcamp の曲を名前で探す: /bc/search?q=…（Bandcamp のアプリが使っている検索の候補を借りる。公式に公開されたAPIではない）
+      if (p === '/bc/search') {
+        const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
+        if (!q) return json([], 200, cors);
+        const key = new Request('https://cache.otocloud/bcs1/' + encodeURIComponent(q.toLowerCase()));
+        const hit = await caches.default.match(key); if (hit) return new Response(hit.body, { headers: { ...cors, 'Content-Type': 'application/json' } });
+        const r = await fetch('https://bandcamp.com/api/fuzzysearch/1/app_autocomplete?q=' + encodeURIComponent(q), { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' } });
+        if (!r.ok) return json({ error: 'bandcamp ' + r.status }, 502, cors);
+        const d = await r.json().catch(() => ({}));
+        const fixUrl = (u) => { u = String(u || ''); const i = u.lastIndexOf('https://'); return i > 0 ? u.slice(i) : u; };
+        const out = (d.results || []).filter((x) => x && x.type === 't' && x.id).slice(0, 12).map((x) => ({
+          id: 'bc:' + x.id, title: String(x.name || ''), artist: String(x.band_name || ''), uploader: String(x.band_name || ''),
+          artwork: x.art_id ? `https://f4.bcbits.com/img/a${String(x.art_id).padStart(10, '0')}_10.jpg` : String(x.img || ''),
+          album: String(x.album_name || ''), permalink_url: fixUrl(x.url), access: 'playable', provider: 'bandcamp', duration: 0,
+        }));
+        await caches.default.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=3600' } }));
+        return json(out, 200, cors);
+      }
       // ---- Bandcamp：アルバムか曲のページのURLから、曲の一覧（再生は公式の埋め込みプレーヤーで、端末の中で行う）
       //      /bc/album?url=https://xxx.bandcamp.com/album/yyy （または /track/zzz）
       if (p === '/bc/album') {
