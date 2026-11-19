@@ -1721,6 +1721,7 @@ function startApp() {
     ref.update({ online: true });
   });
   watchFriends();
+  initOwnLikes();
   // 好みがまだ無ければ、最近聴いた曲から作っておく
   setTimeout(() => { try { if (!Object.keys(loadTaste()).length) [...recent].reverse().forEach((t) => noteTaste(t.artist)); } catch {} publishTaste(); }, 4000);
   watchIncoming();
@@ -2431,9 +2432,10 @@ function setMode(m) {
     else $('results').innerHTML = msg('Find something to play', 'Full tracks from SoundCloud');
     return;
   }
+  if (!sc && m === 'likes') { showLikes(); return; }
   if (!sc) {
     $('libbar').hidden = true;
-    $('results').innerHTML = msg('Connect SoundCloud', 'Play your likes and playlists, and like tracks right from Otocloud.<br><button class="btn primary sc-connect">Connect SoundCloud</button>');
+    $('results').innerHTML = msg('Connect SoundCloud', 'Play your SoundCloud playlists right from Otocloud.<br><button class="btn primary sc-connect">Connect SoundCloud</button>');
     return;
   }
   if (m === 'likes') showLikes();
@@ -2444,6 +2446,7 @@ async function showLikes() {
   $('libTitle').textContent = 'Your likes';
   $('shuffle').hidden = false;
   $('results').innerHTML = msg('Loading your likes…');
+  if (!sc) { initOwnLikes(); renderTracks(likesList || [], msg('No likes yet', 'Tap the heart on any track to save it here')); return; }
   try {
     await loadLikes();
     if (mode === 'likes') renderTracks(likesList, msg('No likes yet', 'Tap the heart on any track to save it here'));
@@ -2674,12 +2677,48 @@ async function flushLikes() {
 }
 setInterval(() => { flushLikes().catch(() => {}); }, 15 * 60 * 1000);
 addEventListener('focus', () => { flushLikes().catch(() => {}); });
+// SoundCloudをつないでいない人のいいね：Otocloudの中だけに貯める（この端末＋自分のデータに保存。あとでSoundCloudをつないでも残る）
+const OWN_KEY = 'oto_likes';
+function ownLikes() { try { return JSON.parse(localStorage.getItem(OWN_KEY) || '[]') || []; } catch { return []; } }
+function saveOwnLikes(list) {
+  list = list.slice(0, 500);
+  try { localStorage.setItem(OWN_KEY, JSON.stringify(list)); } catch {}
+  if (typeof me !== 'undefined' && me && me.uid) db.ref('users/' + me.uid + '/likes').set(list).catch(() => {});
+}
+function ownLikeRow(t) {
+  return { id: String(t.id || t.trackId), title: t.title || '', artist: t.artist || '', artwork: t.artwork || '', duration: t.duration || 0, secret: t.secret || '', permalink_url: t.permalink_url || t.url || '', uploader: t.uploader || t.artist || '', userId: t.userId || t.user_id || null, access: 'playable' };
+}
+function toggleOwnLike(t, like) {
+  const row = ownLikeRow(t);
+  let list = ownLikes().filter((x) => String(x.id) !== row.id);
+  if (like) list.unshift(row);
+  saveOwnLikes(list);
+  likesList = list.map(splitArtist);
+}
+function initOwnLikes() {
+  if (sc) return;
+  const list = ownLikes();
+  likedIds.clear(); list.forEach((t) => likedIds.add(String(t.id)));
+  likesList = list.map(splitArtist);
+  paintHeart();
+  // 別の端末で付けたいいねも、自分のデータから取り戻す
+  if (!list.length && me && me.uid) db.ref('users/' + me.uid + '/likes').once('value').then((v) => {
+    const got = v.val(); if (!Array.isArray(got) || !got.length || sc) return;
+    try { localStorage.setItem(OWN_KEY, JSON.stringify(got)); } catch {}
+    initOwnLikes();
+  }).catch(() => {});
+}
 function paintHeart() {
   $('heart').setAttribute('aria-pressed', String(!!track && likedIds.has(String(track.trackId))));
 }
 async function toggleRowLike(btn) {
   const t = lastResults[Number(btn.dataset.like)]; if (!t) return;
-  if (!sc) { toast('Connect SoundCloud to like tracks'); return; }
+  if (!sc) {
+    const id = String(t.id), like = !likedIds.has(id);
+    if (like) likedIds.add(id); else likedIds.delete(id);
+    btn.setAttribute('aria-pressed', String(like)); paintHeart(); toggleOwnLike(t, like);
+    return;
+  }
   const id = String(t.id), like = !likedIds.has(id);
   if (like) likedIds.add(id); else likedIds.delete(id);
   btn.setAttribute('aria-pressed', String(like)); paintHeart();
@@ -2689,11 +2728,12 @@ async function toggleRowLike(btn) {
 $('heart').addEventListener('click', async () => {
   hap('rigid');
   if (!track) return;
-  if (!sc) { toast('Connect SoundCloud to like tracks'); setMode('likes'); $('npClose').click(); showTab('listen'); return; }
   const id = String(track.trackId);
   const like = !likedIds.has(id);
   if (like) likedIds.add(id); else likedIds.delete(id);
   paintHeart();
+  const own = !sc; // SoundCloudなし：Otocloudの中のいいねとして貯める
+  if (own) toggleOwnLike(track, like);
   if (like) {
     const hb = $('heart');
     hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
@@ -2705,6 +2745,7 @@ $('heart').addEventListener('click', async () => {
     k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('');
     hb.appendChild(k); setTimeout(() => k.remove(), 600);
   }
+  if (own) { toast(like ? 'Liked' : 'Removed from your likes'); return; }
   try {
     const how = await sendLike(id, like);
     toast(how === 'queued' ? (like ? 'Liked · it reaches SoundCloud a little later' : 'Removed · it updates on SoundCloud a little later') : (like ? 'Liked on SoundCloud' : 'Removed from your likes'));
