@@ -350,6 +350,9 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     result = await am.status()
                 case "amAuth":
                     result = await am.authorize()
+                case "amArtists":
+                    // 地球儀用：Apple Music でよく聴いているアーティスト
+                    result = ["ok": true, "items": await am.topArtists()]
                 case "amSearch":
                     result = ["items": try await am.search(body["q"] as? String ?? "")]
                 case "amPlay":
@@ -757,6 +760,40 @@ final class AppleMusic {
         return await status()
     }
 
+    /// よく聴いているアーティスト（よく聴く曲・最近聴いた曲・ライブラリ）。名前と画像だけ
+    func topArtists() async -> [[String: Any]] {
+        guard MusicAuthorization.currentStatus == .authorized else { return [] }
+        var score: [String: (name: String, art: String, n: Int)] = [:]
+        func add(_ name: String, _ art: String, _ w: Int) {
+            let n = name.trimmingCharacters(in: .whitespaces); guard !n.isEmpty else { return }
+            let k = n.lowercased()
+            if var e = score[k] { e.n += w; if e.art.isEmpty { e.art = art }; score[k] = e } else { score[k] = (n, art, w) }
+        }
+        // よく聴いている（ヘビーローテーション）
+        if let url = URL(string: "https://api.music.apple.com/v1/me/history/heavy-rotation?limit=10"),
+           let r = try? await MusicDataRequest(urlRequest: URLRequest(url: url)).response(),
+           let j = try? JSONSerialization.jsonObject(with: r.data) as? [String: Any],
+           let data = j["data"] as? [[String: Any]] {
+            for d in data {
+                guard let a = d["attributes"] as? [String: Any], let n = a["artistName"] as? String else { continue }
+                var art = ""
+                if let aw = a["artwork"] as? [String: Any], let u = aw["url"] as? String { art = u.replacingOccurrences(of: "{w}", with: "200").replacingOccurrences(of: "{h}", with: "200") }
+                add(n, art, 5)
+            }
+        }
+        // 最近聴いた曲
+        if let r = try? await MusicRecentlyPlayedRequest<Song>().response() {
+            for song in r.items.prefix(60) { add(song.artistName, song.artwork?.url(width: 200, height: 200)?.absoluteString ?? "", 2) }
+        }
+        // ライブラリのアーティスト
+        var lib = MusicLibraryRequest<Artist>()
+        lib.limit = 80
+        if let r = try? await lib.response() {
+            for a in r.items { add(a.name, a.artwork?.url(width: 200, height: 200)?.absoluteString ?? "", 1) }
+        }
+        return score.values.sorted { $0.n > $1.n }.prefix(60).map { ["name": $0.name, "art": $0.art, "n": $0.n] }
+    }
+
     func search(_ q: String) async throws -> [[String: Any]] {
         guard !q.isEmpty else { return [] }
         var req = MusicCatalogSearchRequest(term: q, types: [Song.self])
@@ -860,7 +897,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     func login() async -> Bool {
         await withCheckedContinuation { c in
             loginWaiter = c
-            sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming], options: .default, campaign: nil)
+            sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming, .userFollowRead, .userTopRead], options: .default, campaign: nil)
         }
     }
 

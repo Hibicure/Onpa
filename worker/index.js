@@ -182,6 +182,39 @@ async function scGet(path, env, userToken = '') {
 }
 
 // ユーザー本人の合鍵でSoundCloudを呼ぶ
+// MusicBrainz（だれでも使える音楽のデータベース）で、アーティストの出身地（なければ活動している国）を調べる。
+// Spotify のアーティストは、MusicBrainz に登録されたリンクで確実に同じ人を探す。なければ名前が完全に同じ人だけ
+const MB_H = { 'User-Agent': 'Otocloud/1.0 ( support@otocloud.app )', 'Accept': 'application/json' };
+const nap = (ms) => new Promise((ok) => setTimeout(ok, ms));
+async function mbArea(a) {
+  try {
+    let id = '';
+    if (a.sp) {
+      const r = await fetch('https://musicbrainz.org/ws/2/url?inc=artist-rels&fmt=json&resource=' + encodeURIComponent('https://open.spotify.com/artist/' + a.sp), { headers: MB_H });
+      if (r.status === 503) return null;
+      if (r.ok) { const d = await r.json(); const rel = (d.relations || []).find((x) => x.artist); if (rel) id = rel.artist.id; }
+      await nap(1100);
+    }
+    if (!id) {
+      const name = String(a.name || '').trim();
+      const r = await fetch('https://musicbrainz.org/ws/2/artist?fmt=json&limit=5&query=' + encodeURIComponent('artist:"' + name.replace(/"/g, '') + '"'), { headers: MB_H });
+      if (r.status === 503) return null;
+      if (r.ok) { const d = await r.json(); const best = (d.artists || []).find((x) => x.score >= 95 && String(x.name).toLowerCase() === name.toLowerCase()); if (best) id = best.id; }
+      await nap(1100);
+    }
+    if (!id) return { city: '', country: '' };
+    const r = await fetch(`https://musicbrainz.org/ws/2/artist/${id}?fmt=json`, { headers: MB_H });
+    if (r.status === 503) return null;
+    if (!r.ok) return { city: '', country: '' };
+    const d = await r.json();
+    const ba = d['begin-area'], ar = d.area;
+    const city = ba && ba.type !== 'Country' ? ba.name : ar && ar.type !== 'Country' ? ar.name : '';
+    let country = ar && ar.type === 'Country' ? ar.name : '';
+    if (!country && d.country) { try { country = new Intl.DisplayNames(['en'], { type: 'region' }).of(d.country) || d.country; } catch { country = d.country; } }
+    return { city, country };
+  } catch { return null; }
+}
+
 // 街の名前（と国）から緯度・経度を出す（Open-Meteo の無料の地名検索）。30日覚えておく
 async function geocode(city, country, allowFetch = true) {
   const name = city || country;
@@ -196,7 +229,9 @@ async function geocode(city, country, allowFetch = true) {
     const d = await r.json();
     const res = (d && d.results) || [];
     const c = country.toLowerCase();
-    const pick = (c && res.find((x) => String(x.country || '').toLowerCase() === c || String(x.country_code || '').toLowerCase() === c)) || (c ? null : res[0]) || (!city ? null : res[0]);
+    const same = (x) => String(x.country || '').toLowerCase() === c || String(x.country_code || '').toLowerCase() === c;
+    const pick = !city ? (res.find((x) => /^PCL/.test(x.feature_code || '') && same(x)) || res.find((x) => /^PCL/.test(x.feature_code || '')))
+      : (c && res.find(same)) || (c ? null : res[0]);
     if (pick) g = { lat: Math.round(pick.latitude * 100) / 100, lng: Math.round(pick.longitude * 100) / 100, name: [pick.name, pick.country].filter(Boolean).join(', ') };
   } catch {}
   await caches.default.put(ck, new Response(JSON.stringify(g), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=2592000' } }));
@@ -746,6 +781,40 @@ export default {
 
       // ---- ジャケット画像の中継: /img?u=（SoundCloudの画像だけ）
       // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする
+      // 地球儀用：アーティストの場所をまとめて調べる（SoundCloudはプロフィールの街、ほかは MusicBrainz の出身地）。
+      // 1回で調べる数には上限。残りは pending で返すので、画面がもう一度聞く
+      if (p === '/artists/where' && request.method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const list = Array.isArray(body.artists) ? body.artists.slice(0, 150) : [];
+        let mbBudget = 5, scBudget = 25, geoBudget = 25, pending = 0;
+        const out = [];
+        for (const a of list) {
+          if (!a || !a.key) continue;
+          const id = a.sc ? 'sc:' + a.sc : a.sp ? 'sp:' + a.sp : 'n:' + String(a.name || '').toLowerCase().trim();
+          const ck = new Request('https://cache.otocloud/where2/' + encodeURIComponent(id));
+          const hit = await caches.default.match(ck);
+          if (hit) { const g = await hit.json(); if (g.lat != null) out.push({ key: a.key, ...g }); continue; }
+          let loc = null;
+          if (a.sc && /^\d{1,20}$/.test(String(a.sc))) {
+            if (scBudget-- <= 0) { pending++; continue; }
+            try { const u = await scGet(`/users/${a.sc}`, env); loc = { city: String(u.city || '').trim(), country: String(u.country || u.country_code || '').trim() }; } catch { pending++; continue; }
+          } else {
+            if (!a.name || mbBudget-- <= 0) { pending++; continue; }
+            loc = await mbArea(a);
+            if (!loc) { pending++; continue; }
+          }
+          let g = { lat: null };
+          if (loc.city || loc.country) {
+            const r = await geocode(loc.city, loc.country, geoBudget-- > 0);
+            if (!r) { pending++; continue; }
+            if (r.lat != null) g = { lat: r.lat, lng: r.lng, place: r.name };
+          }
+          await caches.default.put(ck, new Response(JSON.stringify(g), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=2592000' } }));
+          if (g.lat != null) out.push({ key: a.key, ...g });
+        }
+        return json({ located: out, pending }, 200, cors);
+      }
+
       // 出どころのロゴ（各サービスが自分のサイトで配っている公式アイコン）。1週間キャッシュ
       m = p.match(/^\/logo\/(sc|bc|am|sp)$/);
       if (m) {
