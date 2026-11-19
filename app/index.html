@@ -2780,6 +2780,8 @@ class WidgetMedia extends EventTarget {
   sync() {
     const sl = this.slots[this.a];
     if (!sl || !sl.loaded || this._seekTo != null || document.hidden) return;
+    // 通話中は、位置の答え合わせで時計を動かさない（一緒に聴くずれ直しと取り合って、音が途切れるのを防ぐ）
+    const inCall = typeof call !== 'undefined' && call.state === 'live';
     try {
       sl.w.isPaused((paused) => {
         if (sl !== this.slots[this.a] || this._seekTo != null) return;
@@ -2792,7 +2794,7 @@ class WidgetMedia extends EventTarget {
             this.fire('play'); this.fire('playing'); this.fire('timeupdate');
           } else if (paused && !this._paused) {
             this._t = pos; this._paused = true; this.fire('pause'); this.fire('timeupdate');
-          } else if (Math.abs(pos - this.currentTime) > 2) {
+          } else if (!inCall && Math.abs(pos - this.currentTime) > 2) {
             // 位置が大きくずれていたら合わせる（ロック画面の10秒送りとまぎれないよう、合わせたことを覚えておく）
             this._t = pos; this._at = performance.now(); this._selfAt = performance.now(); this.fire('timeupdate');
           }
@@ -4762,10 +4764,15 @@ async function applyRoomState(s) {
   }
 }
 const shouldPlay = () => !!(roomState && roomState.playing);
+// 一緒に聴いている時のずれ直し。飛ばすたびにプレーヤーが読み込み直して音が途切れるので、
+// 1.2秒以上のずれが2回続いた時だけ直し、直したあと8秒は様子を見る（何度も飛ばして、ぶつ切りにならないように）
+let driftHits = 0, driftFixedAt = 0;
 setInterval(() => {
-  if (call.state !== 'live' || !roomState || applying || loadedId !== roomState.trackId || !roomState.playing || player.paused) return;
+  if (call.state !== 'live' || !roomState || applying || loadedId !== roomState.trackId || !roomState.playing || player.paused) { driftHits = 0; return; }
+  if (performance.now() - driftFixedAt < 8000) return;
   const diff = player.currentTime - expectedPos(roomState);
-  if (Math.abs(diff) > 0.5) player.currentTime = expectedPos(roomState);
+  if (Math.abs(diff) > 1.2) { if (++driftHits >= 2) { driftHits = 0; driftFixedAt = performance.now(); player.currentTime = expectedPos(roomState); } }
+  else driftHits = 0;
 }, 2000);
 // iPhoneで自動再生が止められたとき、どこかタップで追いつく
 document.addEventListener('pointerdown', () => {
