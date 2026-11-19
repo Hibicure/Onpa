@@ -2729,6 +2729,33 @@ class WidgetMedia extends EventTarget {
     this._at = performance.now();
     // SoundCloudのプレーヤーは再生位置の知らせが遅れたり止まったりするので、知らせの間はこちらで時計を進めて画面を動かす
     setInterval(() => { if (!this._paused) this.fire('timeupdate'); }, 200);
+    // 裏に回ったあとなどに「鳴っているのに画面は止まったまま」（またはその逆）にならないよう、プレーヤー本人に答え合わせする
+    setInterval(() => this.sync(), 1500);
+    const now = () => this.sync();
+    document.addEventListener('visibilitychange', now); window.addEventListener('focus', now); window.addEventListener('pageshow', now);
+  }
+  sync() {
+    const sl = this.slots[this.a];
+    if (!sl || !sl.loaded || this._seekTo != null || document.hidden) return;
+    try {
+      sl.w.isPaused((paused) => {
+        if (sl !== this.slots[this.a] || this._seekTo != null) return;
+        sl.w.getPosition((ms) => {
+          if (sl !== this.slots[this.a] || this._seekTo != null) return;
+          const pos = (ms || 0) / 1000;
+          if (!paused && this._paused) {
+            // 鳴っているのに、画面は止まったまま → 画面を動かす
+            this._t = pos; this._at = performance.now(); this._paused = false; this._selfAt = performance.now();
+            this.fire('play'); this.fire('playing'); this.fire('timeupdate');
+          } else if (paused && !this._paused) {
+            this._t = pos; this._paused = true; this.fire('pause'); this.fire('timeupdate');
+          } else if (Math.abs(pos - this.currentTime) > 2) {
+            // 位置が大きくずれていたら合わせる（ロック画面の10秒送りとまぎれないよう、合わせたことを覚えておく）
+            this._t = pos; this._at = performance.now(); this._selfAt = performance.now(); this.fire('timeupdate');
+          }
+        });
+      });
+    } catch { /* 無視 */ }
   }
   get w() { return this.slots[this.a].w; }
   fire(name) { this.dispatchEvent(new Event(name)); }
