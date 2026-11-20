@@ -3892,7 +3892,7 @@ async function loadTrack(meta, autoplay = false) {
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     rememberPlayed(meta);
-    loadWave(meta); loadLyrics(meta);
+    loadWave(meta); // 歌詞は renderTrack が曲の変わり目で取る
     addCue();
     clearTimeout(preloadTimer);
     preloadTimer = setTimeout(() => { if (my === loadToken) player.preload(peekNext()); }, 2500);
@@ -3959,6 +3959,8 @@ function setPP(s) {
   if (!['endmode', 'joinmode', 'peekmode', 'sendmode', 'pinmode'].some((c) => $('np').classList.contains(c))) $('npPP').innerHTML = html;
 }
 function renderTrack() {
+  // 曲が変わったのに歌詞が前の曲のまま、にならないように：表示する曲が変わったら、歌詞を取り直す
+  if (track && lyrFor !== track.trackId) loadLyrics(track);
   $('scSrc').hidden = !track;
   if (!track) $('npSrc').hidden = true;
   if (!track) return;
@@ -4161,9 +4163,10 @@ player.addEventListener('timeupdate', () => { if (isReal() && !dragging) drawPro
 let waveBars = null, waveFor = null;
 
 // 歌詞：説明欄（なければコメント）に載っていたら、下の真ん中に「Lyrics」を出す
-let lyr = null, lyrFor = null;
+var lyr = null, lyrFor = null; // var：上の renderTrack から先に使われても大丈夫なように
 async function loadLyrics(meta) {
-  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
+  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true;
+  if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
   const toGenius = () => { if (lyrFor !== meta.trackId || lyr) return; $('lyrBtn').textContent = 'Lyrics ↗'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
   if (!/^\d+$/.test(String(meta.trackId))) {
@@ -4190,7 +4193,7 @@ async function openGenius() {
   if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank');
 }
 function openLyrics() {
-  if (!lyr || !track) return;
+  if (!lyr || !track || lyrFor !== track.trackId) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
   const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
