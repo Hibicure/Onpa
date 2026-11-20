@@ -1011,6 +1011,8 @@
   .lyr-back:active { transform: scale(.94); }
   .lyrbtn svg, .lyr-genius svg { width: 11px; height: 11px; margin-left: 2px; vertical-align: -1px; display: inline-block; }
   .lyr-genius[hidden] { display: none; }
+  body:not(.artist-mode) #shuffleLikes { display: none !important; }
+  #ahPic { cursor: pointer; }
   .lyr-genius { display: block; margin: 10px 0 40px; font-size: 12px; font-weight: 700; color: var(--mute); text-decoration: underline; padding: 6px 0; }
   /* 下のミニプレーヤーとタブ：透けない（ジャケットなどが後ろに見えないように） */
   :root.mist .nav, :root.mist[data-theme="dark"] .nav { background: var(--paper) !important; }
@@ -1264,6 +1266,7 @@
       <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
       <div class="libtitle" id="libTitle"></div>
       <button class="btn ghost" id="shuffle">Shuffle</button>
+      <button class="btn ghost" id="shuffleLikes" hidden>My likes</button>
     </div>
     <div class="list" id="results">
       <div class="empty"><b>Find something to play</b>Full tracks from SoundCloud</div>
@@ -2085,7 +2088,7 @@ $('tabFriends').addEventListener('click', () => showTab('friends'));
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 const searchMemo = new Map();
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '' });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '', spArtistId: t.spArtistId || '' });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -2217,7 +2220,7 @@ async function spSearch(q) {
 // Spotify の曲の形を、Otocloud の曲の形に
 function spMap(t) {
   return {
-      id: 'sp:' + t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
+      id: 'sp:' + t.id, spArtistId: ((t.artists || [])[0] || {}).id || '', title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
       artwork: ((t.album && t.album.images) || [])[1] ? t.album.images[1].url : (((t.album && t.album.images) || [])[0] || {}).url || '',
       duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify', pop: t.popularity || 0,
   };
@@ -3107,6 +3110,15 @@ $('upList').addEventListener('click', (e) => {
   else { upNext = upNext.filter((n) => n.key !== b.dataset.rm); renderUpNext(); }
 });
 
+$('shuffleLikes').addEventListener('click', () => {
+  const list = shuffled(artistLikes(artistNow.name)); if (!list.length) return;
+  hap('light'); unlockAudio(); playFrom(list, 0); toast(`Your likes by ${artistNow.name}`);
+});
+// アーティストの写真を押したら、その人の曲をシャッフルで流す
+$('ahPic').addEventListener('click', () => {
+  if (mode !== 'artist' || !lastResults.length) return;
+  hap('light'); unlockAudio(); playFrom(shuffled(lastResults), 0);
+});
 $('shuffle').addEventListener('click', () => {
   if (!lastResults.length) return;
   const list = lastResults.slice();
@@ -3201,8 +3213,9 @@ $('libBack').addEventListener('click', () => {
 });
 
 // その人の曲のページ（アーティスト名・友だちの名前から）
-async function openArtist(userId, name) {
-  if (!userId) return;
+async function openArtist(userId, name, opt = {}) {
+  if (!userId && !opt.spArtistId && !opt.byName) return;
+  artistNow = { userId, name, spArtistId: opt.spArtistId || '' }; $('shuffleLikes').hidden = true;
   closeNp();
   showTab('listen');
   libBackTo = mode === 'playlist' || mode === 'artist' ? 'search' : (mode || 'search');
@@ -3219,17 +3232,49 @@ async function openArtist(userId, name) {
   $('artistHead').hidden = false; window.scrollTo(0, 0); measureAH();
   $('results').innerHTML = msg('Loading…');
   try {
-    const r = await fetch(`${WORKER}/user/${userId}/tracks`, { headers: await scHeaders() });
-    if (!r.ok) throw new Error(r.status);
-    const d = (await r.json()).map(splitArtist);
-    if (mode === 'artist') {
-      // 縦に並べて、ジャケットは角なしの正方形をすき間なく積む
-      renderTracks(d, msg('No tracks yet'));
-      artistPlace(userId);
-      artistAlbums(userId, name);
+    let d = [];
+    if (userId) {
+      const r = await fetch(`${WORKER}/user/${userId}/tracks`, { headers: await scHeaders() });
+      if (!r.ok) throw new Error(r.status);
+      d = (await r.json()).map(splitArtist);
+      if (mode === 'artist') renderTracks(d, msg('No tracks yet'));
     }
+    // Spotify をつないでいる人：同じアーティストの公式の曲（Spotify）も足して、同じ曲は1つに
+    const sp = await spArtistTracks(name, opt.spArtistId);
+    if (mode !== 'artist' || artistNow.name !== name) return;
+    if (sp.list.length) { d = mergeSame([...sp.list, ...d]); if (!userId && sp.image) { $('ahPic').innerHTML = `<img src="${esc(sp.image)}" alt="">`; } }
+    renderTracks(d, msg('No tracks yet'));
+    paintArtistLikes(name);
+    if (userId) { artistPlace(userId); artistAlbums(userId, name); }
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
 }
+let artistNow = { userId: null, name: '', spArtistId: '' };
+// Spotify のアーティストの曲（つないでいる人だけ）：人気の曲＋名前で探した曲。開発中のアプリは数が少ないので10件ずつ
+async function spArtistTracks(name, spArtistId) {
+  const out = { list: [], image: '' };
+  try {
+    const tok = await spToken(); if (!tok) return out;
+    const H = { Authorization: 'Bearer ' + tok };
+    let id = spArtistId;
+    if (!id) { const a = await fetch('https://api.spotify.com/v1/search?type=artist&limit=5&q=' + encodeURIComponent(name), { headers: H }).then((r) => r.json()); const hit = ((a.artists && a.artists.items) || []).find((x) => artKey(x.name) === artKey(name)); if (hit) { id = hit.id; out.image = ((hit.images || [])[0] || {}).url || ''; } }
+    if (!id) return out;
+    const [top, more, info] = await Promise.all([
+      fetch(`https://api.spotify.com/v1/artists/${id}/top-tracks`, { headers: H }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+      Promise.all([0, 10].map((off) => fetch(`https://api.spotify.com/v1/search?type=track&limit=10&offset=${off}&q=` + encodeURIComponent(`artist:"${name}"`), { headers: H }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})))),
+      out.image ? null : fetch(`https://api.spotify.com/v1/artists/${id}`, { headers: H }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+    if (info) out.image = ((info.images || [])[0] || {}).url || '';
+    const all = [...(top.tracks || []), ...more.flatMap((m) => (m.tracks && m.tracks.items) || [])].filter((t) => t && t.id && (t.artists || []).some((a) => a.id === id));
+    const seen = new Set(); out.list = all.filter((t) => !seen.has(t.id) && seen.add(t.id)).map((t, i) => ({ _r: i, ...spMap(t) }));
+  } catch {}
+  return out;
+}
+// このアーティストの、自分がいいねした曲だけをシャッフル（あれば「Shuffle my likes」を出す）
+function artistLikes(name) {
+  const k = artKey(String(name || '').split(',')[0]);
+  return (likesList || []).filter((t) => { const a = artKey(String(t.artist || '').split(',')[0]), u = artKey(t.uploader || ''); return k && (a === k || u === k); });
+}
+function paintArtistLikes(name) { const b = $('shuffleLikes'); if (b) b.hidden = !(mode === 'artist' && artistLikes(name).length); }
 // その人のアルバム・EPを、曲の上に横一列で（押すと中の曲）
 let albumBack = null;
 async function artistAlbums(userId, name) {
@@ -3309,6 +3354,15 @@ async function artistPlace(userId) {
 }
 async function openTrackArtist() {
   if (!track) return;
+  // SoundCloud 以外の曲（Spotify・Bandcamp）：アーティスト名で、その人の SoundCloud（本人のアカウント）と Spotify をまとめたページへ
+  if (!/^\d+$/.test(String(track.trackId))) {
+    const name = String(track.artist || '').split(',')[0].trim(), k = artKey(name);
+    let scId = null;
+    try { const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(name)}`, { headers: await scHeaders() }).then((x) => x.json()); const hit = (r || []).find((x) => artKey(x.uploader || '') === k); if (hit) scId = hit.userId; } catch {}
+    const q = queue && queue[qi]; const spId = (track.spArtistId) || (q && q.spArtistId) || '';
+    openArtist(scId, name, { spArtistId: spId, byName: true });
+    return;
+  }
   let id = track.userId, name = track.uploader || track.artist;
   if (!id) {
     try { const d = await (await fetch(`${WORKER}/t/${track.trackId}` + (track.secret ? '?st=' + encodeURIComponent(track.secret) : ''), { headers: await scHeaders() })).json(); id = d.userId; name = d.uploader || name; } catch { /* 無視 */ }
