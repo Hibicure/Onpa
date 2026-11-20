@@ -1895,7 +1895,9 @@ async function restoreLast() {
   if (!d || !d.meta || !d.meta.trackId) { showEmptyNp(); return; }
   if (await loadTrack(d.meta, false)) {
     setPP('play');
-    resumeAt = d.pos > 3 ? d.pos : 0;
+    // 続きから流すのは、ミックス・ラジオのような長い曲（15分以上）だけ。ふつうの曲は頭から
+    const len = (d.meta.duration || 0) / 1000 || (isFinite(player.duration) ? player.duration : 0);
+    resumeAt = d.pos > 3 && len >= 900 && d.pos < len - 30 ? d.pos : 0;
     if (resumeAt) drawProgress(resumeAt);
     // この曲が終わったら、いいねのシャッフルに続く
     const pool = await likesPool();
