@@ -3309,7 +3309,7 @@ function neighborMeta(dir) {
       if (horizontal === null && track && track.artwork && !e.target.closest('#discPeer') && call.state !== 'live') {
         const np = $('np');
         if (np.classList.contains('square')) { np.classList.remove('square'); setFull(true); }
-        else np.classList.add('square');
+        else { if (call.state === 'idle') closePick(); np.classList.add('square'); }
       }
       return;
     }
@@ -5139,7 +5139,7 @@ function panFull(frac, force = false) {
   img.style.transform = `translate3d(${-x}px,0,0)`;
 }
 function setFull(on) {
-  if (!on) { fullLyrOn = false; paintFullLyr(); }
+  if (!on) { fullLyrOn = false; paintFullLyr(); try { if (call.state === 'idle') closePick(); } catch {} } // CD に戻ったら、穴はいつもの穴に（通話中はそのまま）
   const np = $('np');
   if (on && track && track.artwork) $('fullImg').style.backgroundImage = `url("${track.artwork.replace('-large.', '-t500x500.')}")`;
   np.classList.toggle('full', !!on);
@@ -5821,6 +5821,14 @@ function listenWith() {
   setJoinMode(false);
   startCall(cur.uid, false);
 }
+// しばらく（2分以上）ほかのアプリにいて戻ってきた時は、いつもの CD（穴はふつう）に戻す。通話中はそのまま
+(() => { let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    if (!hiddenAt || Date.now() - hiddenAt < 120000 || call.state !== 'idle') return;
+    const np = $('np'); closePick(); np.classList.remove('square'); if (np.classList.contains('full')) setFull(false);
+  });
+})();
 function closePick() {
   clearTimeout(pk.timer);
   $('discPick').hidden = true; $('pickName').hidden = true; setJoinMode(false); setPeekMode(false); setSelfMode('');
