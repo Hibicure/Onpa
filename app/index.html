@@ -449,6 +449,17 @@
   .lyr-x { width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink); }
   .lyr-x { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); } .lyr-x svg { width: 20px; height: 20px; }
   .lyr-x[hidden], .lyr-back[hidden] { display: none !important; }
+  /* 歌詞を書く時の小さな再生バー：聞き直しながら、その場で書ける */
+  .lyr-mini { display: flex; align-items: center; gap: 8px; margin: 0 20px 4px; padding: 6px 12px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+  .lyr-mini[hidden] { display: none; }
+  .lyr-mini button { flex: none; width: 38px; height: 38px; display: grid; place-items: center; color: var(--ink); border-radius: 50%; position: relative; }
+  .lyr-mini button svg { width: 22px; height: 22px; }
+  .lyr-mini #lmBack b { position: absolute; font: 800 8.5px/1 inherit; top: 50%; left: 50%; transform: translate(-50%, -38%); }
+  .lyr-mini #lmPP { background: var(--ink); color: var(--paper); }
+  .lyr-mini #lmPP svg { width: 18px; height: 18px; }
+  .lyr-mini input[type=range] { flex: 1; min-width: 0; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--ink) var(--p, 0%), var(--line) var(--p, 0%)); outline: none; }
+  .lyr-mini input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); }
+  .lyr-mini span { flex: none; min-width: 34px; text-align: right; font: 600 12px/1 inherit; font-variant-numeric: tabular-nums; color: var(--mute); }
   /* 聞き取れない所（虫食い）：点線のまるい穴。押すと、そこから書き足せる */
   .lyr-q { display: inline-grid; place-items: center; min-width: 2.4em; height: 1.15em; margin: 0 .12em; padding: 0 .35em; vertical-align: -.12em; border-radius: 99px; border: 1.5px dashed currentColor; opacity: .55; font: 700 .72em/1 inherit; color: inherit; background: color-mix(in srgb, currentColor 7%, transparent); }
   .lyr-q:active { transform: scale(.94); }
@@ -1519,6 +1530,12 @@
 <section class="lyr" id="lyrSheet" hidden role="dialog" aria-label="Lyrics">
   <button class="lyr-back" id="lyrBack" aria-label="Close lyrics">Lyrics</button>
   <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="lyr-mini" id="lyrMini" hidden>
+    <button id="lmBack" aria-label="Back 5 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg><b>5</b></button>
+    <button id="lmPP" aria-label="Play or pause"></button>
+    <input type="range" id="lmSeek" min="0" max="100" step="0.1" value="0" aria-label="Position">
+    <span id="lmTime">0:00</span>
+  </div>
   <div class="lyr-body" id="lyrBody"></div>
   <textarea class="lyr-edit" id="lyrEdit" hidden placeholder="Paste or type the lyrics" spellcheck="false"></textarea>
   <div class="lyr-syncbar" id="lyrSyncBar" hidden><span id="lyrSyncHint">Play the song and tap when each line starts</span><button id="lyrSyncBack">Undo</button><button id="lyrSyncTap">Tap</button></div>
@@ -5007,7 +5024,7 @@ $('lyrEditBtn').addEventListener('click', () => {
   if (!track) return; hap('light');
   $('lyrEdit').value = (lyr && lyr.lyrics) || ''; $('lyrEdit').hidden = false; $('lyrBody').hidden = true;
   $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrSyncBtn').hidden = false;
-  $('lyrBack').hidden = true; $('lyrClose').hidden = false; $('lyrQBtn').hidden = false; // 編集中は上の「Lyrics」を出さず、右上の × でやめられる
+  $('lyrBack').hidden = true; $('lyrClose').hidden = false; $('lyrQBtn').hidden = false; $('lyrMini').hidden = false; lmPaint(); // 編集中は上の「Lyrics」を出さず、右上の × でやめられる
   $('lyrEdit').focus();
 });
 // 保存：みんなの歌詞として保存（だれでも直せる。前の版も残る）。だめな時だけ自分の中に
@@ -5019,7 +5036,7 @@ async function lyrCommit(text, lrc) {
   lyrEndEdit(); await loadLyrics(t0); if (lyr) openLyrics();
 }
 function lyrEndEdit() {
-  $('lyrBack').hidden = false; $('lyrClose').hidden = true; $('lyrQBtn').hidden = true;
+  $('lyrBack').hidden = false; $('lyrClose').hidden = true; $('lyrQBtn').hidden = true; $('lyrMini').hidden = true;
   $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSave').hidden = true; $('lyrSyncBtn').hidden = true; $('lyrEditBtn').hidden = false; $('lyrWrong').hidden = false;
   $('lyrSyncBar').hidden = true; $('lyrBody').classList.remove('syncing'); lyrSync = null;
 }
@@ -5032,6 +5049,23 @@ $('lyrSave').addEventListener('click', () => {
   const same = lyr && v === String(lyr.lyrics || '').replace(/\s+$/, ''); // 文字を変えていなければ、時間はそのまま残す
   lyrCommit(v, same ? (lyr.lrc || '') : '');
 });
+// 書く時の小さな再生バー
+const LM_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+const LM_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>';
+let lmDrag = false;
+function lmPaint() {
+  if ($('lyrMini').hidden) return;
+  const d = isFinite(player.duration) && player.duration ? player.duration : 0, t = player.currentTime || 0, r = $('lmSeek');
+  if (!lmDrag) { r.max = String(d || 100); r.value = String(t); }
+  r.style.setProperty('--p', (d ? (Math.min(t, d) / d) * 100 : 0) + '%');
+  $('lmTime').textContent = fmt(t);
+  const ic = player.paused ? LM_PLAY : LM_PAUSE; if ($('lmPP').dataset.ic !== ic.length + '' + player.paused) { $('lmPP').innerHTML = ic; $('lmPP').dataset.ic = ic.length + '' + player.paused; }
+}
+player.addEventListener('timeupdate', lmPaint); player.addEventListener('play', lmPaint); player.addEventListener('pause', lmPaint);
+$('lmPP').addEventListener('click', () => { hap('light'); if (player.paused) player.play().catch(() => {}); else player.pause(); setTimeout(lmPaint, 60); });
+$('lmBack').addEventListener('click', () => { hap('light'); player.currentTime = Math.max(0, (player.currentTime || 0) - 5); lmPaint(); });
+$('lmSeek').addEventListener('input', () => { lmDrag = true; $('lmTime').textContent = fmt(+$('lmSeek').value); $('lmSeek').style.setProperty('--p', (+$('lmSeek').value / (+$('lmSeek').max || 1)) * 100 + '%'); });
+$('lmSeek').addEventListener('change', () => { player.currentTime = +$('lmSeek').value; lmDrag = false; lmPaint(); });
 // 「?」：聞き取れない所に穴をあける（カーソルの所に [?] を入れる）
 $('lyrQBtn').addEventListener('click', () => {
   const ta = $('lyrEdit'), a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
@@ -5054,7 +5088,7 @@ $('lyrSyncBtn').addEventListener('click', () => {
   $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSyncBtn').hidden = true;
   $('lyrBody').classList.remove('synced'); $('lyrBody').classList.add('syncing');
   $('lyrBody').innerHTML = lines.map((x, i) => `<span class="ll" data-i="${i}">${esc(x) || '&nbsp;'}</span>`).join('');
-  $('lyrSyncBar').hidden = false; lyrSyncPaint();
+  $('lyrSyncBar').hidden = false; $('lyrMini').hidden = false; lmPaint(); lyrSyncPaint();
   if (player.paused) { player.currentTime = 0; player.play().catch(() => {}); }
   hap('light');
 });
