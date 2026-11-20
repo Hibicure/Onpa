@@ -1427,6 +1427,7 @@
       <div class="rb"><button class="ringbtn glass" id="ringNo" aria-label="Decline"></button><span id="ringNoLbl">Decline</span></div>
       <div class="rb" id="ringYesWrap"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span id="ringYesLbl">Accept</span></div>
     </div>
+    <pre id="spDbg" style="margin:0 auto;font:10px/1.35 ui-monospace,monospace;color:var(--mute);white-space:pre-wrap;text-align:left;max-width:100%;opacity:.8"></pre>
     <div class="pick-name" id="pickName" hidden></div>
     <div class="together" id="npTogether" hidden></div>
     <div class="upnext">
@@ -3781,6 +3782,12 @@ class BandcampMedia extends EventTarget {
     }
   }
 }
+// 調査用（一時的）：Spotify まわりで何が起きたかを、再生画面の下に小さく出す
+const spLog = [];
+function spDbg(m) {
+  spLog.push(new Date().toTimeString().slice(3, 8) + ' ' + m); if (spLog.length > 7) spLog.shift();
+  const el = document.getElementById('spDbg'); if (el) el.textContent = spLog.join('\n');
+}
 // Spotify：音は iPhone の Spotify アプリが鳴らす。Otocloud はリモコン（Spotify Premium・つないだ人だけ）
 class SpotifyMedia extends EventTarget {
   constructor() {
@@ -3794,6 +3801,7 @@ class SpotifyMedia extends EventTarget {
     setInterval(() => {
       if (!this._uri || document.visibilityState !== 'visible') return;
       nat('spNow').then(async (st) => {
+        if (!st || !st.uri) spDbg('now ' + JSON.stringify(st || null).slice(0, 50));
         if (st && st.uri) { this._state(st); return; }
         if (st && st.connected === false && Date.now() - warmAt > 6000) { warmAt = Date.now(); nat('spWarm').catch(() => {}); }
         // つながっていない間は、Spotify のWeb の仕組みで「今なにが流れているか」を読む
@@ -3830,7 +3838,9 @@ class SpotifyMedia extends EventTarget {
       const uri = this._uri;
       // 始まったかどうかを、Spotify に直接聞いて確かめる（知らせが来ない時のため）。始まっていれば秒数が動き出す
       for (const ms of [1500, 3500, 7000, 12000]) setTimeout(() => { if (this._uri === uri && this._paused) nat('spNow').then((st) => { if (st && st.uri) this._state(st); }).catch(() => {}); }, ms);
-      const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => null), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
+      spDbg('load ' + uri.slice(-6));
+      const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch((e) => ({ ok: false, err: e.message })), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
+      spDbg('spPlay ' + (r === 'slow' ? 'slow' : JSON.stringify(r).slice(0, 60)));
       if (r === 'slow') return; // 始まれば Spotify からの知らせ・問い合わせで再生中になる
       if (!r || !r.ok) {
         // 「失敗」と返ってきても、実は Spotify で流れていることがある。確かめてから判断する
@@ -3866,6 +3876,7 @@ class SpotifyMedia extends EventTarget {
   }
   _finish() { this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
   _state(e) {
+    if (e && (e.uri || e.paused != null)) spDbg(`st ${String(e.uri || '').slice(-6)} ${e.uri === this._uri ? '=' : '≠'}${String(this._uri || '').slice(-6)} p=${e.paused} t=${Math.round(e.pos || 0)} ui=${this._paused ? 'stop' : 'play'}`);
     if (!this._uri) return;
     if (e.uri && e.uri !== this._uri) {
       // Spotify が「次に再生」に入れた曲へ進んだ（Otocloud が裏で眠っていた間も含む）
