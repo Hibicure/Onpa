@@ -904,6 +904,10 @@
   .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine { display: none; }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
   .np.full .amb { display: none; }
+  /* 電球を消した（夜）時は、全画面のジャケットも暗く落とす */
+  .np .fullart .img { transition: filter .45s ease; }
+  :root[data-theme="dark"] .np .fullart .img { filter: brightness(.5) saturate(.9); }
+  :root[data-theme="dark"] .np .fullart .shade { background: linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 35%, rgba(0,0,0,.35) 60%, rgba(0,0,0,.82) 100%); }
   /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
   .np .fulllyr { display: none; }
   .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
