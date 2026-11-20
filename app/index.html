@@ -1025,6 +1025,12 @@
   .lyr-back:active { transform: scale(.94); }
   .lyrbtn svg, .lyr-genius svg { width: 11px; height: 11px; margin-left: 2px; vertical-align: -1px; display: inline-block; }
   .lyr-genius[hidden] { display: none; }
+  .lyr-tools { display: flex; justify-content: center; gap: 10px; padding: 8px 24px calc(14px + env(safe-area-inset-bottom)); }
+  .lyr-tools button { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 14px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .lyr-tools button[hidden] { display: none; }
+  .lyr-tools svg { width: 14px; height: 14px; }
+  .lyr-edit { flex: 1; margin: 8px 24px; padding: 14px; border-radius: 16px; border: 0; resize: none; font: 600 16px/1.55 inherit; color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; -webkit-user-select: text; user-select: text; }
+  .lyr-edit[hidden] { display: none; }
   body:not(.artist-mode) #shuffleLikes { display: none !important; }
   #ahPic { cursor: pointer; }
   .lyr-genius { display: block; margin: 10px 0 40px; font-size: 12px; font-weight: 700; color: var(--mute); text-decoration: underline; padding: 6px 0; }
@@ -1476,6 +1482,12 @@
   <button class="lyr-back" id="lyrBack" aria-label="Close lyrics">Lyrics</button>
   <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <div class="lyr-body" id="lyrBody"></div>
+  <textarea class="lyr-edit" id="lyrEdit" hidden placeholder="Paste or type the lyrics" spellcheck="false"></textarea>
+  <div class="lyr-tools">
+    <button id="lyrWrong">Wrong lyrics</button>
+    <button id="lyrEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>Edit</button>
+    <button id="lyrSave" hidden>Save</button>
+  </div>
 </section>
 <section class="eargate actsheet" id="picSheet" hidden role="dialog" aria-label="Profile picture">
   <div class="eg-card as-card">
@@ -4505,21 +4517,32 @@ let waveBars = null, waveFor = null;
 
 // 歌詞：説明欄（なければコメント）に載っていたら、下の真ん中に「Lyrics」を出す
 var lyr = null, lyrFor = null; // var：上の renderTrack から先に使われても大丈夫なように
+// 歌詞の「自分で直したもの」と「違うと報告したもの」（曲ごと。同じ曲ならサービスが違っても共通）
+const lyrKey = (m) => songKey({ artist: m.artist, title: m.title }) || String(m.trackId);
+function lyrMine() { try { return JSON.parse(localStorage.getItem('oto_lyr_mine') || '{}') || {}; } catch { return {}; } }
+function lyrBad() { try { return new Set(JSON.parse(localStorage.getItem('oto_lyr_bad') || '[]')); } catch { return new Set(); } }
 async function loadLyrics(meta) {
   lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; geniusUrl = ''; paintFullLyr();
-  if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
+  if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる
+  $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius; delete $('lyrBtn').dataset.add;
+  // 自分で直した歌詞があれば、それを使う。「違う歌詞」と報告した曲は、自動で見つけた歌詞を使わない
+  const lk = lyrKey(meta), mine = lyrMine()[lk];
+  if (mine) { lyr = { lyrics: mine, from: 'you' }; $('lyrBtn').hidden = false; paintFullLyr(); return; }
+  const bad = lyrBad().has(lk);
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
   // 歌詞が見つからない曲：Genius にその曲のページ（歌詞あり）が本当にある時だけ「Lyrics ↗」を出す
   const toGenius = async () => {
     if (lyrFor !== meta.trackId || lyr) return;
     let g = null; try { g = await fetch(`${WORKER}/genius?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '' })).then((r) => r.json()); } catch {}
-    if (!g || !g.url || lyrFor !== meta.trackId || lyr) return;
+    if (lyrFor !== meta.trackId || lyr) return;
+    // Genius にも無い曲：「＋」で自分で歌詞を入れられる
+    if (!g || !g.url) { $('lyrBtn').innerHTML = '<span style="font-size:14px;line-height:0;margin-right:2px">+</span>Lyrics'; $('lyrBtn').dataset.add = '1'; $('lyrBtn').hidden = false; return; }
     geniusUrl = g.url; $('lyrBtn').innerHTML = 'Lyrics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg>'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
   if (!/^\d+$/.test(String(meta.trackId))) {
     try {
       const d = await fetch(`${WORKER}/lyrics/by?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '', dur: String(Math.round((meta.duration || 0) / 1000)) })).then((r) => r.json());
       if (lyrFor !== meta.trackId) return;
-      if (d && d.lyrics) { lyr = d; $('lyrBtn').hidden = false; paintFullLyr(); return; }
+      if (d && d.lyrics && !bad) { lyr = d; $('lyrBtn').hidden = false; paintFullLyr(); return; }
     } catch {}
     toGenius(); return;
   }
@@ -4527,7 +4550,7 @@ async function loadLyrics(meta) {
     const r = await fetch(`${WORKER}/lyrics/${meta.trackId}` + (meta.secret ? '?st=' + encodeURIComponent(meta.secret) : ''), { headers: await scHeaders() });
     const d = await r.json();
     if (lyrFor !== meta.trackId) return;
-    if (!d.lyrics) { toGenius(); return; }
+    if (!d.lyrics || bad) { toGenius(); return; }
     lyr = d; $('lyrBtn').hidden = false; paintFullLyr();
   } catch { toGenius(); }
 }
@@ -4561,7 +4584,7 @@ function openLyrics() {
   if (!lyr || !track || lyrFor !== track.trackId) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
-  const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
+  const src = lyr.from === 'you' ? 'Your lyrics (only you see them)' : lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
   $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
   // 歌詞があるときは Genius のリンクは出さない（歌詞が無い曲だけ「Lyrics ↗」で Genius へ）
@@ -4572,7 +4595,39 @@ function openLyrics() {
   if (b.width) { k.style.left = b.left + 'px'; k.style.top = b.top + 'px'; k.style.width = b.width + 'px'; k.style.height = b.height + 'px'; k.style.bottom = ''; k.style.transform = ''; }
   else { k.style.left = '50%'; k.style.top = ''; k.style.bottom = 'calc(29px + env(safe-area-inset-bottom))'; k.style.transform = 'translateX(-50%)'; }
 }
-$('lyrBtn').addEventListener('click', () => { hap('light'); if ($('lyrBtn').dataset.genius) openGenius(); else openLyrics(); });
+// 違う歌詞：この曲では自動の歌詞を使わない（報告もしておく）
+$('lyrWrong').addEventListener('click', () => {
+  if (!track) return; const lk = lyrKey(track), b = lyrBad(); b.add(lk);
+  try { localStorage.setItem('oto_lyr_bad', JSON.stringify([...b].slice(-500))); } catch {}
+  try { if (me && me.uid) db.ref('lyricReports/' + lk.replace(/[.#$\[\]\/]/g, '_') + '/' + me.uid).set({ from: (lyr && lyr.from) || '', at: Date.now() }); } catch {}
+  hap('light'); toast('Thanks · these lyrics won\'t show for this song');
+  $('lyrSheet').hidden = true; loadLyrics(track);
+});
+// 自分で直す・入れる（今は自分にだけ見える）
+$('lyrEditBtn').addEventListener('click', () => {
+  if (!track) return; hap('light');
+  $('lyrEdit').value = (lyr && lyr.lyrics) || ''; $('lyrEdit').hidden = false; $('lyrBody').hidden = true;
+  $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrEdit').focus();
+});
+$('lyrSave').addEventListener('click', () => {
+  if (!track) return; const lk = lyrKey(track), m = lyrMine(), v = $('lyrEdit').value.trim();
+  if (v) m[lk] = v; else delete m[lk];
+  try { localStorage.setItem('oto_lyr_mine', JSON.stringify(m)); } catch {}
+  hap('rigid'); toast(v ? 'Saved · only you see these lyrics for now' : 'Removed your lyrics');
+  $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSave').hidden = true; $('lyrEditBtn').hidden = false; $('lyrWrong').hidden = false;
+  loadLyrics(track); setTimeout(() => { if (lyr) openLyrics(); }, 50);
+});
+$('lyrBtn').addEventListener('click', (e) => {
+  if ($('lyrBtn').dataset.add && track) {
+    e.stopImmediatePropagation(); hap('light');
+    $('lyrTitle').textContent = track.title || ''; $('lyrArtist').textContent = track.artist || '';
+    $('lyrBody').innerHTML = ''; $('lyrSheet').hidden = false;
+    const b = $('lyrBtn').getBoundingClientRect(), k = $('lyrBack'); if (b.width) { k.style.left = b.left + 'px'; k.style.top = b.top + 'px'; k.style.width = b.width + 'px'; k.style.height = b.height + 'px'; }
+    $('lyrEditBtn').click(); return;
+  }
+});
+$('lyrBtn').addEventListener('click', () => {
+  if ($('lyrBtn').dataset.add) return; hap('light'); if ($('lyrBtn').dataset.genius) openGenius(); else openLyrics(); });
 $('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; });
 $('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidden = true; });
 async function loadWave(meta) {

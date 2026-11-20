@@ -491,7 +491,8 @@ async function lrclib(t, trace = []) {
   }
   // ② 検索して、曲名とアーティスト名が合うもの（長さが近い順）
   const tn = (x) => normName(x.trackName), an = (x) => normName(x.artistName);
-  const near = (a, b) => a === b || (a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a)));
+  // 似ている：同じか、片方がもう片方を含んでいて長さもほぼ同じ（「Home」と「Home Alone」は別の曲）
+  const near = (a, b) => a === b || (a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a)) && Math.min(a.length, b.length) / Math.max(a.length, b.length) >= 0.7);
   const seen = new Set();
   for (const q of [`${artist} ${title}`, ...pairs.map((p) => p[0])]) {
     if (seen.has(q)) continue; seen.add(q);
@@ -504,7 +505,7 @@ async function lrclib(t, trace = []) {
         const nt = normName(ti), na = normName(ar);
         if (nt.length < 2) continue;
         const ok = list.filter((x) => near(tn(x), nt))
-          .filter((x) => !na || near(an(x), na) || tn(x).includes(na) || (dur && Math.abs((x.duration || 0) - dur) <= 3))
+          .filter((x) => !na || near(an(x), na) || an(x).includes(na) || na.includes(an(x)) || tn(x).includes(na)) // アーティストが違う曲は使わない
           .sort((p, q) => Math.abs((p.duration || 0) - dur) - Math.abs((q.duration || 0) - dur));
         for (const x of ok) { if (!loose && dur && x.duration && Math.abs(x.duration - dur) > 12) continue; const hit = pick(x); if (hit) return hit; }
       }
@@ -514,7 +515,7 @@ async function lrclib(t, trace = []) {
 }
 async function lyricsOf(id, env, userToken, st, dbg) {
   const cache = caches.default;
-  const key = new Request('https://cache.otocloud/lyrics4/' + id + (st ? '/' + st : ''));
+  const key = new Request('https://cache.otocloud/lyrics5/' + id + (st ? '/' + st : ''));
   const hit = dbg ? null : await cache.match(key);
   if (hit) return hit.json();
   const trace = [];
