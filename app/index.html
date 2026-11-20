@@ -974,6 +974,7 @@
   .lyr-x[hidden] { display: none; }
   .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
   .lyr-back:active { transform: scale(.94); }
+  .lyr-genius { display: block; margin: 10px 0 40px; font-size: 12px; font-weight: 700; color: var(--mute); text-decoration: underline; padding: 6px 0; }
   /* 下のミニプレーヤーとタブ：透けない（ジャケットなどが後ろに見えないように） */
   :root.mist .nav, :root.mist[data-theme="dark"] .nav { background: var(--paper) !important; }
   .mini { background: var(--paper) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
@@ -3975,20 +3976,32 @@ let waveBars = null, waveFor = null;
 // 歌詞：説明欄（なければコメント）に載っていたら、下の真ん中に「Lyrics」を出す
 let lyr = null, lyrFor = null;
 async function loadLyrics(meta) {
-  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true;
+  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
+  // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
+  const toGenius = () => { if (lyrFor !== meta.trackId || lyr) return; $('lyrBtn').textContent = 'Lyrics ↗'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
+  if (!/^\d+$/.test(String(meta.trackId))) { toGenius(); return; }
   try {
     const r = await fetch(`${WORKER}/lyrics/${meta.trackId}` + (meta.secret ? '?st=' + encodeURIComponent(meta.secret) : ''), { headers: await scHeaders() });
     const d = await r.json();
-    if (lyrFor !== meta.trackId || !d.lyrics) return;
+    if (lyrFor !== meta.trackId) return;
+    if (!d.lyrics) { toGenius(); return; }
     lyr = d; $('lyrBtn').hidden = false;
-  } catch { /* 歌詞なし */ }
+  } catch { toGenius(); }
+}
+async function openGenius() {
+  if (!track) return;
+  const q = `${String(track.artist || '').split(/,| feat\.? | ft\.? /i)[0]} ${String(track.title || '').replace(/\s*[([【].*?[)\]】]/g, '')}`.trim();
+  let url = 'https://genius.com/search?q=' + encodeURIComponent(q);
+  try { const d = await fetch(`${WORKER}/genius?q=${encodeURIComponent(q)}`).then((r) => r.json()); if (d && d.url) url = d.url; } catch {}
+  if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank');
 }
 function openLyrics() {
   if (!lyr || !track) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
   const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
-  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span>`;
+  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius">See on Genius ↗</button>`;
+  $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
   $('lyrBody').scrollTop = 0;
   $('lyrSheet').hidden = false;
   // 「Lyrics」ボタンとぴったり同じ場所に、閉じるボタンを置く
@@ -3996,7 +4009,7 @@ function openLyrics() {
   if (b.width) { k.style.left = b.left + 'px'; k.style.top = b.top + 'px'; k.style.width = b.width + 'px'; k.style.height = b.height + 'px'; k.style.bottom = ''; k.style.transform = ''; }
   else { k.style.left = '50%'; k.style.top = ''; k.style.bottom = 'calc(29px + env(safe-area-inset-bottom))'; k.style.transform = 'translateX(-50%)'; }
 }
-$('lyrBtn').addEventListener('click', openLyrics);
+$('lyrBtn').addEventListener('click', () => { hap('light'); if ($('lyrBtn').dataset.genius) openGenius(); else openLyrics(); });
 $('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; });
 $('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidden = true; });
 async function loadWave(meta) {

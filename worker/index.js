@@ -815,6 +815,19 @@ export default {
         return json({ located: out, pending }, 200, cors);
       }
 
+      // Genius の歌詞ページ（本文は取らない。ページへのリンクだけ）。GENIUS_TOKEN があれば公式の検索で曲のページへ、なければ検索ページへ
+      if (p === '/genius') {
+        const q = String(url.searchParams.get('q') || '').slice(0, 200);
+        const fallback = 'https://genius.com/search?q=' + encodeURIComponent(q);
+        if (!q || !env.GENIUS_TOKEN) return json({ url: fallback, exact: false }, 200, cors);
+        try {
+          const r = await fetch('https://api.genius.com/search?q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + env.GENIUS_TOKEN } });
+          const d = await r.json();
+          const hit = ((d.response && d.response.hits) || []).find((h) => h.type === 'song' && h.result && h.result.url);
+          return json(hit ? { url: hit.result.url, exact: true, title: hit.result.full_title } : { url: fallback, exact: false }, 200, cors);
+        } catch { return json({ url: fallback, exact: false }, 200, cors); }
+      }
+
       // 出どころのロゴ（各サービスが自分のサイトで配っている公式アイコン）。1週間キャッシュ
       m = p.match(/^\/logo\/(sc|bc|am|sp)$/);
       if (m) {

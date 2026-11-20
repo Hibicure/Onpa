@@ -414,7 +414,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
-                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") || h == "developer.spotify.com" || h == "open.spotify.com" {
+                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") || h == "developer.spotify.com" || h == "open.spotify.com" || h == "genius.com" {
                         await UIApplication.shared.open(u)
                         result = ["ok": true, "opened": true]
                     }
