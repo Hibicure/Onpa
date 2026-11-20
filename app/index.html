@@ -2366,18 +2366,20 @@ async function spSearch(q) {
 // Spotify の曲の形を、Otocloud の曲の形に
 // 海外のアーティストが日本語（カタカナ）で出ないように：Spotify は日本の端末にはカタカナの名前を返すので、元の英語の名前に直す。
 // 日本のアーティスト（漢字・ひらがなを含む名前）はそのまま。英語名は一度調べたら端末に覚えておく
-let spEn = {}; try { spEn = JSON.parse(localStorage.getItem('oto_sp_en') || '{}') || {}; } catch {}
+// spEn[id] = 英語名（海外の人）／ spJp[id] = 1（日本の人：カタカナのまま）
+let spEn = {}, spJp = {}; try { spEn = JSON.parse(localStorage.getItem('oto_sp_en2') || '{}') || {}; spJp = JSON.parse(localStorage.getItem('oto_sp_jp') || '{}') || {}; } catch {}
 const spKana = (n) => /^[\u30A0-\u30FF\u31F0-\u31FF・･ー\s&＆.,'-]+$/.test(String(n || '')) && /[\u30A0-\u30FF]/.test(n);
 const spNeedEn = new Set(); let spEnT = null;
 function spName(a) {
   if (!a || !a.name) return '';
   if (!spKana(a.name)) return a.name;
+  if (spJp[a.id]) return a.name; // 日本の人（ヨルシカ など）はカタカナのまま
   if (spEn[a.id]) return spEn[a.id];
   if (a.id) { spNeedEn.add(a.id); clearTimeout(spEnT); spEnT = setTimeout(spFetchEn, 300); }
   return a.name;
 }
 async function spFetchEn() {
-  const ids = [...spNeedEn].filter((x) => !spEn[x]); spNeedEn.clear(); if (!ids.length) return;
+  const ids = [...spNeedEn].filter((x) => !spEn[x] && !spJp[x]); spNeedEn.clear(); if (!ids.length) return;
   try {
     const tok = await spToken(); if (!tok) return;
     for (let i = 0; i < ids.length; i += 20) {
@@ -2386,15 +2388,27 @@ async function spFetchEn() {
       let d = await fetch('https://api.spotify.com/v1/artists?ids=' + part.join(','), { headers: { Authorization: 'Bearer ' + tok, 'Accept-Language': 'en' } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       let arts = (d && d.artists) || [];
       if (!arts.length) arts = (await Promise.all(part.map((id) => fetch('https://api.spotify.com/v1/artists/' + id, { headers: { Authorization: 'Bearer ' + tok, 'Accept-Language': 'en' } }).then((r) => (r.ok ? r.json() : null)).catch(() => null)))).filter(Boolean);
-      for (const a of arts) if (a && a.id && a.name) spEn[a.id] = a.name;
+      // 日本の人か：Spotify のジャンル（j-pop・アニメ・ボカロ など）→ わからなければ MusicBrainz の国
+      const unknown = [];
+      for (const a of arts) {
+        if (!a || !a.id || !a.name) continue;
+        const g = (a.genres || []).join(' ');
+        if (/\bj-|japan|anime|vocaloid|city pop|kayokyoku|enka|visual kei|shibuya|idol/i.test(g)) spJp[a.id] = 1;
+        else if (g) spEn[a.id] = a.name;
+        else unknown.push(a);
+      }
+      if (unknown.length) {
+        const c = await fetch(`${WORKER}/artists/country`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artists: unknown.map((a) => ({ sp: a.id, name: a.name })) }) }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+        for (const a of unknown) { if (!(a.id in c)) continue; if (c[a.id] === 'JP') spJp[a.id] = 1; else spEn[a.id] = a.name; } // 国が分からない人は、海外の人として英語名
+      }
     }
-    try { localStorage.setItem('oto_sp_en', JSON.stringify(spEn)); } catch {}
+    try { localStorage.setItem('oto_sp_en2', JSON.stringify(spEn)); localStorage.setItem('oto_sp_jp', JSON.stringify(spJp)); } catch {}
     spApplyEn();
   } catch {}
 }
 // 覚えた英語名を、今見えている一覧・再生中の曲に反映
 function spApplyEn() {
-  const fix = (t) => { if (!t || !t.spArtists) return false; const n = t.spArtists.map((a) => spEn[a.id] || a.name).join(', '); if (n !== t.artist) { t.artist = n; return true; } return false; };
+  const fix = (t) => { if (!t || !t.spArtists) return false; const n = t.spArtists.map((a) => (spJp[a.id] ? a.name : spEn[a.id] || a.name)).join(', '); if (n !== t.artist) { t.artist = n; return true; } return false; };
   let changed = false; for (const t of lastResults || []) { if (fix(t)) changed = true; for (const x of t.alts || []) fix(x); }
   for (const t of queue || []) fix(t);
   if (changed && (mode === 'search' || mode === 'likes' || mode === 'playlist' || mode === 'artist')) { const y = window.scrollY, head = $('results').querySelector('#albums, #spAlbums, .alb-head, .pl-import'); const keep = head ? head.outerHTML : ''; $('results').innerHTML = (lastResults || []).map(rowHTML).join(''); if (keep) $('results').insertAdjacentHTML('afterbegin', keep); markNow(); window.scrollTo(0, y); }

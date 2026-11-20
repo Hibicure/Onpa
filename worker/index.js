@@ -792,6 +792,39 @@ export default {
       // シェア用の画像を作る時に、ブラウザがジャケットを読み込めるようにする
       // 地球儀用：アーティストの場所をまとめて調べる（SoundCloudはプロフィールの街、ほかは MusicBrainz の出身地）。
       // 1回で調べる数には上限。残りは pending で返すので、画面がもう一度聞く
+      // アーティストの国（日本の人かどうか）：Spotify の番号から MusicBrainz で。90日覚えておく。POST { artists: [{ sp, name }] } → { sp番号: 'JP' | 'US' | '' }
+      if (p === '/artists/country' && request.method === 'POST') {
+        const body = await request.json().catch(() => ({}));
+        const list = Array.isArray(body.artists) ? body.artists.slice(0, 60) : [];
+        const out = {}; let budget = 4;
+        for (const a of list) {
+          if (!a || !a.sp) continue;
+          const ck = new Request('https://cache.otocloud/country1/' + encodeURIComponent(a.sp));
+          const hit = await caches.default.match(ck);
+          if (hit) { out[a.sp] = (await hit.json()).c; continue; }
+          if (budget-- <= 0) continue;
+          let c = null;
+          try {
+            let id = '';
+            const r = await fetch('https://musicbrainz.org/ws/2/url?inc=artist-rels&fmt=json&resource=' + encodeURIComponent('https://open.spotify.com/artist/' + a.sp), { headers: MB_H });
+            if (r.ok) { const d = await r.json(); const rel = (d.relations || []).find((x) => x.artist); if (rel) id = rel.artist.id; }
+            await nap(1100);
+            if (!id && a.name) {
+              const q = await fetch('https://musicbrainz.org/ws/2/artist?fmt=json&limit=5&query=' + encodeURIComponent('artist:"' + String(a.name).replace(/"/g, '') + '"'), { headers: MB_H });
+              if (q.ok) { const d = await q.json(); const best = (d.artists || []).find((x) => x.score >= 95 && String(x.name).toLowerCase() === String(a.name).toLowerCase()); if (best) { c = best.country || (best.area && best.area['iso-3166-1-codes'] && best.area['iso-3166-1-codes'][0]) || ''; } }
+              await nap(1100);
+            } else if (id) {
+              const q = await fetch(`https://musicbrainz.org/ws/2/artist/${id}?fmt=json`, { headers: MB_H });
+              if (q.ok) { const d = await q.json(); c = d.country || (d.area && d.area['iso-3166-1-codes'] && d.area['iso-3166-1-codes'][0]) || ''; }
+              await nap(1100);
+            }
+          } catch {}
+          if (c === null) c = '';
+          out[a.sp] = c;
+          await caches.default.put(ck, new Response(JSON.stringify({ c }), { headers: { 'Cache-Control': 'max-age=7776000' } }));
+        }
+        return json(out, 200, cors);
+      }
       if (p === '/artists/where' && request.method === 'POST') {
         const body = await request.json().catch(() => ({}));
         const list = Array.isArray(body.artists) ? body.artists.slice(0, 150) : [];
