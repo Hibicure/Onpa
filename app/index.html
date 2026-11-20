@@ -2118,7 +2118,7 @@ async function spSearch(q) {
       try { const x = await nat('spStatus'); st = `linked=${x.linked} connected=${x.connected} installed=${x.installed} tok=${(x.token || '').length}`; } catch (e) { st = 'status err ' + e.message; }
       spWhy = 'not linked · ' + raw + ' · ' + st; return [];
     }
-    const r = await Promise.race([fetch('https://api.spotify.com/v1/search?type=track&limit=15&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
+    const r = await Promise.race([fetch('https://api.spotify.com/v1/search?type=track&limit=10&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
     if (!r) { spWhy = 'timeout'; return []; }
     if (!r.ok) { if (r.status === 401) spTokAt = 0; spWhy = 'error ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 120); return []; }
     const d = await r.json();
@@ -2523,8 +2523,10 @@ async function gatherArtists() {
   // Spotify（フォロー中・よく聴く）
   if (spTok) jobs.push((async () => {
     const H = { Authorization: 'Bearer ' + spTok };
-    try { const d = await fetch('https://api.spotify.com/v1/me/following?type=artist&limit=50', { headers: H }).then((r) => r.json()); for (const a of (d.artists && d.artists.items) || []) add({ name: a.name, sp: a.id, img: ((a.images || []).slice(-1)[0] || {}).url || '', from: 'sp' }, 3); } catch {}
-    try { const d = await fetch('https://api.spotify.com/v1/me/top/artists?limit=30&time_range=medium_term', { headers: H }).then((r) => r.json()); for (const a of d.items || []) add({ name: a.name, sp: a.id, img: ((a.images || []).slice(-1)[0] || {}).url || '', from: 'sp' }, 2); } catch {}
+    // 開発中のアプリは1回に取れる数が少ない（多すぎると「Invalid limit」）。断られたら10件で取り直す
+    const get = async (u) => { let r = await fetch(u, { headers: H }); if (r.status === 400) r = await fetch(u.replace(/limit=\d+/, 'limit=10'), { headers: H }); return r.json(); };
+    try { const d = await get('https://api.spotify.com/v1/me/following?type=artist&limit=50'); for (const a of (d.artists && d.artists.items) || []) add({ name: a.name, sp: a.id, img: ((a.images || []).slice(-1)[0] || {}).url || '', from: 'sp' }, 3); } catch {}
+    try { const d = await get('https://api.spotify.com/v1/me/top/artists?limit=30&time_range=medium_term'); for (const a of d.items || []) add({ name: a.name, sp: a.id, img: ((a.images || []).slice(-1)[0] || {}).url || '', from: 'sp' }, 2); } catch {}
   })());
   await Promise.all(jobs);
   // Otocloud で最近聴いた曲のアーティスト
