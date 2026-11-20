@@ -925,7 +925,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     func login() async -> Bool {
         await withCheckedContinuation { c in
             loginWaiter = c
-            sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming, .userFollowRead, .userTopRead, .userLibraryRead, .userLibraryModify], options: .default, campaign: nil)
+            DispatchQueue.main.async { self.sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming, .userFollowRead, .userTopRead, .userLibraryRead, .userLibraryModify], options: .default, campaign: nil) }
         }
     }
 
@@ -935,7 +935,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         _ = sessionManager.application(UIApplication.shared, open: url, options: [:])
         if let p = remote.authorizationParameters(from: url), let t = p["access_token"], !t.isEmpty {
             remote.connectionParameters.accessToken = t
-            remote.connect()
+            DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
         }
         return true
     }
@@ -958,7 +958,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         remote.connectionParameters.accessToken = sessionManager.session?.accessToken
         let ok = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             connectWaiters.append(c)
-            remote.connect()
+            DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
             // 返事が来ないまま待ち続けないように、5秒で「つながらなかった」にする
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
                 guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
@@ -969,7 +969,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         // Spotify アプリが動いていない：一瞬開いて、その曲から流し始めてもらう
         let opened = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             var done = false
-            remote.authorizeAndPlayURI(playURI) { ok in DispatchQueue.main.async { if !done { done = true; c.resume(returning: ok) } } }
+            DispatchQueue.main.async { self.remote.authorizeAndPlayURI(playURI) { ok in DispatchQueue.main.async { if !done { done = true; c.resume(returning: ok) } } } }
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { if !done { done = true; c.resume(returning: false) } }
         }
         guard opened else { return false }
@@ -997,7 +997,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         remote.connectionParameters.accessToken = sessionManager.session?.accessToken
         return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             connectWaiters.append(c)
-            remote.connect()
+            DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
                 guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
                 self.finishConnect(false)
