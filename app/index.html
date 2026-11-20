@@ -3726,6 +3726,16 @@ class SpotifyMedia extends EventTarget {
     this.hasNext = () => true; // Otocloud 側に次の曲があるか（無ければ Spotify のおすすめにそのまま任せる）
     this._enq = []; // Spotify の「次に再生」に入れた曲（順番）。Spotify がそれを流している間は、Otocloud はそれに付いていく
     setTimeout(() => { (natH.spState = natH.spState || []).push((e) => this._state(e || {})); }, 0);
+    // Spotify の今の状態を、2秒ごとに直接聞いて合わせる（知らせが来ない・つながり直した時でも、再生中の表示と秒数がずれないように）。
+    // つながっていなければ、Spotify を開かずにつなぎ直しを試す
+    let warmAt = 0;
+    setInterval(() => {
+      if (!this._uri || document.visibilityState !== 'visible') return;
+      nat('spNow').then((st) => {
+        if (st && st.uri) this._state(st);
+        else if (st && st.connected === false && Date.now() - warmAt > 6000) { warmAt = Date.now(); nat('spWarm').catch(() => {}); }
+      }).catch(() => {});
+    }, 2000);
     setInterval(() => {
       if (this._paused || !this._uri) return;
       this.fire('timeupdate');
