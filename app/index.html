@@ -4329,7 +4329,8 @@ $('npClose').addEventListener('click', closeNp);
 (() => {
   const np = $('np');
   let y0 = 0, t0 = 0, dy = 0, id = null;
-  const startOk = (e) => !e.target.closest('#recBtn, #ambBtn, #npSrc') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
+  // ボタン（電球・地球・三原色・ロゴ・Lyrics・録音）を押した時は、引き下げ・全画面を戻す操作にしない（つまみの所だけは別）
+  const startOk = (e) => !e.target.closest('button:not(.grab), #recBtn') && (e.target.closest('.top') || (e.target.closest('.stage') && !e.target.closest('#disc')));
   let x0 = 0, dx = 0, way = null, side = 0;
   const img = $('fullImg'), pk = $('fullPeek'), fa = $('fullArt'), card = $('fullCard'), pcard = $('fullPeekCard');
   const GAPF = 6; // ジャケットどうしの間の黒い柱
