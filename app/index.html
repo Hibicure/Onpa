@@ -618,6 +618,12 @@
   .as-card .eg-no { align-self: center; margin-top: 10px; }
   /* 「…」などのメニュー：画面の下に浮かぶガラスのカード。白く光る厚みのある縁 */
   .actsheet { background: rgba(0,0,0,.28); align-items: flex-end; padding: 0 10px calc(10px + env(safe-area-inset-bottom)); }
+  .eargate .eg-card, .actsheet .card { border-radius: 30px; background: color-mix(in srgb, var(--paper) 74%, transparent);
+    -webkit-backdrop-filter: blur(26px) saturate(1.4); backdrop-filter: blur(26px) saturate(1.4);
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55), inset 0 1px 10px rgba(255,255,255,.35), 0 0 0 .5px rgba(0,0,0,.08), 0 18px 50px rgba(0,0,0,.28); }
+  .actsheet .card { width: 100%; max-width: 480px; padding: 18px 20px 14px; color: var(--ink); animation: egup .36s cubic-bezier(.2,.85,.25,1); }
+  .eargate:not(.actsheet) { padding: 0 10px calc(10px + env(safe-area-inset-bottom)); }
+  .eargate:not(.actsheet) .eg-card { padding-bottom: 22px; }
   .actsheet .eg-card { border-radius: 30px; padding: 14px 20px 14px; background: color-mix(in srgb, var(--paper) 74%, transparent);
     -webkit-backdrop-filter: blur(26px) saturate(1.4); backdrop-filter: blur(26px) saturate(1.4);
     box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.55), inset 0 1px 10px rgba(255,255,255,.35), 0 0 0 .5px rgba(0,0,0,.08), 0 18px 50px rgba(0,0,0,.28); }
@@ -1011,7 +1017,7 @@
     --glass-a: rgba(185,186,190,.9); --glass-b: rgba(150,151,155,.6);
     --pop-a: rgba(176,177,181,.97); --pop-b: rgba(160,161,165,.94);
   }
-  :root.mist[data-theme="dark"] { --paper: #3B3C41; --surface: #44454A; --line: #4D4E53; --chip: #46474C; --nav: rgba(59,60,65,.94); } /* 夜：黒すぎない、やわらかいグレー */
+  :root.mist[data-theme="dark"] { --paper: #46474C; --surface: #4F5055; --line: #58595E; --chip: #515257; --nav: rgba(70,71,76,.94); } /* 夜：黒すぎない、やわらかいグレー */
   :root.mist body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.07) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist[data-theme="dark"] body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: var(--scr-r, 54px); box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
@@ -2301,6 +2307,22 @@ async function spSaveLike(id, like) {
     const r = await fetch('https://api.spotify.com/v1/me/tracks?ids=' + encodeURIComponent(String(id).replace(/^sp:/, '')), { method: like ? 'PUT' : 'DELETE', headers: { Authorization: 'Bearer ' + tok } });
     if (r.status === 401 || r.status === 403) toast('Reconnect Spotify in Settings to sync likes');
   } catch {}
+}
+// 今の曲が Spotify の「お気に入り」に入っているか聞いて、入っていれば♡を付けておく（一覧で取れなかった古い曲も）
+const spLikedAsked = new Map();
+async function checkSpLiked(t) {
+  if (!IN_APP || !t || !spTok) return;
+  const ids = [t.trackId, t.id, ...((t.alts || []).map((x) => x && x.id))].map((x) => String(x || '')).filter((x) => x.startsWith('sp:'));
+  const sp = ids[0]; if (!sp || likedIds.has(String(t.trackId))) return;
+  let on = spLikedAsked.get(sp);
+  if (on === undefined) {
+    try {
+      const tok = await spToken(); if (!tok) return;
+      const r = await fetch('https://api.spotify.com/v1/me/tracks/contains?ids=' + encodeURIComponent(sp.slice(3)), { headers: { Authorization: 'Bearer ' + tok } });
+      if (!r.ok) return; const d = await r.json(); on = !!(d && d[0]); spLikedAsked.set(sp, on);
+    } catch { return; }
+  }
+  if (on && track && String(track.trackId) === String(t.trackId)) { likedIds.add(String(t.trackId)); likedIds.add(sp); paintHeart(); }
 }
 // いいねの一覧に Spotify のお気に入りを足す（同じ曲は1つ）
 async function mergeSpotifyLikes() {
@@ -4476,7 +4498,9 @@ function renderTrack() {
     const name = { sc: 'SoundCloud', bc: 'Bandcamp', am: 'Apple Music', sp: 'Spotify' }[code];
     $('npSrc').querySelector('.glyph').className = 'glyph g-' + code;
     $('npSrc').hidden = false; $('npSrc').setAttribute('aria-label', 'Open in ' + name); }
-  { const bc = String(track.trackId || '').startsWith('bc:'); $('scSrc').firstChild.textContent = bc ? 'on Bandcamp ' : 'on SoundCloud '; $('scSrc').setAttribute('aria-label', bc ? 'Open in Bandcamp' : 'Open in SoundCloud'); const a = $('asSC').querySelector('.as-col > span'); if (a) a.textContent = bc ? 'Open in Bandcamp' : 'Open in SoundCloud'; }
+  { const id0 = String(track.trackId || ''), name = id0.startsWith('bc:') ? 'Bandcamp' : id0.startsWith('sp:') ? 'Spotify' : id0.startsWith('am:') ? 'Apple Music' : 'SoundCloud';
+    $('scSrc').firstChild.textContent = 'on ' + name + ' '; $('scSrc').setAttribute('aria-label', 'Open in ' + name); const a = $('asSC').querySelector('.as-col > span'); if (a) a.textContent = 'Open in ' + name; }
+  checkSpLiked(track);
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').src = NO_ART; $('npArt').src = NO_ART_DISC; }
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
