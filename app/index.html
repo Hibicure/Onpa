@@ -2871,7 +2871,7 @@ function applyGlobeStyle() {
   m.map = white ? null : t.map; m.bumpMap = t.bump; m.bumpScale = white ? 0.05 : 0.02; m.specularMap = t.water; m.emissiveMap = t.water;
   m.color.set(white ? 0xf2f4f7 : 0xffffff);
   // 写真の地球は Google Earth のように：海はやわらかい青、全体に薄い大気のもや、雲なし、右下にかけてそっと影
-  m.emissive.set(white ? 0x7fb2e6 : 0x3d66b8); m.emissiveIntensity = white ? 0.45 : 0.55;
+  m.emissive.set(white ? 0x7fb2e6 : 0x2c5fd0); m.emissiveIntensity = white ? 0.45 : 0.75;
   m.specular.set(white ? 0xffffff : 0x1a2230); m.shininess = white ? 40 : 10;
   m.needsUpdate = true;
   if (gl.clouds) { gl.clouds.visible = white; gl.cloudsMat.opacity = 0.35; }
@@ -2884,11 +2884,11 @@ function applyGlobeStyle() {
     if (!white) a.depthTest = false;
     a.fragmentShader = white
       ? 'uniform vec3 L; varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, n.z), 2.2); gl_FragColor = vec4(1.0,1.0,1.0,1.0) * i * 0.6; }'
-      : 'uniform vec3 L; varying vec3 n; void main(){ float f = 1.0 - max(0.0, n.z); float lit = smoothstep(-0.45, 0.6, dot(n, L)); float k = (0.30 + 0.55 * pow(f, 2.0)) * lit; gl_FragColor = vec4(0.74,0.82,0.97, k); }';
+      : 'uniform vec3 L; varying vec3 n; void main(){ float f = 1.0 - max(0.0, n.z); float lit = smoothstep(-0.5, 0.65, dot(n, L)); float k = (0.44 + 0.42 * pow(f, 1.8)) * mix(0.35, 1.0, lit); gl_FragColor = vec4(0.85,0.89,0.98, k); }'; // 乳白色のうすい膜（陸も海も）
     a.needsUpdate = true;
   }
   if (gl.halo) gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x5cb4ff);
-  if (gl.renderer) gl.renderer.toneMappingExposure = white ? 1.1 : 1.08;
+  if (gl.renderer) gl.renderer.toneMappingExposure = 1.1;
 }
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
 let _qa = null, _qb = null, _ax = null, _ay = null;
