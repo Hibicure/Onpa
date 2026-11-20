@@ -707,7 +707,7 @@
   /* ---------- お知らせ ---------- */
   .toast { pointer-events: none; position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top)); transform: translate(-50%, -140%); max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 14px; z-index: 80; visibility: hidden; transition: transform .3s cubic-bezier(.2,.8,.2,1), visibility 0s .3s; }
   .toast.show { transform: translate(-50%, 0); visibility: visible; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
-  .toast.low { transform: translate(-50%, 6px); opacity: 0; transition: transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s, visibility 0s .3s; }
+  .toast.low { transform: translate(-50%, 0); opacity: 0; transition: transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s, visibility 0s .3s; }
   .toast.low.show { transform: translate(-50%, 0); opacity: 1; transition: transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s; }
   /* 新しい見た目：お知らせは箱なし、白く光る文字だけ */
   :root.mist .toast { background: none; color: #fff; font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: -0.01em; padding: 6px 4px; text-align: center;
@@ -1074,7 +1074,8 @@
   /* 「Liked on SoundCloud」などの知らせ：小さめ・1行・控えめな光 */
   /* お知らせの文字：曲名の太い書体は使わず、ふつうの落ち着いた文字で */
   :root.mist .toast { font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 4px; opacity: .92;
-    text-shadow: 0 1px 6px rgba(0,0,0,.25); }
+    text-shadow: none; color: var(--ink); }
+  :root.mist .toast.low { opacity: 0; } :root.mist .toast.low.show { opacity: .92; } /* 出る・消えるはその場でふわっと（ずれない）。文字はライトは黒、ダークは白 */
   /* 左上のロゴ：アイコンの「受話器と音符」マークを、文字の横に */
   .mark { display: inline-flex; align-items: center; gap: 6px; }
   .mark .mark-ic { width: 0.98em; height: 0.98em; flex: none; margin-top: -1px; }
