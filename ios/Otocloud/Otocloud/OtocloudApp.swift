@@ -956,7 +956,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     func login() async -> Bool {
         await withCheckedContinuation { c in
             loginWaiter = c
-            DispatchQueue.main.async { self.sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming, .userFollowRead, .userTopRead, .userLibraryRead, .userLibraryModify], options: .default, campaign: nil) }
+            DispatchQueue.main.async { self.sessionManager.initiateSession(with: [.appRemoteControl, .userReadPlaybackState, .userModifyPlaybackState, .streaming, .userFollowRead, .userTopRead, .userLibraryRead, .userLibraryModify, .playlistReadPrivate, .playlistReadCollaborative], options: .default, campaign: nil) }
         }
     }
 

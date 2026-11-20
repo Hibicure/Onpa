@@ -449,6 +449,18 @@
   .lyr-x { width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink); }
   .lyr-x { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); } .lyr-x svg { width: 20px; height: 20px; }
   .lyr-x[hidden], .lyr-back[hidden] { display: none !important; }
+  /* プレイリスト */
+  .pl-head { margin: 18px 20px 6px; font: 700 13px/1 inherit; color: var(--mute); }
+  .pl-head:first-child { margin-top: 6px; }
+  .pl-plus { display: grid; place-items: center; font: 300 28px/1 inherit; color: var(--ink); background: var(--chip); }
+  .pl-import { display: flex; align-items: center; gap: 8px; margin: 4px 16px 10px; height: 40px; padding: 0 16px; border-radius: 99px; background: var(--chip); color: var(--ink); font-weight: 700; font-size: 14px; }
+  .pl-import svg { width: 18px; height: 18px; }
+  .pl-sh-t { padding: 4px 8px 12px; font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pl-sh-t small { display: block; font-weight: 600; font-size: 13px; color: var(--mute); margin-top: 3px; }
+  .pl-sh-art { width: 28px; height: 28px; border-radius: 6px; object-fit: cover; background: var(--chip); }
+  #plSheet .as-card { max-height: 70vh; overflow-y: auto; }
+  .pl-name { width: 100%; height: 48px; margin: 2px 0 12px; padding: 0 14px; border-radius: 14px; border: 0; background: var(--chip); color: var(--ink); font: 600 17px inherit; }
+  .pl-name-row { display: flex; gap: 10px; } .pl-name-row .btn { flex: 1; height: 46px; }
   /* 歌詞を書く時の小さな再生バー：聞き直しながら、その場で書ける */
   .lyr-mini { display: flex; align-items: center; gap: 8px; margin: 0 20px 4px; padding: 6px 12px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
   .lyr-mini[hidden] { display: none; }
@@ -1568,6 +1580,7 @@
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
     <button class="as-item" id="asSC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span class="as-col"><span>Open in SoundCloud</span><small id="asBy"></small></span></button>
+    <button class="as-item" id="asPl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 11h12M4 16h7"/><path d="M18 13v7M14.5 16.5h7"/></svg>Add to playlist</button>
     <button class="as-item" id="asLyr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M4 11h11M4 16h6"/><path d="M14.5 19.5l5.6-5.6a1.6 1.6 0 0 0-2.3-2.3l-5.6 5.6-.6 2.9z"/></svg><span id="asLyrT">Add lyrics</span></button>
     <button class="as-item" id="asLess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 12h8"/></svg><span class="as-col"><span>Fewer like this</span><small>Suggested less often</small></span></button>
     <button class="as-item" id="asArtist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Go to artist</button>
@@ -2572,6 +2585,11 @@ $('results').addEventListener('click', (e) => {
   if (e.target.closest('.sc-connect')) { connectSC(); return; }
   const pl = e.target.closest('[data-pl]');
   if (pl) { openPlaylist(pl.dataset.pl, pl.dataset.title); return; }
+  const opl = e.target.closest('[data-opl]'); if (opl) { openOpl(opl.dataset.opl); return; }
+  const sppl = e.target.closest('[data-sppl]'); if (sppl) { openSpPlaylist(sppl.dataset.sppl, sppl.dataset.title); return; }
+  const pnew = e.target.closest('[data-plnew]');
+  if (pnew) { if (!me || !me.uid) { toast('Sign in to make playlists'); return; } askName('New playlist', 'Name').then((name) => { if (name && name.trim()) oplCreate(name.trim()).then((id) => { hap('rigid'); openOpl(id); }); }); return; }
+  const imp = e.target.closest('[data-plimport]'); if (imp) { oplImport(imp.dataset.plimport); return; }
   const lk = e.target.closest('[data-like]');
   if (lk) { toggleRowLike(lk); return; }
   const sl = e.target.closest('.srclogo');
@@ -3513,6 +3531,7 @@ function setMode(m) {
     return;
   }
   if (!sc && m === 'likes') { showLikes(); return; }
+  if (m === 'playlists') { showPlaylists(); return; } // Otocloud・Spotify のプレイリストは SoundCloud なしでも見られる
   if (!sc) {
     $('libbar').hidden = true;
     $('results').innerHTML = msg('Connect SoundCloud', 'Play your SoundCloud playlists right from Otocloud.<br><button class="btn primary sc-connect">Connect SoundCloud</button>');
@@ -3534,20 +3553,136 @@ async function showLikes() {
 }
 
 async function showPlaylists() {
-  $('libTitle').textContent = 'Your playlists';
+  $('libTitle').textContent = 'Playlists';
   $('shuffle').hidden = true;
   $('results').innerHTML = msg('Loading your playlists…');
-  try {
-    const d = await scApi('/sc/playlists');
-    if (mode !== 'playlists') return;
-    lastResults = [];
-    $('results').innerHTML = d.length ? d.map((pl) => `
-      <button class="row" data-pl="${pl.id}" data-title="${esc(pl.title)}">
-        <img class="art sq" src="${esc(pl.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')">
-        <div class="txt"><div class="t">${esc(pl.title)}</div><div class="s">${pl.count} tracks</div></div>
-      </button>`).join('') : msg('No playlists yet');
-  } catch (e) { if (mode === 'playlists') $('results').innerHTML = msg("Couldn't load your playlists", esc(e.message)); }
+  const mine = await oplList().catch(() => []);
+  const [scl, spl] = await Promise.all([sc ? scApi('/sc/playlists').catch(() => []) : [], spPlaylists().catch(() => [])]);
+  if (mode !== 'playlists') return;
+  lastResults = [];
+  const row = (attrs, art, title, sub) => `<button class="row" ${attrs}><img class="art sq" src="${esc(art || '')}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><div class="txt"><div class="t">${esc(title)}</div><div class="s">${sub}</div></div></button>`;
+  const head = (t) => `<div class="pl-head">${t}</div>`;
+  let h = head('Otocloud') + `<button class="row pl-new" data-plnew="1"><span class="art sq pl-plus">+</span><div class="txt"><div class="t">New playlist</div><div class="s">Mix songs from Spotify, SoundCloud and Bandcamp</div></div></button>`;
+  h += mine.map((p) => row(`data-opl="${esc(p.id)}"`, p.art, p.title, `${p.n} track${p.n === 1 ? '' : 's'}`)).join('');
+  if (spl.length) h += head('Spotify') + spl.map((p) => row(`data-sppl="${esc(p.id)}" data-title="${esc(p.title)}"`, p.art, p.title, `${p.n} tracks`)).join('');
+  if (scl.length) h += head('SoundCloud') + scl.map((pl) => row(`data-pl="${pl.id}" data-title="${esc(pl.title)}"`, pl.artwork, pl.title, `${pl.count} tracks`)).join('');
+  $('results').innerHTML = h;
 }
+
+// ===================== Otocloud のプレイリスト（Spotify・SoundCloud・Bandcamp を1つに） =====================
+// 保存先：users/{自分}/pls/{id} = { title, at, tracks: { key: 曲 } }。曲はサービスと番号・ISRC をいっしょに覚える（あとで Apple Music でも流せるように）
+const OPL_KEYS = ['id', 'title', 'artist', 'artwork', 'duration', 'isrc', 'uploader', 'userId', 'secret', 'spuri', 'spAlbumId', 'spArtistId', 'album', 'permalink_url', 'pop', 'plays'];
+function oplClean(t) { const o = {}; for (const k of OPL_KEYS) { const v = t && t[k]; if (v !== undefined && v !== null && v !== '') o[k] = v; } return o; }
+function oplTrack(t) { const o = oplClean(t); const alts = (t.alts || []).map(oplClean).filter((x) => x.id); if (alts.length) o.alts = alts.slice(0, 4); return o; }
+const oplRef = (id) => db.ref(`users/${me.uid}/pls` + (id ? '/' + id : ''));
+async function oplList() {
+  if (!me || !me.uid) return [];
+  const v = (await oplRef().get()).val() || {};
+  return Object.entries(v).map(([id, p]) => { const tr = Object.values(p.tracks || {}).sort((a, b) => (a.at || 0) - (b.at || 0)); return { id, title: p.title || 'Playlist', at: p.at || 0, n: tr.length, art: (tr[0] && tr[0].artwork) || '' }; }).sort((a, b) => b.at - a.at);
+}
+async function oplCreate(title) { const r = oplRef().push(); await r.set({ title: String(title).slice(0, 80), at: TS }); return r.key; }
+async function oplAdd(plId, t) {
+  const ref = oplRef(plId + '/tracks'), cur = (await ref.get()).val() || {};
+  const k = songKey(t), ids = new Set([t.id, ...((t.alts || []).map((x) => x.id))].map(String));
+  if (Object.values(cur).some((x) => ids.has(String(x.id)) || (k && songKey(x) === k))) return false; // 同じ曲は入れない
+  await ref.push({ ...oplTrack(t), at: TS, by: me.uid }); oplRef(plId + '/at').set(TS); return true;
+}
+async function oplTracks(plId) { const v = (await oplRef(plId + '/tracks').get()).val() || {}; return Object.entries(v).map(([key, x]) => ({ ...x, _plk: key })).sort((a, b) => (a.at || 0) - (b.at || 0)); }
+let oplNow = null;
+async function openOpl(id) {
+  mode = 'playlist'; albumBack = null; oplNow = id; spplNow = null;
+  document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
+  $('libBack').hidden = false; $('shuffle').hidden = false; $('results').innerHTML = msg('Loading…');
+  const v = (await oplRef(id).get()).val() || {}; $('libTitle').textContent = v.title || 'Playlist';
+  const list = await oplTracks(id);
+  if (mode === 'playlist' && oplNow === id) renderTracks(list, msg('Nothing here yet', 'Long-press any song and choose “Add to playlist”'));
+}
+// Spotify の自分のプレイリスト
+async function spPlaylists() {
+  if (!IN_APP || !spTok) return [];
+  const tok = await spToken(); if (!tok) return [];
+  const d = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: 'Bearer ' + tok } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  return ((d && d.items) || []).filter(Boolean).map((p) => ({ id: p.id, title: p.name, n: (p.tracks && p.tracks.total) || (p.items && p.items.total) || 0, art: ((p.images || [])[0] || {}).url || '' }));
+}
+async function spPlaylistTracks(id) {
+  const tok = await spToken(); if (!tok) return [];
+  const H = { Authorization: 'Bearer ' + tok }, out = [];
+  for (const path of ['items', 'tracks']) {
+    let url = `https://api.spotify.com/v1/playlists/${id}/${path}?limit=50`, ok = false;
+    for (let n = 0; url && n < 10; n++) {
+      const d = await fetch(url, { headers: H }).then((r) => (r.ok ? r.json() : null)).catch(() => null); if (!d) break; ok = true;
+      for (const it of d.items || []) { const t = it && (it.track || it.item); if (t && t.id && t.type !== 'episode') out.push(spMap(t)); }
+      url = d.next;
+    }
+    if (ok) break;
+  }
+  return out;
+}
+let spplNow = null;
+async function openSpPlaylist(id, title) {
+  mode = 'playlist'; albumBack = null; oplNow = null; spplNow = { id, title };
+  document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
+  $('libTitle').textContent = title; $('libBack').hidden = false; $('shuffle').hidden = false; $('results').innerHTML = msg('Loading…');
+  const list = await spPlaylistTracks(id);
+  if (mode === 'playlist' && spplNow && spplNow.id === id) { renderTracks(list, msg('This playlist is empty')); oplImportBtn(title); }
+}
+// 開いている Spotify・SoundCloud のプレイリストを、まるごと Otocloud のプレイリストに（取り込むだけ。元には書き込まない）
+function oplImportBtn(title) {
+  if (!lastResults || !lastResults.length) return;
+  $('results').insertAdjacentHTML('afterbegin', `<button class="pl-import" data-plimport="${esc(title)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Save to Otocloud</button>`);
+}
+async function oplImport(title) {
+  if (!me || !me.uid) { toast('Sign in to make playlists'); return; }
+  const list = (lastResults || []).slice(); if (!list.length) return;
+  hap('rigid'); toast('Saving…');
+  const id = await oplCreate(title); const ref = oplRef(id + '/tracks'), seen = new Set(); let n = 0; const t0 = Date.now();
+  for (const t of list) { const k = songKey(t) || t.id; if (seen.has(k)) continue; seen.add(k); await ref.push({ ...oplTrack(t), at: t0 + n, by: me.uid }); n++; }
+  toast(`Saved “${title}” · ${n} songs`);
+}
+// 曲を長押し → プレイリストに追加（Otocloud のプレイリストを見ている時は「外す」も）
+async function oplSheet(t) {
+  if (!t) return; if (!me || !me.uid) { toast('Sign in to make playlists'); return; }
+  closePlSheet(); hap('rigid');
+  const lists = await oplList().catch(() => []);
+  const el = document.createElement('section'); el.className = 'eargate actsheet'; el.id = 'plSheet';
+  el.innerHTML = `<div class="eg-card as-card"><div class="pl-sh-t">${esc(t.title)}<small>${esc(t.artist || '')}</small></div>
+    ${oplNow && t._plk ? `<button class="as-item" data-plrm="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>Remove from this playlist</button>` : ''}
+    <button class="as-item" data-plnew2="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New playlist</button>
+    ${lists.map((p) => `<button class="as-item" data-pladd="${esc(p.id)}"><img class="pl-sh-art" src="${esc(p.art)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(p.title)}</span></button>`).join('')}
+  </div>`;
+  el.addEventListener('click', async (e) => {
+    if (e.target === el) { closePlSheet(); return; }
+    const a = e.target.closest('[data-pladd]'), nw = e.target.closest('[data-plnew2]'), rm = e.target.closest('[data-plrm]');
+    if (a) { closePlSheet(); const ok = await oplAdd(a.dataset.pladd, t).catch(() => null); hap(ok ? 'rigid' : 'light'); toast(ok ? 'Added' : ok === false ? 'Already in this playlist' : "Couldn't add"); }
+    if (nw) { closePlSheet(); const name = await askName('New playlist', 'Name'); if (!name || !name.trim()) return; const id = await oplCreate(name.trim()); await oplAdd(id, t); hap('rigid'); toast(`Added to “${name.trim()}”`); }
+    if (rm) { closePlSheet(); await oplRef(oplNow + '/tracks/' + t._plk).remove().catch(() => {}); hap('rigid'); toast('Removed'); openOpl(oplNow); }
+  });
+  document.body.appendChild(el);
+}
+// 名前を入れる小さなシート（iPhone アプリの中では prompt が使えないので自前で）
+function askName(title, ph) {
+  return new Promise((done) => {
+    const el = document.createElement('section'); el.className = 'eargate actsheet'; el.id = 'nameSheet';
+    el.innerHTML = `<div class="eg-card as-card"><div class="pl-sh-t">${esc(title)}</div><input class="pl-name" id="plName" maxlength="80" placeholder="${esc(ph)}" autocomplete="off"><div class="pl-name-row"><button class="btn" data-x="1">Cancel</button><button class="btn primary" data-ok="1">Create</button></div></div>`;
+    const end = (v) => { el.remove(); done(v); };
+    el.addEventListener('click', (e) => { if (e.target === el || e.target.closest('[data-x]')) end(null); if (e.target.closest('[data-ok]')) end($('plName').value.trim() || null); });
+    document.body.appendChild(el); const inp = $('plName'); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') end(inp.value.trim() || null); }); setTimeout(() => inp.focus(), 60);
+  });
+}
+function closePlSheet() { const x = $('plSheet'); if (x) x.remove(); }
+// 長押し（行を指で押したまま）
+(() => {
+  let t = null, sx = 0, sy = 0, fired = false;
+  $('results').addEventListener('pointerdown', (e) => {
+    const r = e.target.closest('.row[data-i]'); if (!r || e.target.closest('button')) return;
+    fired = false; sx = e.clientX; sy = e.clientY; clearTimeout(t);
+    t = setTimeout(() => { fired = true; oplSheet(lastResults[Number(r.dataset.i)]); }, 520);
+  });
+  $('results').addEventListener('pointermove', (e) => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) clearTimeout(t); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) $('results').addEventListener(ev, () => clearTimeout(t));
+  $('results').addEventListener('click', (e) => { if (fired) { e.stopImmediatePropagation(); e.preventDefault(); fired = false; } }, true);
+  $('results').addEventListener('contextmenu', (e) => { if (e.target.closest('.row')) e.preventDefault(); });
+})();
 
 async function openPlaylist(id, title) {
   mode = 'playlist'; albumBack = null;
@@ -3557,8 +3692,9 @@ async function openPlaylist(id, title) {
   $('shuffle').hidden = false;
   $('results').innerHTML = msg('Loading…');
   try {
+    oplNow = null; spplNow = null;
     const d = (await scApi('/sc/playlist?id=' + id)).map(splitArtist);
-    if (mode === 'playlist') renderTracks(d, msg('This playlist is empty'));
+    if (mode === 'playlist') { renderTracks(d, msg('This playlist is empty')); oplImportBtn(title); }
   } catch (e) { $('results').innerHTML = msg("Couldn't load this playlist", esc(e.message)); }
 }
 let libBackTo = 'playlists';
@@ -6240,6 +6376,7 @@ $('npMore').addEventListener('click', () => {
   $('asLyrT').textContent = lyr && lyr.lyrics ? 'Edit lyrics' : 'Add lyrics';
   $('moreSheet').hidden = false;
 });
+$('asPl').addEventListener('click', () => { $('moreSheet').hidden = true; if (!track) return; const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret }; oplSheet(t); });
 // 「…」→ 歌詞を足す／直す
 $('asLyr').addEventListener('click', () => {
   $('moreSheet').hidden = true; if (!track) return; hap('light');
