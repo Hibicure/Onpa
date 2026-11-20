@@ -2663,7 +2663,7 @@ function buildGlobe() {
   // 海は少し明るい青に光らせる（そのままだと暗い紺色に沈むので）。読み込み中は白い球（真っ白な地球）
   const earthMat = new T.MeshPhongMaterial({ color: 0xffffff, bumpScale: 0.03, specular: new T.Color(0x9fbad8), shininess: 24, emissive: new T.Color(0x1f5f9e), emissiveIntensity: 0 });
   const earth = new T.Mesh(new T.SphereGeometry(1, 72, 72), earthMat);
-  let loaded = 0; const ready = () => { if (++loaded < 3) return; earthMat.map = map; earthMat.bumpMap = bump; earthMat.specularMap = water; earthMat.emissiveMap = water; earthMat.emissiveIntensity = 0.55; earthMat.needsUpdate = true; };
+  let loaded = 0; const ready = () => { if (++loaded < 3) return; gl.tex = { map, bump, water }; applyGlobeStyle(); };
   onTex = ready;
   scene.add(earth);
   // 雲（白くふわっと。地球より少しだけゆっくり別に流れる）。大きい画像なので、地球が出てから読む
@@ -2671,14 +2671,14 @@ function buildGlobe() {
   const clouds = new T.Mesh(new T.SphereGeometry(1.012, 64, 64), cloudsMat);
   earth.add(clouds);
   setTimeout(() => ld.load('https://cdn.jsdelivr.net/npm/three-globe@2.45.4/example/clouds/clouds.png', (tx) => { tx.colorSpace = T.SRGBColorSpace; cloudsMat.map = tx; cloudsMat.alphaMap = tx; cloudsMat.needsUpdate = true; }), 600);
-  gl.clouds = clouds;
+  gl.clouds = clouds; gl.cloudsMat = cloudsMat;
   // うっすら青い大気のふち
   const atm = new T.Mesh(new T.SphereGeometry(1.002, 48, 48), new T.ShaderMaterial({
     side: T.FrontSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.4); gl_FragColor = vec4(0.42,0.72,1.0,1.0) * i * 1.25; }',
   }));
-  scene.add(atm);
+  scene.add(atm); gl.atm = atm; gl.earthMat = earthMat;
   // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
   scene.add(new T.HemisphereLight(0xdfefff, 0x334455, 1.1));
   scene.add(new T.AmbientLight(0xffffff, 0.45));
@@ -2849,6 +2849,24 @@ $('globePins').addEventListener('click', (e) => {
   if (n && n.trackId) { unlockAudio(); playFrom([{ id: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork }], 0); toast(`From ${p.f.name || '@' + p.f.handle}`); }
   else toast(`${p.f.name || '@' + p.f.handle}${p.f.place && p.f.place.city ? ' · ' + p.f.place.city : ''}`);
 });
+// 地球の見た目：'white'＝白い磁器のような地球（陸は白、海はうっすら青、縁が白く光る）／'real'＝写真の地球
+function globeStyle() { try { return localStorage.getItem('oto_globe_style') || 'white'; } catch { return 'white'; } }
+function applyGlobeStyle() {
+  const m = gl.earthMat, t = gl.tex, T = gl.three; if (!m || !t) return;
+  const white = globeStyle() === 'white';
+  m.map = white ? null : t.map; m.bumpMap = t.bump; m.bumpScale = white ? 0.05 : 0.03; m.specularMap = t.water; m.emissiveMap = t.water;
+  m.color.set(white ? 0xf2f4f7 : 0xffffff);
+  m.emissive.set(white ? 0x9cc2ea : 0x1f5f9e); m.emissiveIntensity = white ? 0.32 : 0.55;
+  m.specular.set(white ? 0xffffff : 0x9fbad8); m.shininess = white ? 40 : 24;
+  m.needsUpdate = true;
+  if (gl.cloudsMat) gl.cloudsMat.opacity = white ? 0.35 : 0.9;
+  // 縁の光：白い時は白く強く（光の輪のように）
+  if (gl.atm) gl.atm.material.fragmentShader = white
+    ? 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 1.8); gl_FragColor = vec4(1.0,1.0,1.0,1.0) * i * 1.35; }'
+    : 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.4); gl_FragColor = vec4(0.42,0.72,1.0,1.0) * i * 1.25; }';
+  if (gl.atm) gl.atm.material.needsUpdate = true;
+  if (gl.renderer) gl.renderer.toneMappingExposure = white ? 1.1 : 1.25;
+}
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
 let _qa = null, _qb = null, _ax = null, _ay = null;
 function spinBy(h, v) {
@@ -2888,6 +2906,11 @@ function loopGlobe() {
   };
   step();
 }
+(() => { let t = null, held = false; const b = $('globeBtn');
+  b.addEventListener('pointerdown', () => { held = false; clearTimeout(t); t = setTimeout(() => { held = true; const n = globeStyle() === 'white' ? 'real' : 'white'; try { localStorage.setItem('oto_globe_style', n); } catch {} hap('rigid'); applyGlobeStyle(); toast(n === 'white' ? 'White globe' : 'Photo globe'); }, 550); });
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => clearTimeout(t));
+  b.addEventListener('click', (e) => { if (held) { held = false; e.stopImmediatePropagation(); } }, true);
+})();
 $('globeBtn').addEventListener('click', () => { hap('light'); if (gl.on) closeGlobe(); else openGlobe(); });
 // ===================== おすすめを、自分で育てる =====================
 // 「Fewer like this」を押したアーティストや、毎回すぐ飛ばされる曲は、自動で流れる曲に出にくくする。
