@@ -2104,7 +2104,13 @@ let spWhy = '';
 async function spSearch(q) {
   spWhy = '';
   try {
-    const tok = await spToken(); if (!tok) { spWhy = 'not linked'; return []; }
+    const tok = await spToken();
+    if (!tok) {
+      let raw = '', st = '';
+      try { raw = JSON.stringify(await nat('spToken')).slice(0, 80); } catch (e) { raw = 'err ' + e.message; }
+      try { const x = await nat('spStatus'); st = `linked=${x.linked} connected=${x.connected} installed=${x.installed} tok=${(x.token || '').length}`; } catch (e) { st = 'status err ' + e.message; }
+      spWhy = 'not linked · ' + raw + ' · ' + st; return [];
+    }
     const r = await Promise.race([fetch('https://api.spotify.com/v1/search?type=track&limit=15&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
     if (!r) { spWhy = 'timeout'; return []; }
     if (!r.ok) { if (r.status === 401) spTokAt = 0; spWhy = 'error ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 120); return []; }
