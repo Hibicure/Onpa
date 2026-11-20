@@ -2443,9 +2443,15 @@ function mixRank(list, q) {
   const followed = new Set((gl.artists || []).map((a) => a.key));
   try { const c = JSON.parse(localStorage.getItem('oto_artpins') || 'null'); for (const a of (c && c.d && c.d.artists) || []) followed.add(artKey(a.name)); } catch {}
   // 公式（Spotify）に出ている曲名。ほかの人が SoundCloud に上げた同じ曲は、公式より必ず下にする
-  const offTitles = [];
-  for (const t of list) { const all = [t, ...(t.alts || [])]; if (all.some((x) => String(x.id || '').startsWith('sp:'))) { const k = normT(t.title); if (k.length >= 3) offTitles.push(k); } }
-  const copyOfOfficial = (t) => { const k = normT(String(t.title || '').replace(/^.*?\s[-–—]\s/, '')); return k.length >= 3 && offTitles.some((o) => k === o || k.includes(o) || (o.includes(k) && k.length >= 5)); };
+  const offTitles = []; // [曲名, その公式のアーティスト名たち]
+  for (const t of list) { const all = [t, ...(t.alts || [])]; const sp = all.find((x) => String(x.id || '').startsWith('sp:')); if (sp) { const k = normT(t.title); if (k.length >= 3) offTitles.push([k, String(sp.artist || '').split(/,\s*/).map(artKey).filter(Boolean)]); } }
+  // 公式にある曲の、ほかの人の上げ直し（上げた人が公式のアーティスト本人でない）
+  const copyOfOfficial = (t, sc) => {
+    const k = normT(String(t.title || '').replace(/^.*?\s[-–—]\s/, '')); if (k.length < 3) return false;
+    const u = artKey(sc.uploader || sc.artist || '');
+    return offTitles.some(([o, arts]) => (k === o || k.includes(o) || (o.includes(k) && k.length >= 5)) && !arts.some((a) => a && (a === u || u.includes(a))));
+  };
+  const qn = normT(q);
   const scoreOf = (t) => {
     const all = [t, ...(t.alts || [])], ids = all.map((x) => String(x.id || ''));
     const hasSp = ids.some((x) => x.startsWith('sp:')), hasBc = ids.some((x) => x.startsWith('bc:')), sc = all.find((x) => /^\d+$/.test(String(x.id)));
@@ -2459,13 +2465,14 @@ function mixRank(list, q) {
     if (followed.has(artKey(String(t.artist || '').split(',')[0]))) s += 14; // フォローしているアーティスト
     if (ids.some((x) => liked.has(x))) s += 40;
     if (hasSp) s += 14 + (Math.max(0, ...all.map((x) => x.pop || 0)) / 8);
+    if (hasSp && qn && normT(t.title) === qn) s += 12; // 探した言葉がそのまま公式の曲名
     if (hasBc) s += 5;
     if (all.length > 1) s += 6;
     if (sc) {
       const a = normT(sc.artist), u = normT(sc.uploader), own = !!a && !!u && (a === u || u.includes(a) || a.includes(u));
-      const edit = /nightcore|sped ?up|slowed|8d audio|reverb|type beat|bass ?boost|1 hour|lyrics? video|leak|unreleased|snippet/i.test(sc.title || '');
+      const edit = /nightcore|spee?d ?up|slowed|8d audio|reverb|type beat|bass ?boost|1 hour|lyrics? video|leak|unreleased|snippet|mashup|cover|remix by|bootleg/i.test(sc.title || '');
       s += (own ? 6 : -8) - (edit ? 14 : 0) + Math.log10((sc.plays || 0) + 1) * (own ? 3 : 1.2); // 他人の上げた曲は、再生数で上がりすぎないように
-      if (!own && !hasSp && copyOfOfficial(t)) s -= 45; // 公式にある曲の、ほかの人の上げ直し：公式より下へ
+      if (!hasSp && copyOfOfficial(t, sc)) s -= 45; // 公式にある曲の、ほかの人の上げ直し：公式より下へ（曲名だけの上げ方でも）
       if (!own && (sc.plays || 0) < 300 && !hasSp && !hasBc && !tv) s -= 10; // 誰のものか分からず、聴かれてもいない
     }
     return s - (t._r || 0) * 0.6;
