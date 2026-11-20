@@ -904,6 +904,12 @@
   .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine { display: none; }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
   .np.full .amb { display: none; }
+  /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
+  .np .fulllyr { display: none; }
+  .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
+    font-size: 19px; line-height: 1.55; font-weight: 700; letter-spacing: -0.01em; color: #fff; text-shadow: 0 1px 12px rgba(0,0,0,.45); padding: 28px 0 22px; touch-action: pan-y;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); }
+  .np.full .titlebar { position: relative; }
   .np.full #disc, .np.full #discPeek { visibility: hidden; }
   .np.full .in { position: relative; z-index: 1; }
 
@@ -1412,7 +1418,7 @@
       <div class="orbit" id="sendOrbit" hidden></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
-    <div class="titlebar">
+    <div class="titlebar"><div class="fulllyr" id="fullLyr" hidden></div>
       <div class="tt"><h2 id="npT"></h2><div class="artist" id="npS"></div></div>
       <div class="tbtns"><button class="heart" id="heart" aria-label="Like on SoundCloud" aria-pressed="false"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.6 7.6 3.9 4 7.4 4c2 0 3.5 1.1 4.6 2.7C13.1 5.1 14.6 4 16.6 4c3.5 0 5.8 3.6 4.6 7.1-1.7 4.8-9.2 9.4-9.2 9.4z"/></svg></button></div>
     </div>
@@ -4279,7 +4285,7 @@ let waveBars = null, waveFor = null;
 // 歌詞：説明欄（なければコメント）に載っていたら、下の真ん中に「Lyrics」を出す
 var lyr = null, lyrFor = null; // var：上の renderTrack から先に使われても大丈夫なように
 async function loadLyrics(meta) {
-  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; geniusUrl = '';
+  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; geniusUrl = ''; paintFullLyr();
   if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
   // 歌詞が見つからない曲：Genius にその曲のページ（歌詞あり）が本当にある時だけ「Lyrics ↗」を出す
@@ -4292,7 +4298,7 @@ async function loadLyrics(meta) {
     try {
       const d = await fetch(`${WORKER}/lyrics/by?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '', dur: String(Math.round((meta.duration || 0) / 1000)) })).then((r) => r.json());
       if (lyrFor !== meta.trackId) return;
-      if (d && d.lyrics) { lyr = d; $('lyrBtn').hidden = false; return; }
+      if (d && d.lyrics) { lyr = d; $('lyrBtn').hidden = false; paintFullLyr(); return; }
     } catch {}
     toGenius(); return;
   }
@@ -4301,7 +4307,7 @@ async function loadLyrics(meta) {
     const d = await r.json();
     if (lyrFor !== meta.trackId) return;
     if (!d.lyrics) { toGenius(); return; }
-    lyr = d; $('lyrBtn').hidden = false;
+    lyr = d; $('lyrBtn').hidden = false; paintFullLyr();
   } catch { toGenius(); }
 }
 var geniusUrl = '';
@@ -4312,7 +4318,15 @@ async function openGenius() {
   if (!url) { toast("Genius doesn't have this song"); return; }
   if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank');
 }
+// 全画面の時に曲名の上に出す歌詞（今の曲の歌詞がある時だけ）
+function paintFullLyr() {
+  const el = $('fullLyr'); if (!el) return;
+  const ok = !!(lyr && track && lyrFor === track.trackId && lyr.lyrics);
+  el.hidden = !ok; el.textContent = ok ? lyr.lyrics : ''; el.scrollTop = 0;
+}
 function openLyrics() {
+  // 全画面では、もう曲名の上に出ているので、別の画面は開かない
+  if ($('np').classList.contains('full') && !$('fullLyr').hidden) { $('fullLyr').scrollTo({ top: 0, behavior: 'smooth' }); return; }
   if (!lyr || !track || lyrFor !== track.trackId) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
