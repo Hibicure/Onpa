@@ -3725,7 +3725,7 @@ class SpotifyMedia extends EventTarget {
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
-    this._enq = [];
+    this._enq = []; this._loadAt = performance.now();
     this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
     this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
     this._pending = !autoplay;
@@ -3784,7 +3784,14 @@ class SpotifyMedia extends EventTarget {
         this.fire('durationchange'); if (!this._paused) { this.fire('play'); this.fire('playing'); } this.fire('timeupdate');
         return;
       }
-      if (!this._ended && this._dur && this.currentTime > this._dur - 6) this._end();
+      if (!this._ended && this._dur && this.currentTime > this._dur - 6) { this._end(); return; }
+      // Spotify 側で別の曲になった（Spotify アプリで選んだ・Spotify が勝手に進めた）：Otocloud もその曲に合わせる。
+      // ただし、こちらが曲を変えた直後の古い知らせは無視する
+      if (performance.now() - (this._loadAt || 0) > 4000 && e.name) {
+        this._uri = e.uri; this._dur = e.dur || 0; this._t = e.pos || 0; this._at = performance.now(); this._paused = !!e.paused; this._ended = false; this._follow = false;
+        this.dispatchEvent(new CustomEvent('spadopt', { detail: { uri: e.uri, name: e.name, artist: e.artist, dur: e.dur } }));
+        this.fire('durationchange'); this.fire(this._paused ? 'pause' : 'playing'); this.fire('timeupdate');
+      }
       return;
     } // Spotify が自分で次へ進んだ
     if (e.dur && Math.abs(e.dur - this._dur) > 0.5) { this._dur = e.dur; this.fire('durationchange'); this.fire('loadedmetadata'); }
