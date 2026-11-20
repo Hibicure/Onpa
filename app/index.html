@@ -1940,7 +1940,7 @@ function showEmptyNp() {
 async function spotifyNowPlaying() {
   if (!IN_APP) return null;
   try {
-    const tok = await Promise.race([spToken(), new Promise((ok) => setTimeout(() => ok(''), 2500))]); if (!tok) return null;
+    const tok = await Promise.race([spToken(), new Promise((ok) => setTimeout(() => ok(''), 6000))]); if (!tok) return null;
     const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
     if (r.status !== 200) return null;
     const d = await r.json();
@@ -1951,6 +1951,13 @@ async function restoreLast() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch { /* 無視 */ }
   { const sp = await spotifyNowPlaying(); if (sp) d = { meta: toMeta(sp), pos: 0 }; }
+  // Spotify の準備が遅れた時のために、少しあとでもう一度見る。流れていれば、その曲・その位置に合わせる（最初からにはしない）
+  setTimeout(async () => {
+    const sp = await spotifyNowPlaying(); if (!sp) return;
+    if (track && track.trackId === sp.id) { if (player.sp && player.active === player.sp) player.sp._isOn('spotify:track:' + sp.id.slice(3)); return; }
+    if (!player.paused) return; // Otocloud で別の曲を流しているなら、そのまま
+    await loadTrack(toMeta(sp), false);
+  }, 4000);
   $('miniOpen').click();
   if (!d || !d.meta || !d.meta.trackId) { showEmptyNp(); return; }
   if (await loadTrack(d.meta, false)) {
@@ -3877,7 +3884,11 @@ class SpotifyMedia extends EventTarget {
       this._pending = false; const uri = this._uri, at = this._t;
       return (async () => {
         // 1) もう Spotify でこの曲なら、続きを再生するだけ  2) Web の仕組みでこの位置から  3) それでもだめな時だけ Spotify を起こす
-        if (await this._isOn(uri)) { if (this._paused) { this._web('PUT', '/play'); nat('spResume').catch(() => {}); } return; }
+        // Spotify の準備が遅れていることがあるので、何回か確かめてから（同じ曲を最初から流し直さないように）
+        for (let i = 0; i < 3; i++) {
+          if (await this._isOn(uri)) { if (this._paused) { this._web('PUT', '/play'); nat('spResume').catch(() => {}); } return; }
+          await new Promise((ok) => setTimeout(ok, 600));
+        }
         if (await this._webPlay(uri, at)) return;
         const r = await nat('spPlay', { uri, at }).catch(() => null);
         if (r && r.ok) return;
