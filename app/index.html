@@ -2005,9 +2005,10 @@ async function spotifyNowPlaying() {
   if (!IN_APP) return null;
   try {
     const tok = await Promise.race([spToken(), new Promise((ok) => setTimeout(() => ok(''), 6000))]); if (!tok) return null;
-    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
+    const r = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + tok } });
     if (r.status !== 200) return null;
     const d = await r.json();
+    if (d && d.device && !/smartphone/i.test(d.device.type || '')) return null; // パソコンなどで流れている曲は拾わない
     return d && d.is_playing && d.item && d.item.type === 'track' ? spMap(d.item) : null;
   } catch { return null; }
 }
@@ -4258,7 +4259,9 @@ class SpotifyMedia extends EventTarget {
         // つながっていない間は、Spotify のWeb の仕組みで「今なにが流れているか」を読む
         try {
           const tok = await spToken(); if (!tok) return;
-          const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing?additional_types=episode', { headers: { Authorization: 'Bearer ' + tok } });
+          const r = await fetch('https://api.spotify.com/v1/me/player?additional_types=episode', { headers: { Authorization: 'Bearer ' + tok } });
+          const elsewhere = r.status === 200 ? await r.clone().json().then((x) => !!(x && x.device && !/smartphone/i.test(x.device.type || ''))).catch(() => false) : false;
+          if (elsewhere) return; // パソコンなど、ほかの端末の再生には付いていかない
           if (r.status === 204 || r.status === 200) {
             const d0 = r.status === 200 ? await r.clone().json().catch(() => null) : null;
             const silent = !d0 || !d0.is_playing;
@@ -4342,21 +4345,25 @@ class SpotifyMedia extends EventTarget {
     })();
   }
   // Web の仕組みで、この曲をこの位置から流す（Spotify を開かない）。受け付けられたら true
+  // この iPhone の Spotify（パソコンなど、ほかの端末では鳴らさない）。1分は覚えておく
+  async _phone() {
+    if (this._devAt && performance.now() - this._devAt < 60000) return this._dev || '';
+    try {
+      const tok = await spToken(); if (!tok) return '';
+      const d = await fetch('https://api.spotify.com/v1/me/player/devices', { headers: { Authorization: 'Bearer ' + tok } }).then((r) => (r.ok ? r.json() : null));
+      const ph = ((d && d.devices) || []).filter((x) => /smartphone/i.test(x.type || ''));
+      const dev = ph.find((x) => x.is_active) || ph[0];
+      this._dev = dev ? dev.id : ''; this._devAt = performance.now(); return this._dev;
+    } catch { return ''; }
+  }
+  // Web の仕組みで、この曲をこの位置から、この iPhone で流す。iPhone の Spotify が見つからない時は false（アプリ経由で起こす）
   async _webPlay(uri, sec) {
     try {
       const tok = await spToken(); if (!tok) return false;
-      const body = JSON.stringify({ uris: [uri], position_ms: Math.round((sec || 0) * 1000) }), h = { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' };
-      const ok = (r) => r.status === 204 || r.status === 202 || r.status === 200;
-      const w = await fetch('https://api.spotify.com/v1/me/player/play' + (this._dev ? '?device_id=' + encodeURIComponent(this._dev) : ''), { method: 'PUT', headers: h, body });
-      if (ok(w)) return true;
-      // 「再生する場所がない」と言われた時：この iPhone の Spotify を名指しして流す（Spotify アプリを開かずに済むことが多い）
-      if (w.status === 404 || w.status === 403) {
-        const d = await fetch('https://api.spotify.com/v1/me/player/devices', { headers: h }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-        const list = (d && d.devices) || [], dev = list.find((x) => x.is_active) || list.find((x) => /smartphone/i.test(x.type)) || list[0];
-        if (dev && dev.id) { this._dev = dev.id; const w2 = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + encodeURIComponent(dev.id), { method: 'PUT', headers: h, body }); return ok(w2); }
-        this._dev = '';
-      }
-      return false;
+      const dev = await this._phone(); if (!dev) return false;
+      const w = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + encodeURIComponent(dev), { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri], position_ms: Math.round((sec || 0) * 1000) }) });
+      if (w.status === 404) this._devAt = 0;
+      return w.status === 204 || w.status === 202 || w.status === 200;
     } catch { return false; }
   }
   // Spotify が流している曲が、Otocloud の今の曲と同じか。
@@ -4382,15 +4389,18 @@ class SpotifyMedia extends EventTarget {
     const st = await nat('spNow').catch(() => null);
     if (st && st.uri) { if (this._mine(st, uri)) { this._state({ ...st, uri }); return true; } return false; }
     try {
-      const tok = await spToken(); const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
+      const tok = await spToken(); const r = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + tok } });
       if (r.status !== 200) return false; const d = await r.json(), it = d && d.item;
+      if (d && d.device && !/smartphone/i.test(d.device.type || '')) return false; // ほかの端末で流れていても「この iPhone で流れている」とはみなさない
       if (it && this._mine({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', ') }, uri)) { this._state({ uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing }); return true; }
     } catch {}
     return false;
   }
   // つながりが切れていても効くように、Spotify のWeb の仕組みからも同じ操作を送る（Premium なら効く）
   async _web(method, path, body) {
-    try { const tok = await spToken(); if (!tok) return; await fetch('https://api.spotify.com/v1/me/player' + path, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); } catch {}
+    try { const tok = await spToken(); if (!tok) return;
+      if (/^\/(play|pause|seek)/.test(path)) { const dev = await this._phone(); if (!dev) return; path += (path.includes('?') ? '&' : '?') + 'device_id=' + encodeURIComponent(dev); } // ほかの端末を動かさない
+      await fetch('https://api.spotify.com/v1/me/player' + path, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); } catch {}
   }
   pause() { nat('spPause').catch(() => {}); this._web('PUT', '/pause'); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
   stop() { if (this._uri && !this._paused) nat('spPause').catch(() => {}); this._uri = null; if (!this._paused) { this._paused = true; this.fire('pause'); } }
