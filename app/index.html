@@ -4292,7 +4292,7 @@ class SpotifyMedia extends EventTarget {
       for (const ms of [1500, 3500, 7000, 12000]) setTimeout(() => { if (this._uri === uri && this._paused) nat('spNow').then((st) => { if (st && st.uri) this._state(st); }).catch(() => {}); }, ms);
       // アプリのつながりが切れている時は、まず Web の仕組みで流す（Spotify を開かずに済む）。
       // Spotify が寝ていて受け付けない時だけ、Spotify を一瞬開いて起こす
-      const now = await nat('spNow').catch(() => null);
+      const now = await Promise.race([nat('spNow').catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 700))]); // 返事が遅い時は待たない
       if (!(now && now.connected) && await this._webPlay(uri, 0)) return;
       const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => ({ ok: false })), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
       if (r === 'slow') return; // 始まれば、知らせ・問い合わせで再生中になる
@@ -4311,10 +4311,10 @@ class SpotifyMedia extends EventTarget {
       return (async () => {
         // 1) もう Spotify でこの曲なら、続きを再生するだけ  2) Web の仕組みでこの位置から  3) それでもだめな時だけ Spotify を起こす
         // Spotify の準備が遅れていることがあるので、何回か確かめてから（同じ曲を最初から流し直さないように）
-        for (let i = 0; i < 3; i++) {
-          if (await this._isOn(uri)) { if (this._paused) { this._web('PUT', '/play'); nat('spResume').catch(() => {}); } return; }
-          await new Promise((ok) => setTimeout(ok, 600));
-        }
+        // まず1回だけ素早く確かめる（待たない）。アプリとつながっていれば一番速いアプリ経由、なければ Web の仕組みで
+        const st = await Promise.race([nat('spNow').catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 700))]);
+        if (st && st.uri && this._mine(st, uri)) { this._state({ ...st, uri }); if (st.paused !== false) { nat('spResume').catch(() => {}); this._web('PUT', '/play'); } return; }
+        if (st && st.connected) { const r0 = await nat('spPlay', { uri, at }).catch(() => null); if (r0 && r0.ok) return; }
         if (await this._webPlay(uri, at)) return;
         const r = await nat('spPlay', { uri, at }).catch(() => null);
         if (r && r.ok) return;
@@ -4333,8 +4333,18 @@ class SpotifyMedia extends EventTarget {
   async _webPlay(uri, sec) {
     try {
       const tok = await spToken(); if (!tok) return false;
-      const w = await fetch('https://api.spotify.com/v1/me/player/play', { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri], position_ms: Math.round((sec || 0) * 1000) }) });
-      return w.status === 204 || w.status === 202 || w.status === 200;
+      const body = JSON.stringify({ uris: [uri], position_ms: Math.round((sec || 0) * 1000) }), h = { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' };
+      const ok = (r) => r.status === 204 || r.status === 202 || r.status === 200;
+      const w = await fetch('https://api.spotify.com/v1/me/player/play' + (this._dev ? '?device_id=' + encodeURIComponent(this._dev) : ''), { method: 'PUT', headers: h, body });
+      if (ok(w)) return true;
+      // 「再生する場所がない」と言われた時：この iPhone の Spotify を名指しして流す（Spotify アプリを開かずに済むことが多い）
+      if (w.status === 404 || w.status === 403) {
+        const d = await fetch('https://api.spotify.com/v1/me/player/devices', { headers: h }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        const list = (d && d.devices) || [], dev = list.find((x) => x.is_active) || list.find((x) => /smartphone/i.test(x.type)) || list[0];
+        if (dev && dev.id) { this._dev = dev.id; const w2 = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + encodeURIComponent(dev.id), { method: 'PUT', headers: h, body }); return ok(w2); }
+        this._dev = '';
+      }
+      return false;
     } catch { return false; }
   }
   // Spotify が流している曲が、Otocloud の今の曲と同じか。
