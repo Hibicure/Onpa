@@ -368,7 +368,12 @@
   /* ハートは曲名とアーティスト名のまん中の高さに（1行でも2行でも） */
   .titlebar #heart { grid-column: 2; grid-row: 1; align-self: start; height: 34px; margin-top: -4px; position: relative; } /* 曲名の1行目にそろえる */
   /* いいねした時：ポンと弾んで、光の粒がパッと散る */
-  #heart.pop svg { animation: heartpop .5s cubic-bezier(.3,1.6,.5,1); }
+  /* ♡を押した時の気持ちよさ：ぎゅっと縮んで、ぽんっと大きく、ぷるっと戻る。外す時はやさしくしぼむ */
+  #heart.pop svg, #results .rheart.pop svg { animation: heartpop2 .56s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes heartpop2 { 0% { transform: scale(1); } 14% { transform: scale(.6); } 46% { transform: scale(1.34); } 72% { transform: scale(.93); } 100% { transform: scale(1); } }
+  #heart.unpop svg, #results .rheart.unpop svg { animation: heartunpop .32s ease-out; }
+  @keyframes heartunpop { 0% { transform: scale(1); } 40% { transform: scale(.78); } 100% { transform: scale(1); } }
+  #heart, #results .rheart { position: relative; }
   @keyframes heartpop { 0% { transform: scale(1) rotate(0); } 18% { transform: scale(.72) rotate(-14deg); } 58% { transform: scale(1.26) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
   #heart .burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
   #heart .burst i { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0;
@@ -1081,7 +1086,13 @@
     box-shadow: 0 0 6px currentColor; transform-origin: 50% 0; transform: rotate(var(--a)) translateY(10px) scaleY(.2);
     animation: heartflash .34s cubic-bezier(.1,.9,.2,1) .1s forwards; }
   @keyframes heartflash { 0% { opacity: 0; transform: rotate(var(--a)) translateY(10px) scaleY(.2); } 25% { opacity: 1; transform: rotate(var(--a)) translateY(14px) scaleY(1.2); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(24px) scaleY(.1); } }
-  @media (prefers-reduced-motion: reduce) { #heart .flash { display: none; } }
+  /* 光の線に加えて、小さな粒がふわっと広がって消える */
+  #heart .flash b, #results .rheart .flash b { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0;
+    animation: heartdot .5s cubic-bezier(.1,.9,.2,1) .08s forwards; }
+  @keyframes heartdot { 0% { opacity: 0; transform: rotate(var(--a)) translateY(8px) scale(.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateY(var(--d)) scale(.2); } }
+  #results .rheart .flash { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+  #results .rheart .flash i { position: absolute; left: -.75px; top: 0; width: 1.5px; height: var(--l); border-radius: 1px; background: currentColor; opacity: 0; transform-origin: 50% 0; animation: heartflash .34s cubic-bezier(.1,.9,.2,1) .1s forwards; }
+  @media (prefers-reduced-motion: reduce) { #heart .flash, #results .rheart .flash { display: none; } }
   /* 下の列（シャッフル・…・マイク）も、再生ボタンと同じ白で光らせる */
   :root.mist .controls .mode { color: #FFFFFF !important; opacity: 1;
     filter: drop-shadow(0 0 1.5px rgba(255,255,255,.85)) drop-shadow(0 0 7px rgba(255,255,255,.45)) drop-shadow(0 0 16px rgba(255,255,255,.25)) drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
@@ -3431,6 +3442,19 @@ function maybeAskReview() {
     setTimeout(() => window.webkit.messageHandlers.otoCall.postMessage({ op: 'review' }), 1200);
   } catch {}
 }
+// ♡のはじける演出（再生画面の♡にも、一覧の♡にも）
+function heartBurst(btn, like) {
+  if (!btn) return;
+  btn.classList.remove('pop', 'unpop'); void btn.offsetWidth; btn.classList.add(like ? 'pop' : 'unpop');
+  setTimeout(() => btn.classList.remove('pop', 'unpop'), 620);
+  if (!like) { hap('light'); return; }
+  hap('medium'); setTimeout(() => hap('rigid'), 150); // ドクン、ドクン
+  btn.querySelector('.flash')?.remove();
+  const k = document.createElement('span'); k.className = 'flash';
+  k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('')
+    + Array.from({ length: 8 }, (_, i) => `<b style="--a:${i * 45 + 22}deg;--d:${20 + (i % 3) * 4}px"></b>`).join('');
+  btn.appendChild(k); setTimeout(() => k.remove(), 700);
+}
 function paintHeart() {
   $('heart').setAttribute('aria-pressed', String(!!track && likedIds.has(String(track.trackId))));
   paintStars();
@@ -3455,6 +3479,7 @@ function paintStars() {
 }
 async function toggleRowLike(btn) {
   const t = lastResults[Number(btn.dataset.like)]; if (!t) return;
+  heartBurst(btn, !likedIds.has(String(t.id)));
   if (!sc || !/^\d+$/.test(String(t.id))) {
     const id = String(t.id), like = !likedIds.has(id);
     if (like) likedIds.add(id); else likedIds.delete(id);
@@ -3470,7 +3495,6 @@ async function toggleRowLike(btn) {
   catch { if (like) likedIds.delete(id); else likedIds.add(id); btn.setAttribute('aria-pressed', String(!like)); paintHeart(); toast("Couldn't update your like"); }
 }
 $('heart').addEventListener('click', async () => {
-  hap('rigid');
   if (!track) return;
   const id = String(track.trackId);
   const like = !likedIds.has(id);
@@ -3480,17 +3504,7 @@ $('heart').addEventListener('click', async () => {
   if (own) toggleOwnLike(track, like);
   if (!like) setStars(id, 0); // ♡を外したら★も消す
   if (id.startsWith('sp:')) spSaveLike(id, like);
-  if (like) {
-    const hb = $('heart');
-    hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
-    setTimeout(() => hb.classList.remove('pop'), 600);
-    setTimeout(() => hap('rigid'), 140); // ドクン（2回目）
-    // パッ：細い光の線がまわりに一瞬だけ走って消える（残像くらい）
-    hb.querySelector('.flash')?.remove();
-    const k = document.createElement('span'); k.className = 'flash';
-    k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('');
-    hb.appendChild(k); setTimeout(() => k.remove(), 600);
-  }
+  heartBurst($('heart'), like);
   if (like) maybeAskReview();
   if (own) { toast(like ? 'Liked' : 'Removed from your likes'); return; }
   try {
