@@ -906,7 +906,7 @@
   .np.full .amb { display: none; }
   /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
   .np .fulllyr { display: none; }
-  .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 46vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
+  .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
     font-size: 19px; line-height: 1.55; font-weight: 700; letter-spacing: -0.01em; color: #fff; text-shadow: 0 1px 12px rgba(0,0,0,.45); padding: 28px 0 22px; touch-action: pan-y;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); }
   .np.full .titlebar { position: relative; }
@@ -4451,14 +4451,21 @@ async function openGenius() {
   if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank');
 }
 // 全画面の時に曲名の上に出す歌詞（今の曲の歌詞がある時だけ）
+// 全画面の歌詞は、最初は出さない。全画面で「Lyrics」を押した時だけ出す（もう一度押すと消える）
+var fullLyrOn = false;
 function paintFullLyr() {
   const el = $('fullLyr'); if (!el) return;
-  const ok = !!(lyr && track && lyrFor === track.trackId && lyr.lyrics);
-  el.hidden = !ok; el.textContent = ok ? lyr.lyrics : ''; el.scrollTop = 0;
+  const ok = !!(fullLyrOn && lyr && track && lyrFor === track.trackId && lyr.lyrics);
+  if (!ok) { el.hidden = true; el.textContent = ''; return; }
+  if (el.hidden || el.dataset.for !== String(track.trackId)) { el.textContent = lyr.lyrics; el.scrollTop = 0; el.dataset.for = String(track.trackId); }
+  el.hidden = false;
+  // 上のボタン（ロゴ・Lyrics・地球など）にかからない高さまで
+  const tb = el.parentElement.getBoundingClientRect(), topRow = document.querySelector('#np .top').getBoundingClientRect();
+  el.style.maxHeight = Math.max(120, Math.round(tb.top - topRow.bottom - 24)) + 'px';
 }
 function openLyrics() {
-  // 全画面では、もう曲名の上に出ているので、別の画面は開かない
-  if ($('np').classList.contains('full') && !$('fullLyr').hidden) { $('fullLyr').scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  // 全画面では、別の画面を開かずに、曲名の上の歌詞を出す／消す
+  if ($('np').classList.contains('full')) { fullLyrOn = !fullLyrOn; hap('light'); paintFullLyr(); return; }
   if (!lyr || !track || lyrFor !== track.trackId) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
@@ -4562,6 +4569,7 @@ function panFull(frac, force = false) {
   img.style.transform = `translate3d(${-x}px,0,0)`;
 }
 function setFull(on) {
+  if (!on) { fullLyrOn = false; paintFullLyr(); }
   const np = $('np');
   if (on && track && track.artwork) $('fullImg').style.backgroundImage = `url("${track.artwork.replace('-large.', '-t500x500.')}")`;
   np.classList.toggle('full', !!on);
