@@ -4481,8 +4481,10 @@ function paintFullLyr() {
   el.hidden = false;
   if (gl.on) closeGlobe(); // 歌詞を出す時は、地球儀はしまう
   // 上のボタン（ロゴ・Lyrics・地球など）にかからない高さまで
-  const tb = el.parentElement.getBoundingClientRect(), topRow = document.querySelector('#np .top').getBoundingClientRect();
-  el.style.maxHeight = Math.max(120, Math.round(tb.top - topRow.bottom - 24)) + 'px';
+  // 上のボタンのすぐ下から、曲名のすぐ上まで使う（歌詞の頭は上から始まり、はしは透けて消える）
+  const tb = el.parentElement.getBoundingClientRect(), btn = $('ambBtn').getBoundingClientRect();
+  const h = Math.max(120, Math.round(tb.top - btn.bottom - 10));
+  el.style.maxHeight = h + 'px'; el.style.height = h + 'px';
 }
 function openLyrics() {
   // 全画面では、別の画面を開かずに、曲名の上の歌詞を出す／消す
