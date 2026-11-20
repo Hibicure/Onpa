@@ -54,6 +54,13 @@ function isAllowedReturn(u) {
 }
 
 // SoundCloudの曲データを、アプリで使う形にそろえる
+// プレイリストのジャケット：無い時は、SoundCloud と同じく中の最初の曲のジャケットを使う
+function plArt(pl) {
+  if (pl.artwork_url) return pl.artwork_url;
+  const t = (pl.tracks || []).find((x) => x && x.artwork_url);
+  return t ? t.artwork_url : '';
+}
+
 function mapTrack(t) {
   return {
     id: t.id,
@@ -736,11 +743,11 @@ export default {
       // ---- その人のアルバム（EP・シングルも）: /user/123/albums
       m = p.match(/^\/user\/(\d{1,20})\/albums$/);
       if (m) {
-        const d = await scGet(`/users/${m[1]}/playlists?limit=50&linked_partitioning=true&show_tracks=false`, env, userToken);
+        const d = await scGet(`/users/${m[1]}/playlists?limit=50&linked_partitioning=true&show_tracks=true`, env, userToken);
         const out = listOf(d)
           // アルバムを普通のプレイリストとして作っている人も多いので、その人が作ったものは全部出す
           .filter((pl) => pl && pl.track_count > 0)
-          .map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: pl.artwork_url || '', type: String(pl.set_type || pl.playlist_type || '').toLowerCase(), date: pl.release_date || pl.created_at || '' }));
+          .map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: plArt(pl), type: String(pl.set_type || pl.playlist_type || '').toLowerCase(), date: pl.release_date || pl.created_at || '' }));
         return json(out, 200, cors);
       }
       // ---- アルバムの中の曲（ログインなしでも）: /album/123
@@ -1109,9 +1116,9 @@ export default {
 
         // 自分のプレイリスト一覧
         if (p === '/sc/playlists') {
-          const r = await scUser('/me/playlists?limit=50&show_tracks=false&linked_partitioning=true', userToken);
+          const r = await scUser('/me/playlists?limit=50&show_tracks=true&linked_partitioning=true', userToken);
           if (!r.ok) return json({ error: 'playlists ' + r.status }, r.status, cors);
-          return json(listOf(r.body).map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: pl.artwork_url || '' })), 200, cors);
+          return json(listOf(r.body).map((pl) => ({ id: pl.id, title: pl.title, count: pl.track_count, artwork: plArt(pl) })), 200, cors);
         }
 
         // プレイリストの中の曲: /sc/playlist?id=
