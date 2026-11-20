@@ -173,7 +173,9 @@
   .albums::-webkit-scrollbar { display: none; }
   .alb { flex: 0 0 112px; width: 112px; display: flex; flex-direction: column; gap: 3px; text-align: left; }
   /* ジャケットのふちを、ふわっとぼかす（四角のまま、角だけでなく四辺とも） */
-  #results .row .art, .alb-art { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%), linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%), linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%); mask-composite: intersect; box-shadow: none !important; }
+  .row .art:not(.pl-plus), .alb-art, .jk .cover img, .pl-sh-art { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%), linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%), linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%); mask-composite: intersect; box-shadow: none !important; }
+  #miniArt { -webkit-mask-image: radial-gradient(circle closest-side, #000 72%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 72%, transparent 100%); } /* 下のミニプレーヤーの丸いジャケも、ふちをぼかす */
+  .jk .cover { box-shadow: none !important; background: transparent !important; }
   .alb-art { display: block; width: 112px; height: 112px; background: var(--holo); box-shadow: 0 6px 14px -8px rgba(0,0,0,.45); overflow: hidden; }
   .alb-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .alb-t { margin-top: 5px; font-weight: 700; font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
