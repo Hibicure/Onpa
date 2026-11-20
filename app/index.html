@@ -2043,7 +2043,8 @@ function rowHTML(t, i) {
   // 一番右に出どころのロゴ（同じ曲が複数の場所にある時は並べる。ロゴを押すとその場所で流す）
   const LOGO = { SoundCloud: 'sc', Bandcamp: 'bc', 'Apple Music': 'am', Spotify: 'sp' };
   const srcOf = (x) => { const d = String(x.id || ''); return d.startsWith('bc:') ? 'Bandcamp' : d.startsWith('am:') ? 'Apple Music' : d.startsWith('sp:') || x.spuri ? 'Spotify' : 'SoundCloud'; };
-  const logos = mode === 'search' ? `<span class="srcs">${[t, ...(t.alts || [])].map((x, k) => { const n = srcOf(x); return `<button class="srclogo" data-src="${i}:${k}" aria-label="Play on ${n}"><i class="glyph g-${LOGO[n]}"></i></button>`; }).join('')}</span>` : '';
+  const seenSrc = new Set();
+  const logos = mode === 'search' ? `<span class="srcs">${[t, ...(t.alts || [])].map((x, k) => [x, k]).filter(([x]) => { const n = srcOf(x); if (seenSrc.has(n)) return false; seenSrc.add(n); return true; }).map(([x, k]) => { const n = srcOf(x); return `<button class="srclogo" data-src="${i}:${k}" aria-label="Play on ${n}"><i class="glyph g-${LOGO[n]}"></i></button>`; }).join('')}</span>` : '';
   return `
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <span class="artw"><img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i></span>
@@ -2229,12 +2230,41 @@ function mixRank(list, q) {
   };
   return list.map((t) => ({ t, s: scoreOf(t) })).sort((a, b) => b.s - a.s).map((x) => x.t);
 }
+// 同じ曲をまとめる。名前の書き方（feat. の付け方・スペース・カッコ）や、アーティスト欄の連名の違いは気にしない。
+// 長さが12秒以上ちがうものは別の曲（別バージョン）として残す
+function srcCode(t) { const d = String(t.id || ''); return d.startsWith('sp:') ? 'sp' : d.startsWith('bc:') ? 'bc' : d.startsWith('am:') ? 'am' : 'sc'; }
+function mergeSame(list) {
+  const groups = new Map(), order = [];
+  for (const t of list) {
+    const k = songKey(t);
+    if (!k) { order.push([t]); continue; }
+    const g = groups.get(k);
+    if (g && g[0].duration && t.duration && Math.abs(g[0].duration - t.duration) > 12000) { order.push([t]); continue; }
+    if (g) g.push(t); else { const ng = [t]; groups.set(k, ng); order.push(ng); }
+  }
+  const prio = (x) => { const c = srcCode(x); if (c === 'sp') return 0; if (c === 'bc') return 2; const a = normT(x.artist), u = normT(x.uploader); return a && u && (a === u || u.includes(a) || a.includes(u)) ? 1 : 3; };
+  return order.map((g) => {
+    if (g.length === 1) return g[0];
+    g.sort((a, b) => prio(a) - prio(b));
+    const [p, ...rest] = g;
+    return { ...p, alts: rest.map((x) => ({ ...x, alts: undefined })), _r: Math.min(...g.map((x) => x._r || 0)) };
+  });
+}
 // 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
 function songKey(t) {
   // カッコの中は「Official Audio」などの飾りだけ消す（Remix・Live などは別の曲として残す）
   const NOISE = /official|audio|video|lyric|visuali[sz]er|\bmv\b|\bhd\b|\bhq\b|original mix|explicit|clean|remaster|free download|out now/;
-  const n = (x) => String(x || '').toLowerCase().normalize('NFKC').replace(/\(([^)]*)\)|\[([^\]]*)\]|【([^】]*)】/g, (m, a, b, c) => (NOISE.test(a || b || c || '') ? ' ' : ' ' + (a || b || c) + ' ')).replace(/\s(feat|ft|prod)\.?\s[^()]*$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
-  const a = n(t.artist), ti = n(t.title);
+  const n = (x) => String(x || '').toLowerCase().normalize('NFKC')
+    .replace(/[([{【]\s*(feat|ft|with|prod)\b\.?[^)\]}】]*[)\]}】]?/g, ' ')   // (feat. 〜) [feat 〜] など
+    .replace(/\s[-–—]?\s*(feat|ft|prod)\b\.?\s.*$/, ' ')                       // - feat. 〜（最後まで）
+    .replace(/\(([^)]*)\)|\[([^\]]*)\]|【([^】]*)】/g, (m, a, b, c) => (NOISE.test(a || b || c || '') ? ' ' : ' ' + (a || b || c) + ' '))
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+  const first = String(t.artist || '').split(/\s*(?:,|&|×|\bx\b|\bfeat\b\.?|\bft\b\.?|\bwith\b)\s*/i)[0]; // 連名は最初の1人で
+  // 曲名：カッコの中は全部いったん外し、Remix・Live などの「別バージョンのしるし」だけ後ろに付け足す
+  const raw = String(t.title || '').toLowerCase().normalize('NFKC');
+  const tags = [...raw.matchAll(/([\p{L}\p{N}]+\s+)?(remix|rmx|edit|bootleg|flip|vip|live|acoustic|instrumental|sped up|slowed|cover|カバー)\b/giu)].map((m) => m[0].replace(/[^\p{L}\p{N}]+/gu, '')).join('');
+  const base = n(raw.replace(/\([^()]*\([^()]*\)[^()]*\)|\([^)]*\)|\[[^\]]*\]|【[^】]*】/g, ' ')); // 入れ子のカッコもまとめて外す
+  const a = n(first), ti = base + tags;
   return a && ti ? a + '|' + ti : '';
 }
 async function searchBandcamp(link) {
@@ -2267,30 +2297,10 @@ async function search(q) {
     searchList = rankSearch(d.map(splitArtist), q);
     const scCount = searchList.length;
     const bcList = (await bcP || []).filter((t) => t && t.id).map((t) => ({ ...t, provider: 'bandcamp' }));
-    // 同じ曲は1行にまとめる（SoundCloud の行に Bandcamp をぶら下げる）。違う曲だけ下に足す
-    const byKey = new Map();
-    for (const t of searchList) { const k = songKey(t); if (k && !byKey.has(k)) byKey.set(k, t); }
-    const bcOnly = [];
-    for (const b of bcList) {
-      const m = byKey.get(songKey(b));
-      const close = m && (!m.duration || !b.duration || Math.abs(m.duration - b.duration) < 8000);
-      if (close && !(m.alts || []).length) m.alts = [b]; else bcOnly.push(b);
-    }
-    searchList.forEach((t, i) => { t._r = i; }); bcOnly.forEach((t, i) => { t._r = i; });
-    searchList = [...searchList, ...bcOnly];
-    // Spotify：同じ曲は Spotify を先頭にしてまとめる（つないでいる人は Spotify で流すのが一番：公式・高音質・アーティストに入る）。
-    // Spotify にしかない曲は、SoundCloud の結果と交互に並べる
     const spList = await spP;
-    if (spList.length) {
-      const byK = new Map(); searchList.forEach((t, i) => { const k = songKey(t); if (k && !byK.has(k)) byK.set(k, i); });
-      const spOnly = [];
-      for (const sp of spList) {
-        const i = byK.get(songKey(sp));
-        if (i != null && !String(searchList[i].id).startsWith('sp:')) { const old = searchList[i]; searchList[i] = { ...sp, alts: [{ ...old, alts: undefined }, ...(old.alts || [])] }; }
-        else spOnly.push(sp);
-      }
-      searchList = [...searchList, ...spOnly];
-    }
+    searchList.forEach((t, i) => { t._r = i; }); bcList.forEach((t, i) => { t._r = i; });
+    // 同じ曲は、どのサービスのものでも1行にまとめる（Spotify・本人のSoundCloud・Bandcamp の順で先頭に）
+    searchList = mergeSame([...spList, ...searchList, ...bcList]);
     searchList = mixRank(searchList, q);
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));
