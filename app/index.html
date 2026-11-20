@@ -2143,12 +2143,57 @@ async function spSearch(q) {
     const d = await r.json();
     if (r2 && r2.ok) { try { const d2 = await r2.json(); if (d.tracks && d2.tracks) d.tracks.items = [...(d.tracks.items || []), ...(d2.tracks.items || [])]; } catch {} }
     spWhy = 'ok ' + (((d.tracks && d.tracks.items) || []).length);
-    return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t, i) => ({ _r: i,
+    return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t, i) => ({ _r: i, ...spMap(t) }));
+  } catch (e) { spWhy = 'failed ' + (e && e.message); return []; }
+}
+// Spotify の曲の形を、Otocloud の曲の形に
+function spMap(t) {
+  return {
       id: 'sp:' + t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
       artwork: ((t.album && t.album.images) || [])[1] ? t.album.images[1].url : (((t.album && t.album.images) || [])[0] || {}).url || '',
       duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify', pop: t.popularity || 0,
-    }));
-  } catch (e) { spWhy = 'failed ' + (e && e.message); return []; }
+  };
+}
+// Spotify の「お気に入りの曲」（最大300曲）。開発中のアプリは1回の数が少ないので、断られたら10件ずつ
+async function spLikes() {
+  const tok = await spToken(); if (!tok) return [];
+  const H = { Authorization: 'Bearer ' + tok }, out = [];
+  let lim = 50;
+  for (let off = 0; off < 300; off += lim) {
+    let r = await fetch(`https://api.spotify.com/v1/me/tracks?limit=${lim}&offset=${off}`, { headers: H });
+    if (r.status === 400 && lim !== 10) { lim = 10; r = await fetch(`https://api.spotify.com/v1/me/tracks?limit=10&offset=${off}`, { headers: H }); }
+    if (!r.ok) { spLikesErr = r.status; break; }
+    const d = await r.json(), items = d.items || [];
+    out.push(...items.map((it) => it && it.track && it.track.id ? spMap(it.track) : null).filter(Boolean));
+    if (items.length < lim) break;
+  }
+  return out;
+}
+let spLikesErr = 0;
+// Otocloud で♡したら、Spotify のお気に入りにも入れる／外す
+async function spSaveLike(id, like) {
+  try {
+    const tok = await spToken(); if (!tok) return;
+    const r = await fetch('https://api.spotify.com/v1/me/tracks?ids=' + encodeURIComponent(String(id).replace(/^sp:/, '')), { method: like ? 'PUT' : 'DELETE', headers: { Authorization: 'Bearer ' + tok } });
+    if (r.status === 401 || r.status === 403) toast('Reconnect Spotify in Settings to sync likes');
+  } catch {}
+}
+// いいねの一覧に Spotify のお気に入りを足す（同じ曲は1つ）
+async function mergeSpotifyLikes() {
+  if (!IN_APP) return;
+  const list = await spLikes().catch(() => []);
+  if (!list.length) return;
+  const have = new Set((likesList || []).map((t) => String(t.id)));
+  const add = list.filter((t) => !have.has(String(t.id)));
+  list.forEach((t) => likedIds.add(String(t.id)));
+  likesList = (likesList || []).filter((t) => !String(t.id).startsWith('sp:')); // 古い Spotify 分は入れ直す
+  const ownSp = ownLikes().filter((t) => String(t.id).startsWith('sp:')).map(splitArtist);
+  const spAll = [...list, ...ownSp.filter((t) => !list.some((x) => x.id === t.id))];
+  const extra = (likesList || []).filter((t) => !/^\d+$/.test(String(t.id)));
+  const scList = (likesList || []).filter((t) => /^\d+$/.test(String(t.id)));
+  likesList = [...extra, ...spAll, ...scList];
+  paintHeart();
+  if (mode === 'likes' && add.length) renderTracks(likesList, msg('No likes yet', 'Tap the heart on any track to save it here'));
 }
 // 検索結果を1つの順番に並べる（SoundCloud・Bandcamp・Spotify を混ぜて）。
 // 上に来るもの：言葉がちゃんと合っている曲・自分がよく聴くアーティスト・公式の曲（Spotify・Bandcamp・本人のアップ）・よく聴かれている曲。
@@ -3273,6 +3318,7 @@ async function loadLikes() {
   likedIds.clear();
   likesList.forEach((t) => likedIds.add(String(t.id)));
   paintHeart();
+  await mergeSpotifyLikes();
 }
 // いいねの「あとで送る」箱：SoundCloudのいいねの上限（アプリ全体で1日500回）に当たった時は、
 // Otocloudの中ではいいねしたことにしておいて、あとで空いた時にまとめてSoundCloudへ送る
@@ -3321,6 +3367,7 @@ function initOwnLikes() {
   likedIds.clear(); list.forEach((t) => likedIds.add(String(t.id)));
   likesList = list.map(splitArtist);
   paintHeart();
+  mergeSpotifyLikes().catch(() => {});
   // 別の端末で付けたいいねも、自分のデータから取り戻す
   if (!list.length && me && me.uid) db.ref('users/' + me.uid + '/likes').once('value').then((v) => {
     const got = v.val(); if (!Array.isArray(got) || !got.length || sc) return;
@@ -3353,6 +3400,7 @@ async function toggleRowLike(btn) {
     const id = String(t.id), like = !likedIds.has(id);
     if (like) likedIds.add(id); else likedIds.delete(id);
     btn.setAttribute('aria-pressed', String(like)); paintHeart(); toggleOwnLike(t, like);
+    if (String(t.id).startsWith('sp:')) spSaveLike(t.id, like);
     return;
   }
   const id = String(t.id), like = !likedIds.has(id);
@@ -3370,6 +3418,7 @@ $('heart').addEventListener('click', async () => {
   paintHeart();
   const own = !sc || !/^\d+$/.test(id); // SoundCloudなし（または Bandcamp の曲）：Otocloudの中のいいねとして貯める
   if (own) toggleOwnLike(track, like);
+  if (id.startsWith('sp:')) spSaveLike(id, like);
   if (like) {
     const hb = $('heart');
     hb.classList.remove('pop'); void hb.offsetWidth; hb.classList.add('pop');
