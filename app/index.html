@@ -4400,8 +4400,12 @@ class SpotifyMedia extends EventTarget {
   // つながりが切れていても効くように、Spotify のWeb の仕組みからも同じ操作を送る（Premium なら効く）
   async _web(method, path, body) {
     try { const tok = await spToken(); if (!tok) return;
-      if (/^\/(play|pause|seek)/.test(path)) { const dev = await this._phone(); if (!dev) return; path += (path.includes('?') ? '&' : '?') + 'device_id=' + encodeURIComponent(dev); } // ほかの端末を動かさない
-      await fetch('https://api.spotify.com/v1/me/player' + path, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); } catch {}
+      const go = (pp) => fetch('https://api.spotify.com/v1/me/player' + pp, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      // 再生・位置：この iPhone だけ（ほかの端末で勝手に鳴らさない）
+      if (/^\/(play|seek)/.test(path)) { const dev = await this._phone(); if (!dev) return; await go(path + (path.includes('?') ? '&' : '?') + 'device_id=' + encodeURIComponent(dev)); return; }
+      // 止める：iPhone で止めて、それでも鳴っていれば、今鳴っている端末（パソコンなど）も止める。止めるのは安全なので必ず効かせる
+      if (path === '/pause') { const dev = await this._phone(); if (dev) { const r = await go('/pause?device_id=' + encodeURIComponent(dev)); if (r.status < 300) return; } await go('/pause'); return; }
+      await go(path); } catch {}
   }
   pause() { nat('spPause').catch(() => {}); this._web('PUT', '/pause'); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
   stop() { if (this._uri && !this._paused) nat('spPause').catch(() => {}); this._uri = null; if (!this._paused) { this._paused = true; this.fire('pause'); } }

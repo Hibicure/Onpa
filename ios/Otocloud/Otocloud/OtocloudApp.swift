@@ -979,7 +979,10 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     }
 
     // つながっていなければつなぐ。Spotify が止まっていたら、その曲で起こす
+    /// 起こすために Spotify を開いた時は、その時点でもう曲が流れ始めている（もう一度 play すると頭から鳴り直すので、しない）
+    private var wokeWith: String?
     private func ensureConnected(playURI: String) async -> Bool {
+        wokeWith = nil
         if remote.isConnected { return true }
         guard let s = sessionManager.session else { return false }
         if s.isExpired {
@@ -990,8 +993,8 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         let ok = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             connectWaiters.append(c)
             DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
-            // 返事が来ないまま待ち続けないように、5秒で「つながらなかった」にする
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            // Spotify が起きていれば1秒もかからずにつながる。2秒待ってだめなら、すぐ起こしに行く（前は5秒待っていて遅かった）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
                 guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
                 self.finishConnect(false)
             }
@@ -1004,6 +1007,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { if !done { done = true; c.resume(returning: false) } }
         }
         guard opened else { return false }
+        wokeWith = playURI
         for _ in 0..<40 { // 戻ってきてつながるのを最大10秒待つ
             if remote.isConnected { return true }
             try? await Task.sleep(nanoseconds: 250_000_000)
@@ -1012,7 +1016,12 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     }
 
     func play(uri: String, at: Double) async -> Bool {
-        guard !uri.isEmpty, await ensureConnected(playURI: uri), let api = remote.playerAPI else { return false }
+        guard !uri.isEmpty, await ensureConnected(playURI: uri), let api = remote.playerAPI else { return wokeWith == uri }
+        if wokeWith == uri { // もう流れ始めている：途中からの時だけ位置を合わせる
+            wokeWith = nil
+            if at > 0.5 { api.seek(toPosition: Int(at * 1000), callback: nil) }
+            return true
+        }
         return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             api.play(uri, callback: { _, err in
                 if at > 0.5 { self.remote.playerAPI?.seek(toPosition: Int(at * 1000), callback: nil) }
