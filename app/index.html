@@ -2244,8 +2244,7 @@ async function search(q) {
     searchList = mixRank(searchList, q);
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));
-      // 調査用（一時的）：Spotify の検索がどうなったか、一番下に小さく
-      if (IN_APP) $('results').insertAdjacentHTML('beforeend', `<p class="set-hint" style="text-align:center;opacity:.6;margin:14px 0 30px">Spotify: ${esc(spWhy || 'not tried')}</p>`);
+
       // Bandcamp の結果は、SoundCloud の下にまとめて（区切りに「Bandcamp」）
       // 出どころ：SoundCloudのロゴ（黒か白のまま。色は変えない）→ SoundCloudの検索ページへ
       // 出どころは各行のロゴで示す（上の「SoundCloud」の文字は出さない）
