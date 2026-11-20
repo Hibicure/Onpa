@@ -926,6 +926,9 @@
   #results .row .srclogo:active .glyph { transform: scale(.88); }
   /* 出どころのロゴ：公式アイコンから形だけを抜き出して、文字と同じ色で塗る（昼は黒・夜は白） */
   .glyph { display: block; background: currentColor; -webkit-mask: var(--gm) center / contain no-repeat; mask: var(--gm) center / contain no-repeat; }
+  /* Spotify の3本線は横に長いので、少し細めに（ほかのロゴと同じくらいの存在感に） */
+  #results .row .srclogo .glyph.g-sp { width: 15px; }
+  .np .np-src .glyph.g-sp { width: 19px; }
   .glyph.g-sc { --gm: var(--g-sc); } .glyph.g-bc { --gm: var(--g-bc); } .glyph.g-am { --gm: var(--g-am); } .glyph.g-sp { --gm: var(--g-sp); }
   #results .row .add { margin-right: -6px; }
   .np #disc { z-index: 1; }
