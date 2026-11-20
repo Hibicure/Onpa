@@ -369,16 +369,16 @@
     box-shadow: 0 0 8px currentColor; animation: heartspark .55s cubic-bezier(.2,.8,.3,1) forwards; }
   @keyframes heartspark { 0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--a)) translateY(-26px) scale(.2); opacity: 0; } }
   /* 三原色（背景の色）ボタンは、画面の右上に */
-  .np .top #ambBtn { position: absolute; right: 2px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
+  .np .top #ambBtn { position: absolute; right: -3px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
   .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
   /* 左上：今の曲がどこのサービスの曲か（公式ロゴ）。押すとそのサービスで開く。右の3つのボタンと同じ高さ */
-  .np .top .np-src { position: absolute; left: 2px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; }
+  .np .top .np-src { position: absolute; left: -7px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; }
   .np .top .np-src { color: var(--ink); }
   .np .top .np-src .glyph { width: 24px; height: 24px; }
   .np .top .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
-  .np .top:has(#npSrc:not([hidden])) #recBtn { left: 44px; } /* 録音中もロゴは隠さず、録音ボタンをその右へ */
-  .np .top #themeBtn { position: absolute; right: 34px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
+  .np .top:has(#npSrc:not([hidden])) #recBtn { left: 35px; } /* 録音中もロゴは隠さず、録音ボタンをその右へ */
+  .np .top #themeBtn { position: absolute; right: 29px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
   .heart.ambt svg { width: 27px; height: 27px; }
@@ -764,7 +764,7 @@
   .np .stage { position: relative; }
 
   /* 地球儀：ディスクの場所が、本物っぽい地球になる。指で回して、友達のいる場所に顔が出る */
-  .np .top .globe-btn { position: absolute; right: 65px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; } /* 地球・電球・三原色を同じ高さ・同じ間かくで */
+  .np .top .globe-btn { position: absolute; right: 60px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; } /* 地球・電球・三原色を同じ高さ・同じ間かくで */
   .np .globe-btn svg { width: 24px; height: 24px; }
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
