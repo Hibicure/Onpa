@@ -2100,19 +2100,22 @@ async function spToken() {
   if (r && r.token) { spTok = r.token; spTokAt = Date.now(); }
   return r && r.token ? r.token : '';
 }
+let spWhy = '';
 async function spSearch(q) {
+  spWhy = '';
   try {
-    const tok = await spToken(); if (!tok) return [];
+    const tok = await spToken(); if (!tok) { spWhy = 'not linked'; return []; }
     const r = await Promise.race([fetch('https://api.spotify.com/v1/search?type=track&limit=15&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
-    if (!r) return [];
-    if (r.status === 401) { spTokAt = 0; return []; }
+    if (!r) { spWhy = 'timeout'; return []; }
+    if (!r.ok) { if (r.status === 401) spTokAt = 0; spWhy = 'error ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 120); return []; }
     const d = await r.json();
+    spWhy = 'ok ' + (((d.tracks && d.tracks.items) || []).length);
     return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t) => ({
       id: 'sp:' + t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
       artwork: ((t.album && t.album.images) || [])[1] ? t.album.images[1].url : (((t.album && t.album.images) || [])[0] || {}).url || '',
       duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify',
     }));
-  } catch { return []; }
+  } catch (e) { spWhy = 'failed ' + (e && e.message); return []; }
 }
 // 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
 function songKey(t) {
@@ -2179,6 +2182,8 @@ async function search(q) {
     }
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));
+      // 調査用（一時的）：Spotify の検索がどうなったか、一番下に小さく
+      if (IN_APP) $('results').insertAdjacentHTML('beforeend', `<p class="set-hint" style="text-align:center;opacity:.6;margin:14px 0 30px">Spotify: ${esc(spWhy || 'not tried')}</p>`);
       // Bandcamp の結果は、SoundCloud の下にまとめて（区切りに「Bandcamp」）
       // 出どころ：SoundCloudのロゴ（黒か白のまま。色は変えない）→ SoundCloudの検索ページへ
       if (searchList.length) $('results').insertAdjacentHTML('afterbegin', `<a class="src-by" href="https://soundcloud.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" aria-label="Results from SoundCloud"><img class="sc-logo dark-hide" src="sc_black.png" alt="SoundCloud"><img class="sc-logo light-hide" src="sc_white.png" alt="SoundCloud"></a>`);
