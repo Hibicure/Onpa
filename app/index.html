@@ -4054,7 +4054,7 @@ class SpotifyMedia extends EventTarget {
           const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
           if (r.status !== 200) return;
           const d = await r.json(), it = d && d.item;
-          if (it && it.uri) this._state({ uri: it.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing });
+          if (it && it.uri) this._state({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing });
         } catch {}
       }).catch(() => {});
     }, 2000);
@@ -4073,7 +4073,7 @@ class SpotifyMedia extends EventTarget {
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
-    this._enq = []; this._loadAt = performance.now();
+    this._enq = []; this._loadAt = performance.now(); this._meta = meta ? { title: meta.title, artist: meta.artist } : null;
     this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
     this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
     this._pending = !autoplay;
@@ -4091,9 +4091,10 @@ class SpotifyMedia extends EventTarget {
       const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => ({ ok: false })), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
       if (r === 'slow') return; // 始まれば、知らせ・問い合わせで再生中になる
       if (!r || !r.ok) {
-        // 「失敗」と返ってきても、実は流れていることがある。確かめてから判断する
-        await new Promise((ok) => setTimeout(ok, 1200));
-        if (await this._isOn(uri)) return;
+        // 「失敗」と返ってきても、実は流れていることがよくある。Web の仕組みでもう一度頼んで、しばらく確かめてから判断する
+        if (await this._waitOn(uri, 4000)) return;
+        await this._webPlay(uri, 0);
+        if (await this._waitOn(uri, 12000)) return;
         this.fire('error'); throw new Error("Couldn't play on Spotify");
       }
     }
@@ -4111,8 +4112,7 @@ class SpotifyMedia extends EventTarget {
         if (await this._webPlay(uri, at)) return;
         const r = await nat('spPlay', { uri, at }).catch(() => null);
         if (r && r.ok) return;
-        await new Promise((ok) => setTimeout(ok, 1200));
-        if (!(await this._isOn(uri))) toast("Couldn't play on Spotify");
+        if (!(await this._waitOn(uri, 12000))) toast("Couldn't play on Spotify");
       })();
     }
     this._web('PUT', '/play');
@@ -4126,14 +4126,32 @@ class SpotifyMedia extends EventTarget {
       return w.status === 204 || w.status === 202 || w.status === 200;
     } catch { return false; }
   }
+  // Spotify が流している曲が、Otocloud の今の曲と同じか。
+  // Spotify は国によって同じ曲を別の番号で流すことがある（置き換え）ので、番号が違っても曲名と歌手が同じなら同じ曲とみなす
+  _mine(e, uri = this._uri) {
+    if (!e || !e.uri || !uri) return false;
+    if (e.uri === uri || e.linked === uri) return true;
+    const m = this._meta, n = (x) => String(x || '').toLowerCase().normalize('NFKC').replace(/\s*[\(\[].*?[\)\]]\s*/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
+    return !!(m && uri === this._uri && e.name && n(e.name) === n(m.title) && (!e.artist || !m.artist || n(e.artist).includes(n(String(m.artist).split(/,|&| feat/i)[0])) || n(m.artist).includes(n(String(e.artist).split(',')[0]))));
+  }
+  // Spotify で鳴り始めるのを、しばらく待って確かめる（Spotify が寝ていると10秒以上かかることがある）。鳴ったら true
+  async _waitOn(uri, ms = 15000) {
+    const end = performance.now() + ms;
+    while (performance.now() < end) {
+      if (this._uri !== uri) return true; // もう別の曲に移った：失敗とは言わない
+      if (!this._paused || await this._isOn(uri)) return true;
+      await new Promise((ok) => setTimeout(ok, 1500));
+    }
+    return false;
+  }
   // 今 Spotify でこの曲が流れているか（アプリのつながり、なければWebの仕組みで確かめる）
   async _isOn(uri) {
     const st = await nat('spNow').catch(() => null);
-    if (st && st.uri) { if (st.uri === uri) { this._state(st); return true; } return false; }
+    if (st && st.uri) { if (this._mine(st, uri)) { this._state({ ...st, uri }); return true; } return false; }
     try {
       const tok = await spToken(); const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
       if (r.status !== 200) return false; const d = await r.json(), it = d && d.item;
-      if (it && it.uri === uri) { this._state({ uri: it.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing }); return true; }
+      if (it && this._mine({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', ') }, uri)) { this._state({ uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing }); return true; }
     } catch {}
     return false;
   }
@@ -4159,6 +4177,7 @@ class SpotifyMedia extends EventTarget {
   _finish() { this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
   _state(e) {
     if (!this._uri) return;
+    if (e.uri && e.uri !== this._uri && this._mine(e)) e = { ...e, uri: this._uri };
     if (e.uri && e.uri !== this._uri) {
       // Spotify が「次に再生」に入れた曲へ進んだ（Otocloud が裏で眠っていた間も含む）
       const ei = this._enq.findIndex((x) => x.uri === e.uri);
@@ -4283,7 +4302,14 @@ async function loadTrack(meta, autoplay = false) {
         if (d && d.secret && my === loadToken) { loading = false; return loadTrack({ ...meta, secret: d.secret, _retried: true }, autoplay); }
       } catch { /* 無視 */ }
     }
-    if (my === loadToken) { toast("This track can't be played"); setPP('play'); }
+    if (my === loadToken) {
+      // Spotify の曲は、あきらめた後に鳴り始めることがある。その時は何事もなかったように「再生中」に戻す
+      if (String(meta.trackId).startsWith('sp:') && player.sp) {
+        const late = () => { player.removeEventListener('playing', late); if (track && track.trackId === meta.trackId && !loadedId) { loadedId = meta.trackId; rememberPlayed(meta); addCue(); } };
+        player.addEventListener('playing', late); setTimeout(() => player.removeEventListener('playing', late), 60000);
+      }
+      toast("This track can't be played"); setPP('play');
+    }
     return false;
   } finally {
     if (my === loadToken) loading = false;
@@ -5652,7 +5678,7 @@ $('setSpList').addEventListener('click', async (e) => {
   const row = e.target.closest('[data-spuri]'); if (!row) return;
   if (!player.paused) player.pause(); // SoundCloud は止める
   const r = await nat('spPlay', { uri: row.dataset.spuri, at: 0 }).catch(() => null);
-  if (!r || !r.ok) toast("Couldn't play on Spotify");
+  if (!r || !r.ok) { await new Promise((ok) => setTimeout(ok, 3000)); const st = await nat('spNow').catch(() => null); if (!(st && st.uri === row.dataset.spuri)) toast("Couldn't play on Spotify"); }
 });
 let spHooked = false;
 function hookSpState() { // natH は後ろで作られるので、使う時に登録する
