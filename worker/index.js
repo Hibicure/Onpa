@@ -815,6 +815,15 @@ export default {
         return json({ located: out, pending }, 200, cors);
       }
 
+      // Spotify・Bandcamp の曲の歌詞：曲名とアーティストで LRCLIB（みんなで作る歌詞のデータベース）を探す
+      if (p === '/lyrics/by') {
+        const title = String(url.searchParams.get('title') || '').slice(0, 200), artist = String(url.searchParams.get('artist') || '').split(/,| feat\.? | ft\.? /i)[0].trim().slice(0, 120);
+        const dur = Number(url.searchParams.get('dur') || 0);
+        if (!title) return json({ lyrics: '' }, 200, cors);
+        const l = await lrclib({ title, publisher_metadata: { artist }, duration: dur * 1000 });
+        return json(l || { lyrics: '' }, 200, cors);
+      }
+
       // Genius の歌詞ページ（本文は取らない。ページへのリンクだけ）。GENIUS_TOKEN があれば公式の検索で曲のページへ、なければ検索ページへ
       if (p === '/genius') {
         const q = String(url.searchParams.get('q') || '').slice(0, 200);

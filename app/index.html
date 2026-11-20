@@ -3979,7 +3979,14 @@ async function loadLyrics(meta) {
   lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
   const toGenius = () => { if (lyrFor !== meta.trackId || lyr) return; $('lyrBtn').textContent = 'Lyrics ↗'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
-  if (!/^\d+$/.test(String(meta.trackId))) { toGenius(); return; }
+  if (!/^\d+$/.test(String(meta.trackId))) {
+    try {
+      const d = await fetch(`${WORKER}/lyrics/by?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '', dur: String(Math.round((meta.duration || 0) / 1000)) })).then((r) => r.json());
+      if (lyrFor !== meta.trackId) return;
+      if (d && d.lyrics) { lyr = d; $('lyrBtn').hidden = false; return; }
+    } catch {}
+    toGenius(); return;
+  }
   try {
     const r = await fetch(`${WORKER}/lyrics/${meta.trackId}` + (meta.secret ? '?st=' + encodeURIComponent(meta.secret) : ''), { headers: await scHeaders() });
     const d = await r.json();
