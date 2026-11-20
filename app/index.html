@@ -2098,8 +2098,11 @@ async function spToken() {
   if (!IN_APP) return '';
   if (spTok && Date.now() - spTokAt < 30 * 60 * 1000) return spTok;
   const r = await nat('spToken').catch(() => null);
-  if (r && r.token) { spTok = r.token; spTokAt = Date.now(); }
-  return r && r.token ? r.token : '';
+  if (r && r.token) { spTok = r.token; spTokAt = Date.now(); return r.token; }
+  // アプリが古くて spToken を知らない時：状態から合鍵をもらう（期限が切れていなければ使える）
+  const st = await nat('spStatus').catch(() => null);
+  if (st && st.token && (!st.expires || st.expires > Date.now() + 60000)) { spTok = st.token; spTokAt = Date.now() - 25 * 60 * 1000; return st.token; }
+  return '';
 }
 let spWhy = '';
 async function spSearch(q) {
