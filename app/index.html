@@ -914,10 +914,10 @@
   .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine { display: none; }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
   .np.full .amb { display: none; }
-  /* 全画面で電球を押すと、文字とボタンが白⇄黒に切りかわる（ジャケットの明るさはそのまま）。
+  /* 全画面：電球をつけている（昼）時は黒い文字、消している（夜）時は白い文字。ジャケットの明るさはそのまま。
      黒い文字の時は、下の影を白っぽくして読みやすく */
-  :root[data-theme="dark"] .np.full { --ink: #111214; --mute: rgba(0,0,0,.62); --line: rgba(0,0,0,.28); color: #111214; }
-  :root[data-theme="dark"] .np.full .fullart .shade { background: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.12) 55%, rgba(255,255,255,.7) 100%); }
+  :root:not([data-theme="dark"]) .np.full { --ink: #111214; --mute: rgba(0,0,0,.62); --line: rgba(0,0,0,.28); color: #111214; }
+  :root:not([data-theme="dark"]) .np.full .fullart .shade { background: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.12) 55%, rgba(255,255,255,.7) 100%); }
   /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
   .np .fulllyr { display: none; }
   .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
@@ -2086,6 +2086,7 @@ $('signOut').addEventListener('click', async () => {
 $('tabSearch').addEventListener('click', () => {
   if (typeof closeNp === 'function' && $('np').classList.contains('open')) closeNp();
   showTab('listen'); if (mode !== 'search') setMode('search');
+  if (!$('q').value.trim()) showSearchRecent();
   window.scrollTo(0, 0);
   setTimeout(() => { try { $('q').focus(); } catch {} }, 60);
 });
@@ -2093,11 +2094,27 @@ $('npArt').addEventListener('error', () => { if ($('npArt').getAttribute('src') 
 $('miniArt').addEventListener('error', () => { if ($('miniArt').getAttribute('src') !== NO_ART) $('miniArt').src = NO_ART; });
 $('q').addEventListener('focus', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
 $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); const v = e.target.value.trim(); if (v.length >= 1) search(v); e.target.blur(); } });
-$('q').addEventListener('input', () => { $('qClear').hidden = !$('q').value; });
-$('qClear').addEventListener('click', () => { hap('light'); $('q').value = ''; $('qClear').hidden = true; $('q').focus(); });
+$('q').addEventListener('input', () => { $('qClear').hidden = !$('q').value; if (!$('q').value.trim()) showSearchRecent(); });
+$('qClear').addEventListener('click', () => { hap('light'); $('q').value = ''; $('qClear').hidden = true; $('q').focus(); showSearchRecent(); });
 $('qCancel').addEventListener('click', () => { $('qClear').hidden = true; $('q').value = ''; $('q').blur(); showTab('home'); });
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
+// 検索欄が空の時：検索から流した曲（最近の20曲）を置いておく。何も考えずにまた聴ける
+const SR_KEY = 'oto_search_recent';
+function searchRecent() { try { return JSON.parse(localStorage.getItem(SR_KEY) || '[]') || []; } catch { return []; } }
+function rememberSearchPick(t) {
+  if (!t || !t.id) return;
+  const keep = { ...t, alts: (t.alts || []).map((x) => ({ ...x, alts: undefined })) };
+  const list = [keep, ...searchRecent().filter((x) => String(x.id) !== String(t.id))].slice(0, 20);
+  try { localStorage.setItem(SR_KEY, JSON.stringify(list)); } catch {}
+}
+function showSearchRecent() {
+  if (mode !== 'search' || $('q').value.trim()) return;
+  const list = searchRecent();
+  if (!list.length) { $('results').innerHTML = ''; lastResults = []; return; }
+  renderTracks(list, '');
+  $('results').insertAdjacentHTML('afterbegin', '<div class="src-sec">Recent</div>');
+}
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 const searchMemo = new Map();
@@ -2463,7 +2480,7 @@ $('results').addEventListener('click', (e) => {
   if (!row) return;
   const i = Number((sq || row).dataset.i);
   // 検索から流した時は、その1曲だけ。次は検索結果ではなく、その曲に似た曲（関連する曲）へ続く
-  if (mode === 'search') { playFrom([lastResults[i]], 0); return; }
+  if (mode === 'search') { rememberSearchPick(lastResults[i]); playFrom([lastResults[i]], 0); return; }
   playFrom(lastResults, i);
 });
 
