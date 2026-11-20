@@ -887,6 +887,7 @@
   .controls .skip, .controls .pp, .controls .mode { background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 12px; }
   .controls .skip { width: 64px; height: 56px; color: var(--ink); }
   .controls .skip svg { width: 44px; height: 28px; }
+  .controls #npMode { width: 52px; height: 52px; } .controls #npMode svg { width: 38px; height: 38px; } /* シャッフル・リピートは大きめに（存在感） */
   .controls .pp { width: 76px; height: 64px; color: var(--ink); }
   .controls .pp svg { width: 50px; height: 50px; }
   .controls .skip:active, .controls .pp:active, .controls .mode:active { transform: scale(.9); opacity: .7; }
@@ -2540,7 +2541,7 @@ function playFrom(list, i) {
 
 // ===================== シャッフル・リピート =====================
 let shuffleOn = false, repeatMode = 'off', origQueue = [];
-const SHUF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="shm" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><path d="M3.2 7.5 H5.4 C10.6 7.5 12.2 16.5 17.4 16.5 H18.4" stroke="#000" stroke-width="4.9"/></mask></defs><path d="M3.2 16.5 H5.4 C10.6 16.5 12.2 7.5 17.4 7.5 H18.4" mask="url(#shm)"/><path d="M3.2 7.5 H5.4 C10.6 7.5 12.2 16.5 17.4 16.5 H18.4"/><circle cx="18.6" cy="7.5" r="2.55" fill="currentColor" stroke="none"/><circle cx="18.6" cy="16.5" r="2.55" fill="currentColor" stroke="none"/></svg>';
+const SHUF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><defs><mask id="shm" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><path d="M3.2 7.5 C9.6 7.5 11.6 16.5 18.4 16.5" stroke="#000" stroke-width="4.9"/></mask></defs><path d="M3.2 16.5 C9.6 16.5 11.6 7.5 18.4 7.5" mask="url(#shm)"/><path d="M3.2 7.5 C9.6 7.5 11.6 16.5 18.4 16.5"/><circle cx="18.6" cy="7.5" r="2.55" fill="currentColor" stroke="none"/><circle cx="18.6" cy="16.5" r="2.55" fill="currentColor" stroke="none"/></svg>';
 const REP_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.27 14.5 A5 5 0 0 1 8.6 7 H15.0"/><path d="M19.73 9.5 A5 5 0 0 1 15.4 17 H9.0"/><circle cx="15.3" cy="7" r="2.55" fill="currentColor" stroke="none"/><circle cx="8.7" cy="17" r="2.55" fill="currentColor" stroke="none"/></svg>';
 const REP1_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.27 14.5 A5 5 0 0 1 8.6 7 H15.0"/><path d="M19.73 9.5 A5 5 0 0 1 15.4 17 H9.0"/><circle cx="15.3" cy="7" r="2.55" fill="currentColor" stroke="none"/><circle cx="8.7" cy="17" r="2.55" fill="currentColor" stroke="none"/><path d="M10.9 11.1 L12.3 10.2 V14.1" stroke-width="1.75"/></svg>';
 // 1曲リピート＝無限（∞）
