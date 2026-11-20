@@ -2719,10 +2719,21 @@ function buildGlobe() {
     if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 6) return;
     if (!g.moved) { try { box.setPointerCapture(e.pointerId); } catch {} } // 回し始めてから指をつかまえる（ただのタップは顔に届くように）
     g.moved = true; gl.dragMoved = true;
-    const k = 3.2 / gl.size * ((gl.cam.position.z - 1) / (GLOBE_FAR - 1)), dx = e.clientX - g.x, dy = e.clientY - g.y;
-    spinBy(dx * k, dy * k); globeTick(Math.hypot(dx * k, dy * k));
+    // 触った場所が、ずっと指の下に付いてくるように回す（Google Earth と同じ）。地球の外を触っている時は、動いた分だけ回す
+    let rh, rv;
+    const p0 = globeHit(g.x, g.y), p1 = globeHit(e.clientX, e.clientY);
+    if (p0 && p1) {
+      const T = gl.three, q = new T.Quaternion().setFromUnitVectors(p0, p1), ang = 2 * Math.acos(Math.min(1, Math.abs(q.w))), s2 = Math.sqrt(Math.max(1e-12, 1 - q.w * q.w)) * Math.sign(q.w || 1);
+      rh = ang * q.y / s2; rv = ang * q.x / s2;
+      gl.earth.quaternion.premultiply(q);
+    } else {
+      const k = 3.2 / gl.size * ((gl.cam.position.z - 1) / (GLOBE_FAR - 1)); rh = (e.clientX - g.x) * k; rv = (e.clientY - g.y) * k;
+      spinBy(rh, rv);
+    }
+    if (!isFinite(rh)) rh = 0; if (!isFinite(rv)) rv = 0;
+    globeTick(Math.hypot(rh, rv));
     // 離した時の勢い：最後の0.1秒の動きの平均（1回の指の揺れに左右されない）
-    g.samples.push({ t: now, dx: dx * k, dy: dy * k }); while (g.samples.length && now - g.samples[0].t > 100) g.samples.shift();
+    g.samples.push({ t: now, dx: rh, dy: rv }); while (g.samples.length && now - g.samples[0].t > 100) g.samples.shift();
     g.x = e.clientX; g.y = e.clientY; g.t = now;
   });
   const up = (e) => {
@@ -2898,6 +2909,16 @@ let _tickAcc = 0, _tickAt = 0;
 function globeTick(a) {
   _tickAcc += a; if (_tickAcc < 0.105) return;
   _tickAcc = 0; const n = performance.now(); if (n - _tickAt < 40) return; _tickAt = n; hap('tick');
+}
+// 画面の指の位置から、地球の表面のどこを触っているか（地球の外なら null）
+let _ray = null, _sph = null, _nd = null;
+function globeHit(cx, cy) {
+  const T = gl.three; if (!_ray) { _ray = new T.Raycaster(); _sph = new T.Sphere(new T.Vector3(), 1); _nd = new T.Vector2(); }
+  const r = $('globeCv').getBoundingClientRect(); if (!r.width) return null;
+  _nd.set(((cx - r.left) / r.width) * 2 - 1, -(((cy - r.top) / r.height) * 2 - 1));
+  _ray.setFromCamera(_nd, gl.cam);
+  const p = _ray.ray.intersectSphere(_sph, new T.Vector3());
+  return p ? p.normalize() : null;
 }
 function spinBy(h, v) {
   const T = gl.three; if (!_qa) { _qa = new T.Quaternion(); _qb = new T.Quaternion(); _ax = new T.Vector3(1, 0, 0); _ay = new T.Vector3(0, 1, 0); }
