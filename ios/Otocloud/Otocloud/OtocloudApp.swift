@@ -390,6 +390,13 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     result = ["ok": true, "id": SpotifyBridge.customClientID ?? ""]
                 case "spGetClient":
                     result = ["ok": true, "id": SpotifyBridge.customClientID ?? "", "redirect": SpotifyBridge.redirect.absoluteString]
+                case "spEnqueue":
+                    // Otocloud の次の曲たちを、Spotify アプリの「次に再生」に入れる（眠っていても順番どおりに流れる）
+                    let uris = (body["uris"] as? [String] ?? []).filter { $0.hasPrefix("spotify:track:") }
+                    result = ["ok": true, "n": await SpotifyBridge.shared.enqueue(uris)]
+                case "spWarm":
+                    // 先につないでおく（Spotify は開かない）
+                    result = ["ok": true, "connected": await SpotifyBridge.shared.warm()]
                 case "spPause": SpotifyBridge.shared.pause()
                 case "spResume": SpotifyBridge.shared.resume()
                 case "spSeek": SpotifyBridge.shared.seek(body["t"] as? Double ?? 0)
@@ -879,6 +886,10 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         }
         config.playURI = ""
         super.init()
+        NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.sessionManager.session != nil, !self.remote.isConnected else { return }
+            Task { _ = await self.warm() }
+        }
         if let d = UserDefaults.standard.data(forKey: "spSession"),
            let s = try? NSKeyedUnarchiver.unarchivedObject(ofClass: SPTSession.self, from: d) {
             sessionManager.session = s
@@ -975,6 +986,34 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
                 c.resume(returning: err == nil)
             })
         }
+    }
+    /// Spotify を開かずに、つながるだけ試す（Spotify アプリが起きていれば一瞬でつながる）
+    func warm() async -> Bool {
+        if remote.isConnected { return true }
+        guard let s = sessionManager.session else { return false }
+        if s.isExpired { sessionManager.renewSession(); try? await Task.sleep(nanoseconds: 1_200_000_000) }
+        remote.connectionParameters.accessToken = sessionManager.session?.accessToken
+        return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+            connectWaiters.append(c)
+            remote.connect()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+                guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
+                self.finishConnect(false)
+            }
+        }
+    }
+    func enqueue(_ uris: [String]) async -> Int {
+        guard !uris.isEmpty, remote.isConnected || (await warm()), let api = remote.playerAPI else { return 0 }
+        var n = 0
+        for u in uris.prefix(6) {
+            let ok = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+                var done = false
+                api.enqueueTrackUri(u) { _, err in DispatchQueue.main.async { if !done { done = true; c.resume(returning: err == nil) } } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if !done { done = true; c.resume(returning: false) } }
+            }
+            if ok { n += 1 }
+        }
+        return n
     }
     func pause() { remote.playerAPI?.pause(nil) }
     func resume() { remote.playerAPI?.resume(nil) }
