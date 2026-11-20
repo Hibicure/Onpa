@@ -374,6 +374,9 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     hookSP()
                     let ok = await SpotifyBridge.shared.play(uri: body["uri"] as? String ?? "", at: body["at"] as? Double ?? 0)
                     result = ["ok": ok]
+                case "spToken":
+                    // 検索用の合鍵。期限が近ければ、Spotify を開かずに裏で更新してから返す
+                    result = ["ok": true, "token": await SpotifyBridge.shared.freshToken()]
                 case "spSetClient":
                     // 自分の Client ID を保存（空なら Otocloud の鍵に戻す）。次にアプリを開いた時から効く
                     let v = (body["id"] as? String ?? "").trimmingCharacters(in: .whitespaces).lowercased()
@@ -411,7 +414,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "open":
                     // SoundCloud の曲のページを、SoundCloud アプリ（なければ Safari）で開く
                     if let str = body["url"] as? String, let u = URL(string: str), let h = u.host,
-                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") || h == "developer.spotify.com" {
+                       h == "soundcloud.com" || h.hasSuffix(".soundcloud.com") || h.hasSuffix(".bandcamp.com") || h == "developer.spotify.com" || h == "open.spotify.com" {
                         await UIApplication.shared.open(u)
                         result = ["ok": true, "opened": true]
                     }
@@ -880,6 +883,18 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
            let s = try? NSKeyedUnarchiver.unarchivedObject(ofClass: SPTSession.self, from: d) {
             sessionManager.session = s
         }
+    }
+
+    func freshToken() async -> String {
+        guard let s = sessionManager.session else { return "" }
+        if s.isExpired || s.expirationDate.timeIntervalSinceNow < 120 {
+            sessionManager.renewSession()
+            for _ in 0..<12 {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                if let n = sessionManager.session, !n.isExpired, n.expirationDate.timeIntervalSinceNow > 120 { break }
+            }
+        }
+        return sessionManager.session?.accessToken ?? ""
     }
 
     func shutdown() {

@@ -2091,6 +2091,29 @@ const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</di
     root.setProperty('--g-' + code, `url("${url}")`);
   }
 })();
+// Spotify の検索（つないでいる人だけ。合鍵は期限が近ければアプリが裏で更新する）
+let spTokAt = 0;
+async function spToken() {
+  if (!IN_APP) return '';
+  if (spTok && Date.now() - spTokAt < 30 * 60 * 1000) return spTok;
+  const r = await nat('spToken').catch(() => null);
+  if (r && r.token) { spTok = r.token; spTokAt = Date.now(); }
+  return r && r.token ? r.token : '';
+}
+async function spSearch(q) {
+  try {
+    const tok = await spToken(); if (!tok) return [];
+    const r = await Promise.race([fetch('https://api.spotify.com/v1/search?type=track&limit=15&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
+    if (!r) return [];
+    if (r.status === 401) { spTokAt = 0; return []; }
+    const d = await r.json();
+    return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t) => ({
+      id: 'sp:' + t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
+      artwork: ((t.album && t.album.images) || [])[1] ? t.album.images[1].url : (((t.album && t.album.images) || [])[0] || {}).url || '',
+      duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify',
+    }));
+  } catch { return []; }
+}
 // 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
 function songKey(t) {
   // カッコの中は「Official Audio」などの飾りだけ消す（Remix・Live などは別の曲として残す）
@@ -2119,6 +2142,8 @@ async function search(q) {
     // 同じ言葉は、この端末でも10分は覚えておく（打ち直し・戻った時にSoundCloudに聞き直さない）
     const ck = q.toLowerCase().normalize('NFKC').replace(/\s+/g, ' '), memo = searchMemo.get(ck);
     // Bandcamp も同時に探す（待ちすぎない：3秒で間に合わなければ SoundCloud だけ出す）
+    // Spotify をつないでいる人だけ、Spotify も同時に探す
+    const spP = spSearch(q);
     const bcP = Promise.race([fetch(`${WORKER}/bc/search?q=${encodeURIComponent(q)}`).then((x) => (x.ok ? x.json() : [])).catch(() => []), new Promise((ok) => setTimeout(() => ok([]), 3000))]);
     const r = memo && Date.now() - memo.at < 600000 ? { ok: true, json: async () => memo.d } : await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() });
     const d = await r.json();
@@ -2137,6 +2162,21 @@ async function search(q) {
       if (close && !(m.alts || []).length) m.alts = [b]; else bcOnly.push(b);
     }
     searchList = [...searchList, ...bcOnly];
+    // Spotify：同じ曲は Spotify を先頭にしてまとめる（つないでいる人は Spotify で流すのが一番：公式・高音質・アーティストに入る）。
+    // Spotify にしかない曲は、SoundCloud の結果と交互に並べる
+    const spList = await spP;
+    if (spList.length) {
+      const byK = new Map(); searchList.forEach((t, i) => { const k = songKey(t); if (k && !byK.has(k)) byK.set(k, i); });
+      const spOnly = [];
+      for (const sp of spList) {
+        const i = byK.get(songKey(sp));
+        if (i != null && !String(searchList[i].id).startsWith('sp:')) { const old = searchList[i]; searchList[i] = { ...sp, alts: [{ ...old, alts: undefined }, ...(old.alts || [])] }; }
+        else spOnly.push(sp);
+      }
+      const mixed = []; let a = 0, b = 0;
+      while (a < spOnly.length || b < searchList.length) { if (a < spOnly.length) mixed.push(spOnly[a++]); if (b < searchList.length) mixed.push(searchList[b++]); }
+      searchList = mixed;
+    }
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));
       // Bandcamp の結果は、SoundCloud の下にまとめて（区切りに「Bandcamp」）
@@ -2579,7 +2619,12 @@ async function playRelated(auto = true) {
   if (!track || relatedBusy) return false;
   relatedBusy = true;
   try {
-    const r = await fetch(`${WORKER}/related?id=${track.trackId}`, { headers: await scHeaders() });
+    let rid = String(track.trackId);
+    if (!/^\d+$/.test(rid)) { // Spotify・Bandcamp の曲：SoundCloud で同じ曲（なければ同じアーティスト）を探して、そこから続ける
+      try { const s2 = await fetch(`${WORKER}/search?q=${encodeURIComponent(track.artist + ' ' + track.title)}`, { headers: await scHeaders() }).then((x) => x.json()); const hit = (s2 || []).find((x) => /^\d+$/.test(String(x.id))); if (hit) rid = String(hit.id); } catch {}
+      if (!/^\d+$/.test(rid)) throw new Error('no related');
+    }
+    const r = await fetch(`${WORKER}/related?id=${rid}`, { headers: await scHeaders() });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || r.status);
     const played = new Set([String(track.trackId), ...playHistory.map((h) => String(h.trackId))]);
@@ -3217,7 +3262,7 @@ function paintHeart() {
 }
 async function toggleRowLike(btn) {
   const t = lastResults[Number(btn.dataset.like)]; if (!t) return;
-  if (!sc || String(t.id).startsWith('bc:')) {
+  if (!sc || !/^\d+$/.test(String(t.id))) {
     const id = String(t.id), like = !likedIds.has(id);
     if (like) likedIds.add(id); else likedIds.delete(id);
     btn.setAttribute('aria-pressed', String(like)); paintHeart(); toggleOwnLike(t, like);
@@ -3236,7 +3281,7 @@ $('heart').addEventListener('click', async () => {
   const like = !likedIds.has(id);
   if (like) likedIds.add(id); else likedIds.delete(id);
   paintHeart();
-  const own = !sc || id.startsWith('bc:'); // SoundCloudなし（または Bandcamp の曲）：Otocloudの中のいいねとして貯める
+  const own = !sc || !/^\d+$/.test(id); // SoundCloudなし（または Bandcamp の曲）：Otocloudの中のいいねとして貯める
   if (own) toggleOwnLike(track, like);
   if (like) {
     const hb = $('heart');
@@ -3517,11 +3562,53 @@ class BandcampMedia extends EventTarget {
     if (st.ended && !this._ended) { this._ended = true; this._paused = true; this.fire('ended'); }
   }
 }
+// Spotify：音は iPhone の Spotify アプリが鳴らす。Otocloud はリモコン（Spotify Premium・つないだ人だけ）
+class SpotifyMedia extends EventTarget {
+  constructor() {
+    super(); this._paused = true; this._t = 0; this._at = performance.now(); this._dur = 0; this._uri = null; this._ended = false; this._pending = false; this.volume = 1;
+    setTimeout(() => { (natH.spState = natH.spState || []).push((e) => this._state(e || {})); }, 0);
+    setInterval(() => {
+      if (this._paused || !this._uri) return;
+      this.fire('timeupdate');
+      // 曲の終わり：Spotify が勝手に次の曲へ行かないよう止めて、Otocloud の次の曲へ
+      if (this._dur && !this._ended && this.currentTime >= this._dur - 0.35) { this._end(); }
+    }, 250);
+  }
+  fire(n) { this.dispatchEvent(new Event(n)); }
+  get paused() { return this._paused; }
+  get duration() { return this._dur; }
+  get currentTime() { return this._paused ? this._t : Math.min(this._dur || 1e9, this._t + (performance.now() - this._at) / 1000); }
+  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); nat('spSeek', { t: this._t }).catch(() => {}); this.fire('timeupdate'); }
+  isPreloaded() { return false; }
+  preload() {}
+  async load(trackId, autoplay = false, meta) {
+    this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
+    this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
+    this._pending = !autoplay;
+    if (autoplay) { const r = await nat('spPlay', { uri: this._uri, at: 0 }).catch(() => null); if (!r || !r.ok) { this.fire('error'); throw new Error("Couldn't play on Spotify"); } }
+  }
+  play() {
+    if (this._pending) { this._pending = false; return nat('spPlay', { uri: this._uri, at: this._t }).then((r) => { if (!r || !r.ok) toast("Couldn't play on Spotify"); }).catch(() => {}); }
+    return nat('spResume').catch(() => {});
+  }
+  pause() { nat('spPause').catch(() => {}); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
+  stop() { if (this._uri && !this._paused) nat('spPause').catch(() => {}); this._uri = null; if (!this._paused) { this._paused = true; this.fire('pause'); } }
+  _end() { this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
+  _state(e) {
+    if (!this._uri) return;
+    if (e.uri && e.uri !== this._uri) { if (!this._ended && this._dur && this.currentTime > this._dur - 6) this._end(); return; } // Spotify が自分で次へ進んだ
+    if (e.dur && Math.abs(e.dur - this._dur) > 0.5) { this._dur = e.dur; this.fire('durationchange'); this.fire('loadedmetadata'); }
+    if (typeof e.pos === 'number') { this._t = e.pos; this._at = performance.now(); }
+    if (e.paused === false && this._paused) { this._pending = false; this._paused = false; this.fire('play'); this.fire('playing'); }
+    else if (e.paused === true && !this._paused) { this._paused = true; this.fire('pause'); }
+    this.fire('timeupdate');
+  }
+}
 // 曲ごとに、SoundCloud のプレーヤーと Bandcamp のプレーヤーを切り替える窓口（ほかのコードは今まで通り player だけを見ればいい）
 class MediaRouter extends EventTarget {
-  constructor(sc, bc) {
-    super(); this.sc = sc; this.bc = bc; this.active = sc;
-    for (const b of [sc, bc]) {
+  constructor(sc, bc, sp) {
+    super(); this.sc = sc; this.bc = bc; this.sp = sp; this.active = sc;
+    for (const b of [sc, bc, sp]) {
       if (!b) continue;
       const orig = b.dispatchEvent.bind(b);
       b.dispatchEvent = (ev) => {
@@ -3541,8 +3628,15 @@ class MediaRouter extends EventTarget {
   play() { return this.active.play(); }
   pause() { return this.active.pause(); }
   isPreloaded(id) { return this.active === this.sc && this.sc.isPreloaded ? this.sc.isPreloaded(id) : false; }
-  preload(t) { if (t && String(t.id || t.trackId || '').startsWith('bc:')) return; return this.sc.preload(t); }
-  async load(id, autoplay, secret) {
+  preload(t) { if (t && /^(bc|sp):/.test(String(t.id || t.trackId || ''))) return; return this.sc.preload(t); }
+  async load(id, autoplay, secret, meta) {
+    if (String(id).startsWith('sp:')) {
+      if (!this.sp) throw new Error('Spotify plays in the Otocloud app');
+      try { this.sc.pause(); } catch {}
+      if (this.bc && this.active === this.bc) this.bc.stop();
+      this.active = this.sp; return this.sp.load(id, autoplay, meta);
+    }
+    if (this.sp && this.active === this.sp) this.sp.stop();
     if (String(id).startsWith('bc:')) {
       if (!this.bc) throw new Error('Bandcamp plays in the Otocloud app');
       try { this.sc.pause(); } catch {}
@@ -3552,7 +3646,7 @@ class MediaRouter extends EventTarget {
     this.active = this.sc; return this.sc.load(id, autoplay, secret);
   }
 }
-const player = new MediaRouter(new WidgetMedia(IN_APP ? [document.getElementById('scw'), document.getElementById('scw2')] : [document.getElementById('scw')]), IN_APP ? new BandcampMedia() : null);
+const player = new MediaRouter(new WidgetMedia(IN_APP ? [document.getElementById('scw'), document.getElementById('scw2')] : [document.getElementById('scw')]), IN_APP ? new BandcampMedia() : null, IN_APP ? new SpotifyMedia() : null);
 let track = null, loadedId = null, loadToken = 0, loading = false;
 
 function setMusicVol() { player.volume = volMusic(); }
@@ -3581,7 +3675,7 @@ async function loadTrack(meta, autoplay = false) {
   setPP('load');
   try {
     player.pause();
-    await player.load(meta.trackId, autoplay, meta.secret);
+    await player.load(meta.trackId, autoplay, meta.secret, meta);
     if (my !== loadToken) return false;
     loadedId = meta.trackId;
     rememberPlayed(meta);
@@ -3708,7 +3802,7 @@ function tellLockScreen() {
 async function reviveAudio() {
   if (!track || !loadedId) return;
   const id = loadedId, t = player.currentTime || 0;
-  try { await player.load(id, true, track.secret || ''); } catch { return; }
+  try { await player.load(id, true, track.secret || '', track); } catch { return; }
   if (loadedId !== id) return;
   if (t > 2) { const once = () => { player.removeEventListener('playing', once); player.currentTime = t; }; player.addEventListener('playing', once); }
   try { player.play().catch(() => {}); } catch { /* 無視 */ }
@@ -4812,6 +4906,7 @@ async function openInSC() {
   if (!track) return;
   let url = track.permalink || '';
   if (!url && String(track.trackId).startsWith('bc:')) { toast("Couldn't find this song on Bandcamp"); return; }
+  if (String(track.trackId).startsWith('sp:')) { url = url || 'https://open.spotify.com/track/' + String(track.trackId).slice(3); if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank'); return; }
   if (!url) {
     try { const r = await fetch(`${WORKER}/t/${track.trackId}` + (track.secret ? '?st=' + encodeURIComponent(track.secret) : '')); const d = r.ok ? await r.json() : null; url = d && d.permalink_url ? String(d.permalink_url).split('?')[0] : ''; } catch { /* 無視 */ }
   }
