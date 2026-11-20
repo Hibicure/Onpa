@@ -2604,23 +2604,34 @@ function buildGlobe() {
   const T = gl.three, cv = $('globeCv');
   const R = new T.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
   R.setPixelRatio(Math.min(2, window.devicePixelRatio || 2)); // 3倍は重いので2倍まで（見た目はほぼ同じ）
+  // 明るく、写真のような色に（暗く沈まないように）
+  R.outputColorSpace = T.SRGBColorSpace; R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
   const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.1, 100); cam.position.set(0, 0, GLOBE_FAR);
   const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.4/example/img/';
   const ld = new T.TextureLoader(); ld.setCrossOrigin('anonymous');
   const map = ld.load(IMG + 'earth-blue-marble.jpg'); map.colorSpace = T.SRGBColorSpace; map.anisotropy = 8;
   const bump = ld.load(IMG + 'earth-topology.png');
   const water = ld.load(IMG + 'earth-water.png');
-  const earth = new T.Mesh(new T.SphereGeometry(1, 72, 72), new T.MeshPhongMaterial({ map, bumpMap: bump, bumpScale: 0.035, specularMap: water, specular: new T.Color(0x3a4a5a), shininess: 14 }));
+  // 海がきらっと光る、明るい地球
+  const earth = new T.Mesh(new T.SphereGeometry(1, 72, 72), new T.MeshPhongMaterial({ map, bumpMap: bump, bumpScale: 0.03, specularMap: water, specular: new T.Color(0x8aa6c8), shininess: 22 }));
   scene.add(earth);
+  // 雲（白くふわっと。地球より少しだけゆっくり別に流れる）。大きい画像なので、地球が出てから読む
+  const cloudsMat = new T.MeshPhongMaterial({ transparent: true, opacity: 0.9, depthWrite: false });
+  const clouds = new T.Mesh(new T.SphereGeometry(1.012, 64, 64), cloudsMat);
+  earth.add(clouds);
+  setTimeout(() => ld.load('https://cdn.jsdelivr.net/npm/three-globe@2.45.4/example/clouds/clouds.png', (tx) => { tx.colorSpace = T.SRGBColorSpace; cloudsMat.map = tx; cloudsMat.alphaMap = tx; cloudsMat.needsUpdate = true; }), 600);
+  gl.clouds = clouds;
   // うっすら青い大気のふち
   const atm = new T.Mesh(new T.SphereGeometry(1.002, 48, 48), new T.ShaderMaterial({
     side: T.FrontSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 3.0); gl_FragColor = vec4(0.45,0.7,1.0,1.0) * i * 0.9; }',
+    fragmentShader: 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.4); gl_FragColor = vec4(0.42,0.72,1.0,1.0) * i * 1.25; }',
   }));
   scene.add(atm);
-  scene.add(new T.AmbientLight(0xffffff, 0.95));
-  const sun = new T.DirectionalLight(0xffffff, 1.25); sun.position.set(-1.5, 1.2, 4); scene.add(sun);
+  // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
+  scene.add(new T.HemisphereLight(0xdfefff, 0x334455, 1.1));
+  scene.add(new T.AmbientLight(0xffffff, 0.45));
+  const sun = new T.DirectionalLight(0xfff6e8, 1.6); sun.position.set(-1.2, 1.0, 4); scene.add(sun);
   Object.assign(gl, { renderer: R, scene, cam, earth });
   // 指で回す（離したあとも少し回り続ける）
   const box = $('globe');
@@ -2798,6 +2809,7 @@ function loopGlobe() {
       gl.yaw += gl.vy * dt; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + gl.vp * dt));
     }
     gl.earth.rotation.set(gl.pitch, gl.yaw, 0, 'XYZ');
+    if (gl.clouds) gl.clouds.rotation.y += 0.00004 * dt; // 雲はゆっくり自分で流れる
     gl.renderer.render(gl.scene, gl.cam);
     // 顔の位置：地球の表面の点を画面に写す。裏側に回ったら消す
     const half = gl.size / 2;
