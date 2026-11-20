@@ -4624,20 +4624,66 @@ class SpotifyMedia extends EventTarget {
     }, 2000);
     setInterval(() => {
       if (this._paused || !this._uri) return;
+      if (this._stuckSince && performance.now() - this._stuckSince > 4000 && !this._ended && !this._follow) { this._want = true; this._kick(); }
       this.fire('timeupdate');
       // 曲の終わり：Spotify が勝手に次の曲へ行かないよう止めて、Otocloud の次の曲へ
       if (this._dur && !this._ended && !this._follow && this.currentTime >= this._dur - 0.35) { this._end(); }
     }, 250);
   }
   fire(n) { this.dispatchEvent(new Event(n)); }
+  // 本当に音が進んでいるか（秒数が動いているか）を Spotify に聞く。鳴っていれば今の秒数、そうでなければ null
+  async _probe(uri) {
+    const st = await nat('spNow').catch(() => null);
+    if (st && st.uri) { if (!this._mine(st, uri)) return null; this._state({ ...st, uri }); return st.paused === false ? (st.pos || 0) : null; }
+    try {
+      const tok = await spToken(); if (!tok) return null;
+      const r = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + tok } });
+      if (r.status !== 200) return null; const d = await r.json(), it = d && d.item;
+      if (!it || (d.device && !/smartphone/i.test(d.device.type || ''))) return null;
+      const ar = (it.artists || []).map((a) => a.name).join(', ');
+      if (!this._mine({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: ar }, uri)) return null;
+      this._state({ uri, name: it.name, artist: ar, pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing });
+      return d.is_playing ? (d.progress_ms || 0) / 1000 : null;
+    } catch { return null; }
+  }
+  // しばらくの間に、秒数が実際に進んだら true（「再生中」と言うだけで止まっているのは数えない）
+  async _moving(uri, ms) {
+    const end = performance.now() + ms; let p0 = null;
+    while (performance.now() < end) {
+      await new Promise((ok) => setTimeout(ok, 1500));
+      if (this._uri !== uri || !this._want) return true;
+      const p = await this._probe(uri);
+      if (p != null) { if (p0 != null && p - p0 > 0.4) return true; if (p0 == null) p0 = p; }
+    }
+    return false;
+  }
+  // ▶ を押した後、ちゃんと鳴り始めたかを確かめて、だめなら立て直す
+  async _check(uri, ms) { if (await this._moving(uri, ms)) return; if (this._want && this._uri === uri) this._kick(); }
+  // 鳴らない・止まったままの時の立て直し：この iPhone で今の位置から流し直す → Spotify を起こして流し直す → それでもだめなら止めて知らせる
+  async _kick() {
+    if (this._kicking || !this._uri) return; this._kicking = true; const uri = this._uri;
+    try {
+      for (let i = 0; i < 2; i++) {
+        if (this._uri !== uri || !this._want) return;
+        this._stuckSince = 0; this._lastPos = null; const at = Math.max(0, this._t || 0);
+        const ok = i === 0 && await this._webPlay(uri, at);
+        if (!ok) await Promise.race([nat('spPlay', { uri, at }).catch(() => null), new Promise((r) => setTimeout(r, 6000))]);
+        if (await this._moving(uri, 8000)) return;
+      }
+      if (this._uri !== uri || !this._want) return;
+      this._want = false; this._stuckSince = 0; this._pending = true;
+      if (!this._paused) { this._paused = true; this.fire('pause'); } this.fire('timeupdate');
+      toast("Spotify isn't responding. Tap play to try again");
+    } finally { this._kicking = false; }
+  }
   get paused() { return this._paused; }
   get duration() { return this._dur; }
-  get currentTime() { return this._paused ? this._t : Math.min(this._dur || 1e9, this._t + (performance.now() - this._at) / 1000); }
+  get currentTime() { return (this._paused || this._stuckSince) ? this._t : Math.min(this._dur || 1e9, this._t + (performance.now() - this._at) / 1000); }
   set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); nat('spSeek', { t: this._t }).catch(() => {}); this._web('PUT', '/seek?position_ms=' + Math.round(this._t * 1000)); this.fire('timeupdate'); }
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
-    this._enq = []; this._loadAt = performance.now(); this._retried = false; this._silentN = 0; this._meta = meta ? { title: meta.title, artist: meta.artist } : null;
+    this._enq = []; this._loadAt = performance.now(); this._retried = false; this._silentN = 0; this._stuckSince = 0; this._lastPos = null; this._want = !!autoplay; this._meta = meta ? { title: meta.title, artist: meta.artist } : null;
     this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
     this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
     this._pending = !autoplay;
@@ -4645,7 +4691,7 @@ class SpotifyMedia extends EventTarget {
     if (!autoplay) { const u0 = this._uri; this._isOn(u0).then((on) => { if (on && this._uri === u0) this._pending = false; }); }
     if (autoplay) {
       // Spotify アプリが寝ている時は起こすのに時間がかかる。待ちすぎず、始まったら Spotify からの知らせで「再生中」になる
-      const uri = this._uri;
+      const uri = this._uri; this._check(uri, 10000);
       // 始まったかどうかを、Spotify に直接聞いて確かめる（知らせが来ない時のため）。始まっていれば秒数が動き出す
       for (const ms of [1500, 3500, 7000, 12000]) setTimeout(() => { if (this._uri === uri && this._paused) nat('spNow').then((st) => { if (st && st.uri) this._state(st); }).catch(() => {}); }, ms);
       // アプリのつながりが切れている時は、まず Web の仕組みで流す（Spotify を開かずに済む）。
@@ -4664,6 +4710,7 @@ class SpotifyMedia extends EventTarget {
     }
   }
   play() {
+    this._want = true; if (this._uri && !this._kicking) this._check(this._uri, 9000);
     if (this._pending) {
       this._pending = false; const uri = this._uri, at = this._t;
       return (async () => {
@@ -4676,13 +4723,13 @@ class SpotifyMedia extends EventTarget {
         if (await this._webPlay(uri, at)) return;
         const r = await nat('spPlay', { uri, at }).catch(() => null);
         if (r && r.ok) return;
-        if (!(await this._waitOn(uri, 12000))) toast("Couldn't play on Spotify");
       })();
     }
     // 「続きから」の前に、Spotify が今もこの曲か確かめる。ラジオ・ポッドキャスト・別の曲に変わっていたら、Otocloud の曲をこの位置から流し直す
     return (async () => {
       const st = await nat('spNow').catch(() => null);
-      if (st && st.uri && !this._mine(st)) { this._pending = true; return this.play(); }
+      // Spotify とつながっていない・別のものが流れている時は、「続きから」では鳴らないので、この曲をこの位置から流し直す
+      if (!(st && st.uri) || !this._mine(st)) { this._pending = true; return this.play(); }
       this._web('PUT', '/play');
       return nat('spResume').catch(() => {});
     })();
@@ -4749,8 +4796,8 @@ class SpotifyMedia extends EventTarget {
       if (path === '/pause') { const dev = await this._phone(); if (dev) { const r = await go('/pause?device_id=' + encodeURIComponent(dev)); if (r.status < 300) return; } await go('/pause'); return; }
       await go(path); } catch {}
   }
-  pause() { nat('spPause').catch(() => {}); this._web('PUT', '/pause'); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
-  stop() { if (this._uri && !this._paused) nat('spPause').catch(() => {}); this._uri = null; if (!this._paused) { this._paused = true; this.fire('pause'); } }
+  pause() { this._want = false; nat('spPause').catch(() => {}); this._web('PUT', '/pause'); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
+  stop() { this._want = false; if (this._uri && !this._paused) nat('spPause').catch(() => {}); this._uri = null; if (!this._paused) { this._paused = true; this.fire('pause'); } }
   _end() {
     // Spotify の「次に再生」に Otocloud の次の曲を入れてある時は、止めずに Spotify に進んでもらう
     if (this._enq.length) { this._follow = true; this._ended = true; clearTimeout(this._followT); this._followT = setTimeout(() => { if (this._follow) { this._follow = false; this._ended = false; this._enq = []; this._finish(); } }, 5000); return; }
@@ -4764,7 +4811,7 @@ class SpotifyMedia extends EventTarget {
     }
     this._finish();
   }
-  _finish() { this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
+  _finish() { this._want = false; this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
   _state(e) {
     if (!this._uri) return;
     // Spotify でポッドキャスト・広告など「曲じゃないもの」が流れている：Otocloud の曲は一時停止の扱いにして、▶ でこの曲に戻れるようにしておく
@@ -4803,7 +4850,15 @@ class SpotifyMedia extends EventTarget {
       return;
     } // Spotify が自分で次へ進んだ
     if (e.dur && Math.abs(e.dur - this._dur) > 0.5) { this._dur = e.dur; this.fire('durationchange'); this.fire('loadedmetadata'); }
-    if (typeof e.pos === 'number') { this._t = e.pos; this._at = performance.now(); }
+    if (typeof e.pos === 'number') {
+      // Spotify が「再生中」と言いながら秒数が進んでいない（読み込みで止まっている）かを見張る
+      const now = performance.now();
+      if (e.paused === false && this._lastPos != null && now - (this._lastPosAt || 0) > 1200) {
+        if (Math.abs(e.pos - this._lastPos) < 0.3) { if (!this._stuckSince) this._stuckSince = now; } else this._stuckSince = 0;
+      } else if (e.paused !== false) this._stuckSince = 0;
+      if (this._lastPos == null || now - (this._lastPosAt || 0) > 1200 || Math.abs(e.pos - this._lastPos) >= 0.3) { this._lastPos = e.pos; this._lastPosAt = now; }
+      this._t = e.pos; this._at = now;
+    }
     if (e.paused === false && this._paused) { this._pending = false; this._paused = false; this.fire('play'); this.fire('playing'); }
     else if (e.paused === true && !this._paused) { this._paused = true; this.fire('pause'); }
     this.fire('timeupdate');
