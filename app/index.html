@@ -810,7 +810,9 @@
   .np .top .globe-btn { position: absolute; right: 60px; top: -9px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; } /* 地球・電球・三原色を同じ高さ・同じ間かくで */
   .np .globe-btn svg { width: 24px; height: 24px; }
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
-  .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
+  .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; pointer-events: none; }
+  .np .globe canvas { pointer-events: none; }
+  .np .globe .ghit { position: absolute; border-radius: 50%; pointer-events: auto; touch-action: none; } /* 触れるのは地球の上だけ（まわりの光はボタンのじゃまをしない） */
   .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%;
     -webkit-mask-image: radial-gradient(circle closest-side, #000 var(--gf, 99%), transparent 100%); mask-image: radial-gradient(circle closest-side, #000 var(--gf, 99%), transparent 100%); }
   .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
@@ -1454,7 +1456,7 @@
     </div>
     <div class="stage">
             <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div><div class="pick" id="discPick" hidden><div class="pick-rail" id="pickRail"></div></div></div>
-      <div class="globe" id="globe" hidden><canvas id="globeCv"></canvas><div class="gpins" id="globePins"></div></div>
+      <div class="globe" id="globe" hidden><canvas id="globeCv"></canvas><div class="ghit" id="globeHit"></div><div class="gpins" id="globePins"></div></div>
       <div class="orbit" id="sendOrbit" hidden></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
     </div>
@@ -2651,13 +2653,15 @@ function globePeople() {
   return list;
 }
 // 地球はジャケットより少し小さく（84%）置いて、まわりに大気の光の輪が入るすき間を作る（画角30°）。いつもの回る速さ（1ミリ秒あたり）
-const GLOBE_FAR = 1 / Math.sin(15 * Math.PI / 180), GLOBE_SPIN = 0.00011; // 地球はジャケットと同じ大きさ
+// 地球はジャケットと同じ大きさのまま、描く場所だけ少し大きくして（GLOBE_PAD倍）、まわりに大気の光を出す
+const GLOBE_PAD = 1.14, GLOBE_FAR = 1 / Math.sin(Math.atan(Math.tan(15 * Math.PI / 180) / GLOBE_PAD)), GLOBE_SPIN = 0.00011;
 const GLOBE_TAN = Math.tan(15 * Math.PI / 180);
 async function openGlobe() {
   const box = $('globe'), disc = $('disc');
   const r = disc.getBoundingClientRect(), st = disc.parentElement.getBoundingClientRect();
-  const size = Math.round(r.width); gl.size = size;
-  box.style.width = box.style.height = size + 'px'; box.style.top = Math.round(r.top - st.top) + 'px';
+  const jk = Math.round(r.width), size = Math.round(jk * GLOBE_PAD); gl.size = size;
+  box.style.width = box.style.height = size + 'px'; box.style.top = Math.round(r.top - st.top - (size - jk) / 2) + 'px';
+  const hit = $('globeHit'); hit.style.width = hit.style.height = jk + 'px'; hit.style.left = hit.style.top = Math.round((size - jk) / 2) + 'px';
   box.hidden = false; $('np').classList.add('globe-on'); $('globeBtn').setAttribute('aria-pressed', 'true'); gl.on = true;
   if (!gl.three) {
     try { gl.three = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js'); }
@@ -2712,13 +2716,13 @@ function buildGlobe() {
   }));
   scene.add(atm); gl.atm = atm; gl.earthMat = earthMat;
   // 外側の光の輪（Google Earth のような大気）：地球のふちが一番明るく、外へ向かってふわっと消える
-  const HALO = 1.16, haloE = Math.sqrt(1 - 1 / (HALO * HALO)).toFixed(3);
+  const HALO = 1.11, haloE = Math.sqrt(1 - 1 / (HALO * HALO)).toFixed(3);
   const halo = new T.Mesh(new T.SphereGeometry(1, 64, 64), new T.ShaderMaterial({
     uniforms: { c: { value: new T.Color(0x5cb4ff) }, a: { value: 0.75 } }, side: T.BackSide, transparent: true, depthWrite: false,
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: 'uniform vec3 c; uniform float a; varying vec3 n; void main(){ float k = pow(clamp(-n.z / ' + haloE + ', 0.0, 1.0), 1.6); gl_FragColor = vec4(c, k * a); }',
   }));
-  halo.scale.setScalar(HALO); halo.visible = false; scene.add(halo); gl.halo = halo; // 外の光の輪は今は使わない（安っぽく見えたので）
+  halo.scale.setScalar(HALO); scene.add(halo); gl.halo = halo;
   // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
   const hemi = new T.HemisphereLight(0xdfefff, 0x334455, 0.7), amb = new T.AmbientLight(0xffffff, 0.8);
   scene.add(hemi); scene.add(amb);
@@ -2940,7 +2944,7 @@ function applyGlobeStyle() {
   m.emissive.set(white ? 0x7fb2e6 : 0x2c5fd0); m.emissiveIntensity = white ? 0.45 : 0.22;
   m.specular.set(white ? 0xffffff : 0x1a2230); m.shininess = white ? 40 : 10;
   m.needsUpdate = true;
-  if (gl.clouds) { gl.clouds.visible = true; gl.cloudsMat.opacity = white ? 0.35 : 0.55; } // 雲は膜の下に入るので、ミルキーに見える
+  if (gl.clouds) { gl.clouds.visible = true; gl.cloudsMat.opacity = white ? 0.35 : 0.9; } // 雲は膜の下に入るので、ミルキーに見える
   if (L) {
     L.hemi.intensity = white ? 0.7 : 0.22; L.amb.intensity = white ? 0.8 : 0.18; L.sun.intensity = white ? 1.2 : 2.6; // 右下に影が落ちて、丸く「そこにある」感じ
     if (white) L.sun.position.set(-2, 1.5, 3); else L.sun.position.copy(a.uniforms.L.value);
@@ -2954,7 +2958,7 @@ function applyGlobeStyle() {
       : 'uniform vec3 L; varying vec3 n; void main(){ float mu = max(n.z, 0.0); float depth = 1.0 / (mu * 0.85 + 0.15); float lit = smoothstep(-0.35, 0.7, dot(n, L)); float k = 1.0 - exp(-0.42 * depth); vec3 c = mix(vec3(0.80,0.86,0.98), vec3(0.42,0.62,1.0), smoothstep(1.2, 5.0, depth)) * mix(0.35, 1.0, lit); gl_FragColor = vec4(c, clamp(k, 0.0, 0.9) * mix(0.55, 1.0, lit)); }';
     a.needsUpdate = true;
   }
-  if (gl.halo) gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x5cb4ff);
+  if (gl.halo) { gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x7fbcff); gl.halo.material.uniforms.a.value = white ? 0.7 : 0.8; }
   if (gl.renderer) gl.renderer.toneMappingExposure = 1.1;
 }
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
