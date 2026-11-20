@@ -2717,7 +2717,7 @@ function buildGlobe() {
     if (!g.moved) { try { box.setPointerCapture(e.pointerId); } catch {} } // 回し始めてから指をつかまえる（ただのタップは顔に届くように）
     g.moved = true; gl.dragMoved = true;
     const k = 3.2 / gl.size * ((gl.cam.position.z - 1) / (GLOBE_FAR - 1)), dx = e.clientX - g.x, dy = e.clientY - g.y;
-    spinBy(dx * k, dy * k);
+    spinBy(dx * k, dy * k); globeTick(Math.hypot(dx * k, dy * k));
     // 離した時の勢い：最後の0.1秒の動きの平均（1回の指の揺れに左右されない）
     g.samples.push({ t: now, dx: dx * k, dy: dy * k }); while (g.samples.length && now - g.samples[0].t > 100) g.samples.shift();
     g.x = e.clientX; g.y = e.clientY; g.t = now;
@@ -2881,6 +2881,12 @@ function applyGlobeStyle() {
 }
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
 let _qa = null, _qb = null, _ax = null, _ay = null;
+// 回している間は、ダイヤルのようにググググッと手応え（約6°ごとにカチッ。速く回すと細かく、止まりかけるとゆっくり）
+let _tickAcc = 0, _tickAt = 0;
+function globeTick(a) {
+  _tickAcc += a; if (_tickAcc < 0.105) return;
+  _tickAcc = 0; const n = performance.now(); if (n - _tickAt < 40) return; _tickAt = n; hap('tick');
+}
 function spinBy(h, v) {
   const T = gl.three; if (!_qa) { _qa = new T.Quaternion(); _qb = new T.Quaternion(); _ax = new T.Vector3(1, 0, 0); _ay = new T.Vector3(0, 1, 0); }
   if (h) { _qa.setFromAxisAngle(_ay, h); gl.earth.quaternion.premultiply(_qa); }
@@ -2897,6 +2903,7 @@ function loopGlobe() {
       const ease = 1 - Math.exp(-dt / 2600); // 勢いは、ゆっくり（約2.6秒）いつもの速さへ
       gl.vy += (GLOBE_SPIN - gl.vy) * ease; gl.vp += (0 - gl.vp) * (1 - Math.exp(-dt / 700));
       spinBy(gl.vy * dt, gl.vp * dt);
+      if (Math.abs(gl.vy) > GLOBE_SPIN * 6 || Math.abs(gl.vp) > 0.0005) globeTick(Math.hypot(gl.vy, gl.vp) * dt); else _tickAcc = 0; // 投げた後の勢いの間だけ
     }
     
     if (gl.clouds) gl.clouds.rotation.y += 0.00004 * dt; // 雲はゆっくり自分で流れる
