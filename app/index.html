@@ -3230,6 +3230,7 @@ function neighborMeta(dir) {
       horizontal = Math.abs(mx) > Math.abs(my);
       if (horizontal) { el.setPointerCapture(id); anim(false); }
       else if (my > 0) { el.setPointerCapture(id); pulling = true; t0 = performance.now(); $('np').classList.add('dragging'); }
+      else { try { el.setPointerCapture(id); } catch {} } // 上へ：離した所で判定（穴から上へ＝自分を出す）
     }
     if (pulling) { dy = Math.max(0, my); $('np').style.transform = `translateY(${dy}px)`; return; }
     if (!horizontal) return;
@@ -3256,6 +3257,11 @@ function neighborMeta(dir) {
       return;
     }
     if (!horizontal) {
+      // 真ん中の穴から上へ払った＝ディスクの中（自分）を出す（タップと同じ）
+      if (horizontal === false && sy - e.clientY > 28 && $('discPick').hidden && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
+        const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (Math.hypot(sx - cx, sy - cy) < r.width * 0.2) { openPick(); return; }
+      }
       // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
       if (horizontal === null && !e.target.closest('#discPeer') && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
         const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
