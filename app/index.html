@@ -1542,7 +1542,7 @@
   <div class="lyr-tools">
     <button id="lyrWrong">Wrong lyrics</button>
     <button id="lyrEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>Edit</button>
-    <button id="lyrQBtn" hidden title="Mark a part you can't hear"><span class="lyr-q lyr-q-ic">?</span>Unknown part</button>
+    <button id="lyrQBtn" hidden title="Mark a part you can't hear"><span class="lyr-q lyr-q-ic">···</span>Can't hear</button>
     <button id="lyrSyncBtn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.5 1.6M9.5 2.8h5"/></svg>Sync</button>
     <button id="lyrSave" hidden>Save</button>
   </div>
@@ -4901,7 +4901,7 @@ const lrcStamp = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `
 function lyrLinesHTML(l) {
   const L = l.lines && l.lines.length ? l.lines : String(l.lyrics || '').split('\n').map((s) => ({ s }));
   let q = 0; // 何番目の穴か（押した時に、その場所から書き足せるように）
-  return L.map((x, i) => `<span class="ll"${x.t != null ? ` data-t="${x.t}"` : ''} data-i="${i}">${esc(x.s).replace(/\[\?\]/g, () => `<button class="lyr-q" data-q="${q++}" aria-label="Unknown part, tap to fill in">?</button>`) || '&nbsp;'}</span>`).join('');
+  return L.map((x, i) => `<span class="ll"${x.t != null ? ` data-t="${x.t}"` : ''} data-i="${i}">${esc(x.s).replace(/\[(?:\?|\.\.\.|…)\]/g, () => `<button class="lyr-q" data-q="${q++}" aria-label="A part nobody could hear yet. Tap to fill in">···</button>`) || '&nbsp;'}</span>`).join('');
 }
 // 再生に合わせて、今の行を光らせて真ん中へ（Apple Music のように）
 let lyrLastOn = -1;
@@ -4963,9 +4963,9 @@ async function openGenius() {
 }
 // 全画面の時に曲名の上に出す歌詞（今の曲の歌詞がある時だけ）
 // 歌詞がどこから来たか（間違っていた時に分かるように、いつも書いておく）
-function lyrHoles(l) { return (String((l && l.lyrics) || '').match(/\[\?\]/g) || []).length; }
+function lyrHoles(l) { return (String((l && l.lyrics) || '').match(/\[(?:\?|\.\.\.|…)\]/g) || []).length; }
 function lyrSource(l) {
-  const h = lyrHoles(l); if (h) return lyrSource0(l) + ` · ${h} part${h > 1 ? 's' : ''} nobody knows yet, tap ? to fill in`;
+  const h = lyrHoles(l); if (h) return lyrSource0(l) + ` · ${h} part${h > 1 ? 's' : ''} nobody could hear yet, tap ··· to fill in`;
   return lyrSource0(l);
 }
 function lyrSource0(l) {
@@ -5045,7 +5045,7 @@ $('lyrSave').addEventListener('click', () => {
     const out = lyrSync.lines.map((x, i) => (lyrSync.t[i] != null ? lrcStamp(lyrSync.t[i]) : '') + x).filter((x, i) => lyrSync.t[i] != null || !x.trim());
     return lyrCommit(lyrSync.lines.join('\n'), lyrSync.t.some((x) => x != null) ? out.join('\n') : '');
   }
-  const v = $('lyrEdit').value.replace(/\s+$/, '').replace(/[?？]{2,}|（[?？]）|\([?？]\)/g, '[?]'); // 「??」「(?)」も穴として扱う
+  const v = $('lyrEdit').value.replace(/\s+$/, '').replace(/\[\?\]/g, '[...]'); // 本物の「?」とまぎれないよう、穴は [...]
   const same = lyr && v === String(lyr.lyrics || '').replace(/\s+$/, ''); // 文字を変えていなければ、時間はそのまま残す
   lyrCommit(v, same ? (lyr.lrc || '') : '');
 });
@@ -5069,7 +5069,7 @@ $('lmSeek').addEventListener('change', () => { player.currentTime = +$('lmSeek')
 // 「?」：聞き取れない所に穴をあける（カーソルの所に [?] を入れる）
 $('lyrQBtn').addEventListener('click', () => {
   const ta = $('lyrEdit'), a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
-  ta.value = ta.value.slice(0, a) + '[?]' + ta.value.slice(b); ta.focus(); ta.setSelectionRange(a + 3, a + 3); hap('light');
+  ta.value = ta.value.slice(0, a) + '[...]' + ta.value.slice(b); ta.focus(); ta.setSelectionRange(a + 5, a + 5); hap('light');
 });
 // 穴を押す：編集を開いて、その穴を選んだ状態に（そのまま打てば埋まる）
 document.addEventListener('click', (e) => {
@@ -5077,8 +5077,8 @@ document.addEventListener('click', (e) => {
   e.stopPropagation(); const n = +q.dataset.q;
   if ($('lyrSheet').hidden) openLyrics();
   $('lyrEditBtn').click();
-  const ta = $('lyrEdit'); let at = -1; for (let i = 0; i <= n; i++) at = ta.value.indexOf('[?]', at + 1);
-  if (at >= 0) setTimeout(() => { ta.focus(); ta.setSelectionRange(at, at + 3); const line = ta.value.slice(0, at).split('\n').length; ta.scrollTop = Math.max(0, line * 30 - ta.clientHeight / 2); }, 60);
+  const ta = $('lyrEdit'); ta.value = ta.value.replace(/\[(?:\?|…)\]/g, '[...]'); let at = -1; for (let i = 0; i <= n; i++) at = ta.value.indexOf('[...]', at + 1);
+  if (at >= 0) setTimeout(() => { ta.focus(); ta.setSelectionRange(at, at + 5); const line = ta.value.slice(0, at).split('\n').length; ta.scrollTop = Math.max(0, line * 30 - ta.clientHeight / 2); }, 60);
 }, true);
 // タイミング合わせ：曲を流しながら、各行が始まる時に「Tap」
 let lyrSync = null;
