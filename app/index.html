@@ -776,13 +776,13 @@
   .gpin > * { width: 100% !important; height: 100% !important; }
   .gpin.self { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(255,255,255,.35), 0 4px 10px rgba(0,0,0,.45); }
   .globe:not(.near) .gpin-l { display: none; }
-  /* フォローしているアーティスト：友達より小さく、角の丸い四角（ジャケットっぽく）。友達が上 */
   .globe-empty { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); width: 86%; text-align: center; color: #fff; pointer-events: auto; z-index: 4; }
   .globe-empty p { margin: 0 0 8px; font-size: 12px; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
   .globe-empty div { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
   .globe-empty button { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 99px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; font-weight: 700; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
   .globe-empty .glyph { width: 13px; height: 13px; }
-  .gpin.art { width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 6px; overflow: hidden; background: #888; box-shadow: 0 0 0 1.5px rgba(255,255,255,.85), 0 3px 8px rgba(0,0,0,.4); z-index: 1; }
+  /* アーティストも友達と同じ大きさの丸。見分けは縁：友達＝白くはっきり、アーティスト＝細くて半透明 */
+  .gpin.art { border-radius: 50%; overflow: hidden; background: #888; box-shadow: 0 0 0 1px rgba(255,255,255,.45), 0 3px 8px rgba(0,0,0,.4); z-index: 1; }
   .gpin.art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .gpin:not(.art) { z-index: 2; }
   .gpin.on::after { content: ""; position: absolute; right: 0; bottom: 0; width: 7px; height: 7px; border-radius: 50%; background: #3BD16F; box-shadow: 0 0 0 1.5px #fff; }
