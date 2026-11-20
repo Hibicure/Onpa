@@ -3302,6 +3302,7 @@ function neighborMeta(dir) {
     if (horizontal === null && Math.hypot(mx, my) > 8) {
       horizontal = Math.abs(mx) > Math.abs(my);
       if (horizontal) { el.setPointerCapture(id); anim(false); }
+      else if (my > 0 && !$('discPick').hidden) { try { el.setPointerCapture(id); } catch {} } // ディスクの中（顔の列）が出ている時は、下へ払っても画面を動かさない（離した時に顔の列を閉じる）
       else if (my > 0) { el.setPointerCapture(id); pulling = true; t0 = performance.now(); $('np').classList.add('dragging'); }
       else { try { el.setPointerCapture(id); } catch {} } // 上へ：離した所で判定（穴から上へ＝自分を出す）
     }
@@ -3330,6 +3331,8 @@ function neighborMeta(dir) {
       return;
     }
     if (!horizontal) {
+      // 顔の列が出ている時に下へ払った＝顔の列をしまう（画面は動かさない）
+      if (horizontal === false && e.clientY - sy > 28 && !$('discPick').hidden) { if (call.state === 'idle') { hap('light'); closePick(); } return; }
       // 真ん中の穴から上へ払った＝ディスクの中（自分）を出す（タップと同じ）
       if (horizontal === false && sy - e.clientY > 28 && $('discPick').hidden && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
         const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
