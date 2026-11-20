@@ -2120,10 +2120,13 @@ async function spSearch(q) {
       try { const x = await nat('spStatus'); st = `linked=${x.linked} connected=${x.connected} installed=${x.installed} tok=${(x.token || '').length}`; } catch (e) { st = 'status err ' + e.message; }
       spWhy = 'not linked · ' + raw + ' · ' + st; return [];
     }
-    const r = await Promise.race([fetch('https://api.spotify.com/v1/search?type=track&limit=10&q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
+    // 開発中のアプリは1回10件まで。10件ずつ2回（0〜9件目と10〜19件目）を同時に取って20件にする
+    const one = (off) => Promise.race([fetch(`https://api.spotify.com/v1/search?type=track&limit=10&offset=${off}&q=` + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + tok } }), new Promise((ok) => setTimeout(() => ok(null), 3500))]);
+    const [r, r2] = await Promise.all([one(0), one(10)]);
     if (!r) { spWhy = 'timeout'; return []; }
     if (!r.ok) { if (r.status === 401) spTokAt = 0; spWhy = 'error ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 120); return []; }
     const d = await r.json();
+    if (r2 && r2.ok) { try { const d2 = await r2.json(); if (d.tracks && d2.tracks) d.tracks.items = [...(d.tracks.items || []), ...(d2.tracks.items || [])]; } catch {} }
     spWhy = 'ok ' + (((d.tracks && d.tracks.items) || []).length);
     return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t, i) => ({ _r: i,
       id: 'sp:' + t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
