@@ -924,6 +924,7 @@
     font-size: 19px; line-height: 1.55; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-shadow: 0 1px 12px color-mix(in srgb, var(--paper) 45%, transparent); padding: 28px 0 22px; touch-action: pan-y;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); }
   .np.full .titlebar { position: relative; }
+  .np .fulllyr .fl-src { display: block; margin-top: 22px; font-size: 12px; font-weight: 600; letter-spacing: 0; opacity: .7; }
   .np .fulllyr { scrollbar-width: none; } .np .fulllyr::-webkit-scrollbar { display: none; }
   .np.full #disc, .np.full #discPeek { visibility: hidden; }
   .np.full .in { position: relative; z-index: 1; }
@@ -4563,13 +4564,18 @@ async function openGenius() {
   if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank');
 }
 // 全画面の時に曲名の上に出す歌詞（今の曲の歌詞がある時だけ）
+// 歌詞がどこから来たか（間違っていた時に分かるように、いつも書いておく）
+function lyrSource(l) {
+  if (!l) return '';
+  return l.from === 'you' ? 'Your lyrics (only you see them)' : l.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : l.from === 'description' ? 'From the description on SoundCloud' : l.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${l.by || 'a listener'} on SoundCloud`;
+}
 // 全画面の歌詞は、最初は出さない。全画面で「Lyrics」を押した時だけ出す（もう一度押すと消える）
 var fullLyrOn = false;
 function paintFullLyr() {
   const el = $('fullLyr'); if (!el) return;
   const ok = !!(fullLyrOn && lyr && track && lyrFor === track.trackId && lyr.lyrics);
   if (!ok) { el.hidden = true; el.textContent = ''; return; }
-  if (el.hidden || el.dataset.for !== String(track.trackId)) { el.textContent = lyr.lyrics; el.scrollTop = 0; el.dataset.for = String(track.trackId); }
+  if (el.hidden || el.dataset.for !== String(track.trackId)) { el.innerHTML = esc(lyr.lyrics) + `<span class="fl-src">${esc(lyrSource(lyr))}</span>`; el.scrollTop = 0; el.dataset.for = String(track.trackId); }
   el.hidden = false;
   if (gl.on) closeGlobe(); // 歌詞を出す時は、地球儀はしまう
   // 上のボタン（ロゴ・Lyrics・地球など）にかからない高さまで
@@ -4584,7 +4590,7 @@ function openLyrics() {
   if (!lyr || !track || lyrFor !== track.trackId) return;
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
-  const src = lyr.from === 'you' ? 'Your lyrics (only you see them)' : lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
+  const src = lyrSource(lyr);
   $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
   // 歌詞があるときは Genius のリンクは出さない（歌詞が無い曲だけ「Lyrics ↗」で Genius へ）
