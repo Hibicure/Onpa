@@ -981,16 +981,19 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     // つながっていなければつなぐ。Spotify が止まっていたら、その曲で起こす
     /// 起こすために Spotify を開いた時は、その時点でもう曲が流れ始めている（もう一度 play すると頭から鳴り直すので、しない）
     private var wokeWith: String?
+    /// さっき「つながらなかった」＝ Spotify が眠っている。その時は、つながるのを待たずにすぐ起こす（久しぶりに開いた時に速く）
+    private var asleepAt: Date?
     private func ensureConnected(playURI: String) async -> Bool {
         wokeWith = nil
-        if remote.isConnected { return true }
+        if remote.isConnected { asleepAt = nil; return true }
         guard let s = sessionManager.session else { return false }
         if s.isExpired {
             sessionManager.renewSession()
             try? await Task.sleep(nanoseconds: 1_500_000_000)
         }
         remote.connectionParameters.accessToken = sessionManager.session?.accessToken
-        let ok = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+        let sleeping = asleepAt.map { Date().timeIntervalSince($0) < 120 } ?? false
+        let ok = sleeping ? false : await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             connectWaiters.append(c)
             DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
             // Spotify が起きていれば1秒もかからずにつながる。2秒待ってだめなら、すぐ起こしに行く（前は5秒待っていて遅かった）
@@ -1007,21 +1010,20 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { if !done { done = true; c.resume(returning: false) } }
         }
         guard opened else { return false }
-        wokeWith = playURI
-        for _ in 0..<40 { // 戻ってきてつながるのを最大10秒待つ
-            if remote.isConnected { return true }
-            try? await Task.sleep(nanoseconds: 250_000_000)
-        }
-        return remote.isConnected
+        wokeWith = playURI; asleepAt = nil
+        // 曲はもう流れ始めているので、つながるのを待たずに「流せた」と返す（つなぐのは裏で）
+        DispatchQueue.main.async { self.remote.connect() }
+        return true
     }
 
     func play(uri: String, at: Double) async -> Bool {
-        guard !uri.isEmpty, await ensureConnected(playURI: uri), let api = remote.playerAPI else { return wokeWith == uri }
-        if wokeWith == uri { // もう流れ始めている：途中からの時だけ位置を合わせる
+        guard !uri.isEmpty, await ensureConnected(playURI: uri) else { return false }
+        if wokeWith == uri { // 起こした時にもう流れ始めている：途中からの時だけ、つながったら位置を合わせる（待たずに返す）
             wokeWith = nil
-            if at > 0.5 { api.seek(toPosition: Int(at * 1000), callback: nil) }
+            if at > 0.5 { Task { for _ in 0..<40 { if let api = self.remote.playerAPI, self.remote.isConnected { api.seek(toPosition: Int(at * 1000), callback: nil); return }; try? await Task.sleep(nanoseconds: 250_000_000) } } }
             return true
         }
+        guard let api = remote.playerAPI else { return false }
         return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
             api.play(uri, callback: { _, err in
                 if at > 0.5 { self.remote.playerAPI?.seek(toPosition: Int(at * 1000), callback: nil) }
@@ -1040,6 +1042,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
                 guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
+                self.asleepAt = Date() // Spotify は眠っている：次に流す時はすぐ起こす
                 self.finishConnect(false)
             }
         }
@@ -1082,6 +1085,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     func seek(_ t: Double) { remote.playerAPI?.seek(toPosition: Int(t * 1000), callback: nil) }
 
     private func finishConnect(_ ok: Bool) {
+        if ok { asleepAt = nil }
         let w = connectWaiters; connectWaiters = []
         w.forEach { $0.resume(returning: ok) }
     }
