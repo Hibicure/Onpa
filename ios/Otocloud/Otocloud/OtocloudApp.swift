@@ -961,9 +961,9 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     }
 
     func play(uri: String, at: Double) async -> Bool {
-        guard !uri.isEmpty, await ensureConnected(playURI: uri) else { return false }
+        guard !uri.isEmpty, await ensureConnected(playURI: uri), let api = remote.playerAPI else { return false }
         return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
-            remote.playerAPI?.play(uri, callback: { _, err in
+            api.play(uri, callback: { _, err in
                 if at > 0.5 { self.remote.playerAPI?.seek(toPosition: Int(at * 1000), callback: nil) }
                 c.resume(returning: err == nil)
             })

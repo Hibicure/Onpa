@@ -2069,7 +2069,7 @@ const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</di
 (async () => {
   const root = document.documentElement.style;
   for (const code of ['sc', 'bc', 'am', 'sp']) {
-    const key = 'oto_glyph2_' + code;
+    const key = 'oto_glyph3_' + code;
     let url = '';
     try { const c = JSON.parse(localStorage.getItem(key) || 'null'); if (c && Date.now() - c.at < 2592e6) url = c.url; } catch {}
     if (!url) {
@@ -2085,6 +2085,19 @@ const msg = (title, body = '') => `<div class="empty"><b>${title}</b>${body}</di
           const a = Math.max(0, Math.min(1, (dist - 40) / 110)) * (d[p + 3] / 255);
           d[p] = d[p + 1] = d[p + 2] = 0; d[p + 3] = Math.round(a * 255);
           if (a > 0.3) { const px = i % N, py = (i / N) | 0; if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py; }
+        }
+        if (code === 'sp') {
+          // Spotify は丸を抜いて、中の3本の線だけにする（丸の中で背景と同じ色の所＝線）
+          const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, R = Math.min(x1 - x0, y1 - y0) / 2 * 0.9;
+          let ax0 = N, ay0 = N, ax1 = 0, ay1 = 0;
+          for (let i = 0; i < N * N; i++) {
+            const px = i % N, py = (i / N) | 0, p = i * 4;
+            const inside = Math.hypot(px - cx, py - cy) < R;
+            const a = inside ? 255 - d[p + 3] : 0;
+            d[p + 3] = a;
+            if (a > 80) { if (px < ax0) ax0 = px; if (px > ax1) ax1 = px; if (py < ay0) ay0 = py; if (py > ay1) ay1 = py; }
+          }
+          if (ax1 > ax0) { x0 = ax0; y0 = ay0; x1 = ax1; y1 = ay1; }
         }
         x.putImageData(im, 0, 0);
         const w = Math.max(1, x1 - x0 + 1), h = Math.max(1, y1 - y0 + 1), S = Math.max(w, h);
@@ -3659,7 +3672,13 @@ class SpotifyMedia extends EventTarget {
     this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
     this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
     this._pending = !autoplay;
-    if (autoplay) { const r = await nat('spPlay', { uri: this._uri, at: 0 }).catch(() => null); if (!r || !r.ok) { this.fire('error'); throw new Error("Couldn't play on Spotify"); } }
+    if (autoplay) {
+      // Spotify アプリが寝ている時は起こすのに時間がかかる。待ちすぎず、始まったら Spotify からの知らせで「再生中」になる
+      const uri = this._uri;
+      const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => null), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
+      if (r === 'slow') { if (this._uri === uri && this._paused) toast('Waking up Spotify…'); return; }
+      if (!r || !r.ok) { this.fire('error'); throw new Error("Couldn't play on Spotify"); }
+    }
   }
   play() {
     if (this._pending) { this._pending = false; return nat('spPlay', { uri: this._uri, at: this._t }).then((r) => { if (!r || !r.ok) toast("Couldn't play on Spotify"); }).catch(() => {}); }
