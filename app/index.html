@@ -2512,6 +2512,28 @@ async function loadArtistPins() {
     try { localStorage.setItem(WHERE_KEY, JSON.stringify(where)); } catch {}
   } finally { gl.loadingArt = false; }
 }
+// アーティストの顔を押したら、すぐその人の曲をシャッフルで流す（地球儀はそのまま）。
+// ページへは、再生画面のアーティスト名を押せば行ける
+async function playArtistNow(p) {
+  unlockAudio();
+  toast(p.place ? `${p.name} · ${p.place}` : p.name);
+  const k = artKey(p.name);
+  let list = [];
+  try {
+    if (p.id) list = (await fetch(`${WORKER}/user/${p.id}/tracks`, { headers: await scHeaders() }).then((r) => (r.ok ? r.json() : []))).map(splitArtist);
+    if (!list.length) {
+      // SoundCloud の番号が分からない人（Apple Music・Spotify から来た人）：名前で探して、その人の曲だけ
+      const [scR, spR] = await Promise.all([
+        fetch(`${WORKER}/search?q=${encodeURIComponent(p.name)}`, { headers: await scHeaders() }).then((r) => (r.ok ? r.json() : [])).catch(() => []),
+        spSearch(`artist:"${p.name}"`),
+      ]);
+      const mine = (t) => artKey(t.artist).includes(k) || k.includes(artKey(t.artist));
+      list = [...spR.filter(mine), ...(scR || []).map(splitArtist).filter(mine)];
+    }
+  } catch {}
+  if (!list.length) { toast(`Couldn't find songs by ${p.name}`); return; }
+  playFrom(shuffled(list).slice(0, 40), 0);
+}
 // 地球に誰もいない時：音楽サービスをつなぐ案内（押しつけない。地球の下に小さく）
 function paintGlobeEmpty() {
   const box = $('globe'); if (!box) return;
@@ -2535,12 +2557,7 @@ $('globePins').addEventListener('click', (e) => {
   const b = e.target.closest('[data-gi]'); if (!b) return;
   const p = gl.people[Number(b.dataset.gi)]; if (!p) return;
   hap('light');
-  if (p.artist) {
-    toast(p.place ? `${p.name} · ${p.place}` : p.name);
-    if (p.id) { closeGlobe(); $('npClose').click(); openArtist(p.id, p.name); }
-    else { closeGlobe(); $('npClose').click(); setTimeout(() => { const q = $('q'); if (q) { $('tabSearch') && $('tabSearch').click(); q.value = p.name; search(p.name); } }, 350); }
-    return;
-  }
+  if (p.artist) { playArtistNow(p); return; }
   if (p.self) { toast(p.f.place && p.f.place.city ? `You · ${p.f.place.city}` : 'You'); return; }
   const n = moodOf(p.f) || p.f.now;
   if (n && n.trackId) { unlockAudio(); playFrom([{ id: n.trackId, title: n.title, artist: n.artist, artwork: n.artwork }], 0); toast(`From ${p.f.name || '@' + p.f.handle}`); }
