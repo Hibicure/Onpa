@@ -2733,9 +2733,10 @@ function buildGlobe() {
   const box = $('globe');
   // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
   const pts = new Map(); let pinch = null, multiAt = 0;
-  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z));
+  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.1, Math.min(GLOBE_FAR, z));
     // ふちのぼかし：ふだんは細く（輪郭がほんのり分かる）、寄るほど広く（穴からのぞく感じ）
-    const t = Math.max(0, Math.min(1, (GLOBE_FAR - gl.cam.position.z) / (GLOBE_FAR - 2.2))); $('globeCv').style.setProperty('--gf', (99 - 9 * t).toFixed(1) + '%'); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
+    const t = Math.max(0, Math.min(1, (GLOBE_FAR - gl.cam.position.z) / (GLOBE_FAR - 2.2)));
+    if (gl.cloudsMat) gl.cloudsMat.opacity = (globeStyle() === 'white' ? 0.35 : 0.9) * Math.max(0, Math.min(1, (gl.cam.position.z - 1.35) / 1.1)); $('globeCv').style.setProperty('--gf', (99 - 9 * t).toFixed(1) + '%'); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
   // 地球を触っている間は、地球だけが動く（再生画面の引き下げ・全画面の切りかえなどには伝えない）
   for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'touchstart', 'touchmove']) box.addEventListener(ev, (e) => e.stopPropagation());
   box.addEventListener('pointerdown', (e) => {
@@ -2969,6 +2970,38 @@ function globeTick(a) {
   _tickAcc += a; if (_tickAcc < 0.105) return;
   _tickAcc = 0; const n = performance.now(); if (n - _tickAt < 40) return; _tickAt = n; hap('tick');
 }
+// 寄った時の細かい地図：今見えている範囲だけ、NASA の細かい衛星写真（約500m）を取ってきて上に貼る
+const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=BlueMarble_ShadedRelief_Bathymetry&CRS=EPSG:4326&FORMAT=image/jpeg';
+let _detailQ = null, _detailWant = null, _detailAt = 0, _detailLoading = false;
+function globeDetail(now) {
+  const T = gl.three, z = gl.cam.position.z;
+  if (globeStyle() === 'white' || z > 2.5) { if (gl.patch) { gl.earth.remove(gl.patch); gl.patch.material.map && gl.patch.material.map.dispose(); gl.patch.geometry.dispose(); gl.patch = null; } return; }
+  if (gl.drag || Math.abs(gl.vy) > 0.0002 || Math.abs(gl.vp) > 0.0002 || _detailLoading) return;
+  if (gl.patch && gl.patch.material.opacity < 1) { gl.patch.material.opacity = Math.min(1, gl.patch.material.opacity + 0.08); }
+  if (now - _detailAt < 350) return;
+  // 画面の真ん中が、地球のどこか
+  if (!_detailQ) _detailQ = new T.Quaternion();
+  const c = new T.Vector3(0, 0, 1).applyQuaternion(_detailQ.copy(gl.earth.quaternion).invert());
+  const lat = Math.asin(Math.max(-1, Math.min(1, c.y))) * 180 / Math.PI, lng = Math.atan2(-c.z, c.x) * 180 / Math.PI;
+  // 見えている広さ（中心からふちまでの角度）
+  const s15 = Math.sin(15 * Math.PI / 180), span = Math.min(75, (Math.asin(Math.min(1, z * s15)) * 180 / Math.PI - 15) * 1.35 + 2);
+  const key = gl.patchKey;
+  if (key && Math.abs(key.lat - lat) < key.span * 0.3 && Math.abs(((key.lng - lng + 540) % 360) - 180) < key.span * 0.3 / Math.max(0.2, Math.cos(lat * Math.PI / 180)) && Math.abs(key.span - span) < span * 0.35) return;
+  _detailAt = now;
+  const s1 = Math.max(-90, lat - span), n1 = Math.min(90, lat + span), dl = Math.min(180, span / Math.max(0.15, Math.cos(lat * Math.PI / 180)));
+  const w1 = Math.max(-180, lng - dl), e1 = Math.min(180, lng + dl);
+  const W = 1536, H = Math.max(256, Math.min(1536, Math.round(W * (n1 - s1) / Math.max(1, e1 - w1))));
+  _detailLoading = true;
+  new T.TextureLoader().setCrossOrigin('anonymous').load(`${GIBS}&BBOX=${s1.toFixed(3)},${w1.toFixed(3)},${n1.toFixed(3)},${e1.toFixed(3)}&WIDTH=${W}&HEIGHT=${H}`, (tx) => {
+    _detailLoading = false; if (!gl.on || gl.cam.position.z > 2.5) { tx.dispose(); return; }
+    tx.colorSpace = T.SRGBColorSpace; tx.anisotropy = 8;
+    const geo = new T.SphereGeometry(1.0006, 96, 96, (w1 + 180) * Math.PI / 180, (e1 - w1) * Math.PI / 180, (90 - n1) * Math.PI / 180, (n1 - s1) * Math.PI / 180);
+    const m = gl.earthMat, mat = new T.MeshPhongMaterial({ map: tx, transparent: true, opacity: 0, specular: m.specular.clone(), shininess: m.shininess, emissive: m.emissive.clone(), emissiveIntensity: m.emissiveIntensity * 0.4 });
+    const mesh = new T.Mesh(geo, mat);
+    if (gl.patch) { const old = gl.patch; mat.opacity = 1; gl.earth.remove(old); old.material.map && old.material.map.dispose(); old.geometry.dispose(); }
+    gl.earth.add(mesh); gl.patch = mesh; gl.patchKey = { lat, lng, span };
+  }, undefined, () => { _detailLoading = false; });
+}
 // 画面の指の位置から、地球の表面のどこを触っているか（地球の外なら null）
 let _ray = null, _sph = null, _nd = null;
 function globeHit(cx, cy) {
@@ -2993,12 +3026,13 @@ function loopGlobe() {
     const now = performance.now(), dt = Math.min(50, now - (gl.last || now)); gl.last = now;
     if (!gl.drag) {
       const ease = 1 - Math.exp(-dt / 2600); // 勢いは、ゆっくり（約2.6秒）いつもの速さへ
-      gl.vy += (GLOBE_SPIN - gl.vy) * ease; gl.vp += (0 - gl.vp) * (1 - Math.exp(-dt / 700));
+      gl.vy += ((gl.near ? 0 : GLOBE_SPIN) - gl.vy) * ease; // 寄っている時は勝手に回さない gl.vp += (0 - gl.vp) * (1 - Math.exp(-dt / 700));
       spinBy(gl.vy * dt, gl.vp * dt);
       if (Math.abs(gl.vy) > GLOBE_SPIN * 6 || Math.abs(gl.vp) > 0.0005) globeTick(Math.hypot(gl.vy, gl.vp) * dt); else _tickAcc = 0; // 投げた後の勢いの間だけ
     }
     
     if (gl.clouds) gl.clouds.rotation.y += 0.00004 * dt; // 雲はゆっくり自分で流れる
+    globeDetail(now);
     gl.renderer.render(gl.scene, gl.cam);
     // 顔の位置：地球の表面の点を画面に写す。裏側に回ったら消す
     const half = gl.size / 2, z = gl.cam.position.z, rEarth = Math.min(half, half * Math.tan(Math.asin(Math.min(1, 1 / z))) / GLOBE_TAN);
@@ -3013,16 +3047,16 @@ function loopGlobe() {
       if (out > 4) { hide(q); continue; }
       vis.push({ q, x: half + px, y: half - py, fade: out > -12 ? Math.max(0, Math.min(1, (4 - out) / 16)) : 1 });
     }
-    // 近すぎる顔は、まとめずに少しずつずらして並べる（自分→友達→アーティストの順に良い場所を取る）。どの顔も必ず押せる
-    const D = 27, placed = [];
+    // ぴったり重なった顔だけ、すぐ隣へ少しずらす（半分くらいの重なりはそのまま。地球の外には出さない）。もっと見たい時は拡大でばらける
+    const D = 17, placed = [], inside = (x, y) => Math.hypot(x - half, y - half) <= rEarth - 8;
     const free = (x, y) => { for (const p of placed) if (Math.abs(p.x - x) < D && Math.abs(p.y - y) < D && Math.hypot(p.x - x, p.y - y) < D) return false; return true; };
     for (const it of vis) {
       let x = it.x, y = it.y;
       if (!free(x, y)) {
         let done = false;
-        for (let ring = 1; ring <= 6 && !done; ring++) {
+        for (let ring = 1; ring <= 2 && !done; ring++) {
           const r = ring * D, m = ring * 6;
-          for (let k = 0; k < m; k++) { const a = -Math.PI / 2 + 2 * Math.PI * k / m; const cx = it.x + Math.cos(a) * r, cy = it.y + Math.sin(a) * r; if (free(cx, cy)) { x = cx; y = cy; done = true; break; } }
+          for (let k = 0; k < m; k++) { const a = -Math.PI / 2 + 2 * Math.PI * k / m; const cx = it.x + Math.cos(a) * r, cy = it.y + Math.sin(a) * r; if (inside(cx, cy) && free(cx, cy)) { x = cx; y = cy; done = true; break; } }
         }
       }
       placed.push({ x, y });
