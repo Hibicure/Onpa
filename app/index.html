@@ -1158,6 +1158,9 @@
   .artist-head .ah-pic { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 0 0 2.5px rgba(70,72,78,.75), 0 8px 20px -8px rgba(0,0,0,.5); } /* 少し小さく。濃すぎないグレーの縁 */
   .artist-head .ah-pic:empty { display: none; }
   .artist-head .ah-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* 試し：丸いプロフィールも、ふちをふわっとぼかす（グレーの縁はやめる） */
+  .artist-head .ah-pic { box-shadow: none !important; background: transparent !important; overflow: visible; }
+  .artist-head .ah-pic img { border-radius: 50%; -webkit-mask-image: radial-gradient(circle closest-side, #000 74%, rgba(0,0,0,.7) 84%, rgba(0,0,0,.3) 93%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 74%, rgba(0,0,0,.7) 84%, rgba(0,0,0,.3) 93%, transparent 100%); }
   .artist-head .ah-txt { min-width: 0; max-width: 100%; }
   .artist-head .ah-name { font-family: var(--display); font-weight: 800; font-size: 27px; line-height: 1.1; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
   .artist-head .ah-handle { font-size: 13px; font-weight: 600; color: var(--mute); margin-top: 2px; }
