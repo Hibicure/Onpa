@@ -808,7 +808,7 @@
   .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
   .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
   .gpins { position: absolute; inset: 0; pointer-events: none; }
-  .gpin { position: absolute; left: 0; top: 0; will-change: transform; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
+  .gpin { position: absolute; left: 0; top: 0; will-change: transform; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
     box-shadow: 0 0 0 2px rgba(255,255,255,.95), 0 4px 10px rgba(0,0,0,.45); overflow: hidden; background: #8E8F93; }
   .gpin > * { width: 100% !important; height: 100% !important; }
   .gpin.self { box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(255,255,255,.35), 0 4px 10px rgba(0,0,0,.45); }
@@ -819,11 +819,11 @@
   .globe-empty button { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 99px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; font-weight: 700; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
   .globe-empty .glyph { width: 13px; height: 13px; }
   /* アーティストも友達と同じ大きさの丸。見分けは縁：友達＝白くはっきり、アーティスト＝細くて半透明 */
-  .gpin.art { border-radius: 50%; overflow: hidden; background: #888; box-shadow: 0 0 0 1px rgba(255,255,255,.45), 0 3px 8px rgba(0,0,0,.4); z-index: 1; }
+  .gpin.art { border-radius: 50%; overflow: hidden; background: #888; box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 3px 8px rgba(0,0,0,.4); z-index: 1; }
   .gpin.art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .gpin:not(.art) { z-index: 2; }
   .gpin.on::after { content: ""; position: absolute; right: 0; bottom: 0; width: 7px; height: 7px; border-radius: 50%; background: #3BD16F; box-shadow: 0 0 0 1.5px #fff; }
-  .gpin-l { position: absolute; left: 0; top: 0; will-change: transform; transform: translate(-50%, 16px); font: 700 10px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
+  .gpin-l { position: absolute; left: 0; top: 0; will-change: transform; transform: translate(-50%, 18px); font: 700 10px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
   .amb { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
   .np.amb-on .amb.ready { opacity: 1; }
   .amb .spin { position: absolute; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; will-change: transform; animation: ambspin 48s linear infinite; }
@@ -2687,12 +2687,13 @@ function buildGlobe() {
   // 指で回す（離したあとも少し回り続ける）
   const box = $('globe');
   // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
-  const pts = new Map(); let pinch = null;
+  const pts = new Map(); let pinch = null, multiAt = 0;
   const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z)); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
   // 地球を触っている間は、地球だけが動く（再生画面の引き下げ・全画面の切りかえなどには伝えない）
   for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'touchstart', 'touchmove']) box.addEventListener(ev, (e) => e.stopPropagation());
   box.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size >= 2) multiAt = performance.now();
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: gl.cam.position.z }; gl.drag = null; return; }
     // 顔の上からでも回せる（少しでも動かしたら回す。動かさずに離したら、その顔を押したことにする）
     gl.drag = { x: e.clientX, y: e.clientY, t: performance.now(), x0: e.clientX, y0: e.clientY, moved: false, samples: [] }; gl.vy = gl.vp = 0; gl.dragMoved = false;
@@ -2712,7 +2713,7 @@ function buildGlobe() {
     g.x = e.clientX; g.y = e.clientY; g.t = now;
   });
   const up = (e) => {
-    pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
+    if (pts.size >= 2) multiAt = performance.now(); pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
     const g = gl.drag;
     if (g && g.moved && g.samples.length) {
       const span = Math.max(16, performance.now() - g.samples[0].t), sx = g.samples.reduce((a, b) => a + b.dx, 0), sy = g.samples.reduce((a, b) => a + b.dy, 0);
@@ -2724,7 +2725,7 @@ function buildGlobe() {
   box.addEventListener('wheel', (e) => { e.preventDefault(); zoomTo(gl.cam.position.z * (1 + e.deltaY * 0.002)); }, { passive: false });
   // ダブルタップで、寄る／戻る
   let lastTap = 0;
-  box.addEventListener('pointerup', (e) => { if (e.target.closest('.gpin')) return; const n = performance.now(); if (n - lastTap < 300) zoomTo(gl.cam.position.z > 3 ? 2.1 : GLOBE_FAR); lastTap = n; });
+  box.addEventListener('pointerup', (e) => { const n = performance.now(); if (e.target.closest('.gpin') || gl.dragMoved || pts.size || n - multiAt < 400) { lastTap = 0; return; } if (n - lastTap < 300) zoomTo(gl.cam.position.z > 3 ? 2.1 : GLOBE_FAR); lastTap = n; });
 }
 function renderPins() {
   $('globePins').innerHTML = gl.people.map((p, i) => p.artist
