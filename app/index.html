@@ -3468,14 +3468,14 @@ function playNextUp(t) {
   const meta = toMeta(t);
   unlockAudio();
   if (!track) { pick(meta); return; }
+  // Spotify と同じ：入れた順に並ぶ（先に入れた曲が先に流れる。あとから入れた曲は後ろへ）
   if (call.state === 'live' && queueRef) {
-    // 共有リストは名前順に並ぶので、ふつうの名前より前に来る名前をつける（あとから入れたものほど前）
-    queueRef.child('!' + String(9e12 - Date.now()).padStart(13, '0')).set({ ...meta, artwork: meta.artwork || '', secret: meta.secret || '', by: me.uid, byName: me.name, at: TS });
+    queueRef.push({ ...meta, artwork: meta.artwork || '', secret: meta.secret || '', by: me.uid, byName: me.name, at: TS });
   } else {
-    upNext.unshift({ ...meta, key: 'l' + Date.now() + Math.random() });
+    upNext.push({ ...meta, key: 'l' + Date.now() + Math.random() });
     renderUpNext();
   }
-  toast('Playing next');
+  toast(upNext.length > 1 ? `Up next · #${upNext.length}` : 'Playing next');
 }
 let preloadTimer = null;
 // 次に流れる曲（先読み用。実際には取り出さない）
