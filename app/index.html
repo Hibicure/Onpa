@@ -3766,7 +3766,13 @@ async function openArtist(userId, name, opt = {}) {
     renderTracks(d, msg('No tracks yet'));
     paintArtistLikes(name);
     // SoundCloud のヘッダー写真がない人は、Spotify のアーティスト写真を大きく（Apple Music のように）
-    const hero = () => { if (mode === 'artist' && artistNow.name === name && sp.image && !$('artistHead').classList.contains('banner')) { $('ahBg').style.backgroundImage = `url("${sp.image}")`; $('artistHead').classList.add('hero'); measureAH(); } };
+    // 大きな写真：Spotify の写真 → なければ SoundCloud のプロフィール写真（一番大きいサイズ）。SoundCloud のヘッダー写真がある人はそちら
+    const hero = () => {
+      if (mode !== 'artist' || artistNow.name !== name || $('artistHead').classList.contains('banner')) return;
+      const img = sp.image || artistNow.avatar || ''; if (!img) return;
+      $('ahBg').style.backgroundImage = artistNow.avatar && !sp.image ? `url("${img}"), url("${String(img).replace('-original.', '-t500x500.')}")` : `url("${img}")`;
+      $('artistHead').classList.add('hero'); measureAH();
+    };
     if (userId) { await artistPlace(userId); hero(); await artistAlbums(userId, name); } else hero();
     spArtistAlbums(sp.id || opt.spArtistId);
     // 全部の曲（アルバム・シングル）を後から足す。人気の曲はそのまま上に
@@ -3939,6 +3945,7 @@ async function artistPlace(userId) {
     const banner = u.banner ? u.banner.replace(/-(original|t\d+x\d+)\./, '-t2480x520.') : '';
     const img = banner || u.avatar || ($('results').querySelector('img') || {}).src || '';
     if (u.avatar && safeImg(u.avatar)) $('ahPic').innerHTML = `<img src="${esc(u.avatar)}" alt="">`;
+    artistNow.avatar = u.avatar ? String(u.avatar).replace(/-(large|t\d+x\d+)\./, '-original.') : ''; // 大きく出す時用：SoundCloud にある一番大きいプロフィール写真
     if (img && safeImg(img)) {
       $('ahBg').style.backgroundImage = `url("${img}")`;
       $('artistHead').classList.toggle('banner', !!banner); measureAH();
