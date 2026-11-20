@@ -2649,6 +2649,9 @@ function globePeople() {
   if (me && me.place) list.push({ uid: me.uid, f: me, self: true, lat: me.place.lat, lng: me.place.lng });
   for (const [uid, f] of friends) if (f && f.place && f.place.lat != null) { const [a, b] = jitter(uid); list.push({ uid, f, lat: f.place.lat + a, lng: f.place.lng + b }); }
   for (const a of gl.artists || []) { const [x, y] = jitter('a' + a.key); list.push({ artist: true, id: a.sc || '', key: a.key, name: a.name, avatar: a.img || '', place: a.place, lat: a.lat + x * 0.6, lng: a.lng + y * 0.6 }); }
+  // 今の曲にコメント・いいねした SoundCloud の人（場所が分かる人だけ）
+  const shown = new Set((gl.artists || []).map((a) => String(a.sc || '')));
+  for (const u of (gl.listeners && track && gl.listeners.for === String(track.trackId) ? gl.listeners.people : [])) { if (shown.has(u.id)) continue; const [x, y] = jitter('l' + u.id); list.push({ artist: true, listener: true, id: u.id, name: u.name, avatar: u.avatar, place: u.place, lat: u.lat + x * 0.6, lng: u.lng + y * 0.6 }); }
   dummyFriends().forEach((d, i) => { const [la, ln] = DUMMY_PLACES[i % DUMMY_PLACES.length]; const [a, b] = jitter(d.uid); list.push({ ...d, lat: la + a, lng: ln + b }); });
   return list;
 }
@@ -2670,7 +2673,7 @@ async function openGlobe() {
   if (!gl.renderer) buildGlobe();
   gl.renderer.setSize(size, size, false);
   gl.people = globePeople(); renderPins();
-  loadArtistPins();
+  loadArtistPins(); loadListeners();
   const c = me && me.place ? me.place : { lat: 36, lng: 138 };
   gl.yaw = -c.lng * Math.PI / 180 - Math.PI / 2; gl.pitch = c.lat * Math.PI / 180 * 0.85; gl.vy = GLOBE_SPIN;
   // 向きは「くるっと回す量」を重ねていく形にする（上下にも好きなだけ回せる。北極を越えてもOK）
@@ -2849,6 +2852,21 @@ async function gatherArtists() {
   for (const t of recent || []) add({ name: t.artist, sc: t.userId && /^\d+$/.test(String(t.userId)) ? String(t.userId) : undefined, img: t.artwork, from: 'heard' }, 1);
   return [...map.values()].sort((a, b) => b.n - a.n).slice(0, 300);
 }
+// 今の曲にコメント・いいねした人を地球に出す（SoundCloud の曲だけ。曲ごとに覚えておく）
+const listenersCache = new Map();
+async function loadListeners() {
+  if (!sc || !track || !/^\d+$/.test(String(track.trackId))) { if (gl.listeners) { gl.listeners = null; if (gl.on) { gl.people = globePeople(); renderPins(); } } return; }
+  const id = String(track.trackId);
+  if (gl.listeners && gl.listeners.for === id) return;
+  let d = listenersCache.get(id);
+  if (!d) {
+    try { const r = await fetch(`${WORKER}/sc/listeners?id=${id}`, { headers: await scHeaders() }); d = r.ok ? await r.json() : null; } catch { d = null; }
+    if (!d) return; listenersCache.set(id, d);
+  }
+  if (!track || String(track.trackId) !== id) return;
+  gl.listeners = { for: id, people: d.people || [] };
+  if (gl.on) { gl.people = globePeople(); renderPins(); }
+}
 async function loadArtistPins() {
   if (gl.loadingArt) return; gl.loadingArt = true;
   try {
@@ -2928,6 +2946,7 @@ $('globePins').addEventListener('click', (e) => {
   if (inFan) closeFan();
   const p = gl.people[Number(b.dataset.gi)]; if (!p) return;
   hap('light');
+  if (p.listener) { openArtist(p.id, p.name); return; } // コメント・いいねした人：その人のページへ
   if (p.artist) { playArtistNow(p); return; }
   if (p.self) { toast(p.f.place && p.f.place.city ? `You · ${p.f.place.city}` : 'You'); return; }
   const n = moodOf(p.f) || p.f.now;
@@ -4549,6 +4568,7 @@ function renderTrack() {
   { const id0 = String(track.trackId || ''), name = id0.startsWith('bc:') ? 'Bandcamp' : id0.startsWith('sp:') ? 'Spotify' : id0.startsWith('am:') ? 'Apple Music' : 'SoundCloud';
     $('scSrc').firstChild.textContent = 'on ' + name + ' '; $('scSrc').setAttribute('aria-label', 'Open in ' + name); const a = $('asSC').querySelector('.as-col > span'); if (a) a.textContent = 'Open in ' + name; }
   checkSpLiked(track);
+  if (gl.on) loadListeners();
   if (track.artwork) { $('miniArt').src = track.artwork; $('npArt').src = track.artwork.replace('-large.', '-t500x500.'); }
   else { $('miniArt').src = NO_ART; $('npArt').src = NO_ART_DISC; }
   setAmbient(track.artwork ? track.artwork.replace('-large.', '-t300x300.') : '');
