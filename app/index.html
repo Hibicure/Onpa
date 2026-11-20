@@ -2412,7 +2412,8 @@ function mixRank(list, q) {
     const hasSp = ids.some((x) => x.startsWith('sp:')), hasBc = ids.some((x) => x.startsWith('bc:')), sc = all.find((x) => /^\d+$/.test(String(x.id)));
     const hay = (t.title + ' ' + t.artist).toLowerCase().normalize('NFKC');
     let s = 0;
-    if (words.length && words.every((w) => hay.includes(w))) s += 10; else s -= 25; // 言葉が入っていない曲は下へ
+    // 言葉が入っていない曲は下へ。ただし Spotify（公式）は、日本語名と英語名・別名もわかった上で返しているので下げない（米津玄師 と Kenshi Yonezu など）
+    if (words.length && words.every((w) => hay.includes(w))) s += 10; else if (!hasSp) s -= 25; else if (Math.min(...all.map((x) => x._spr ?? 99)) < 3) s += 8;
     const ak = artKey(t.artist); if (qk && ak && (ak === qk || ak.startsWith(qk) || qk.includes(ak))) s += 12; // 探したアーティスト本人の曲
     else if (qk && artKey(t.title).startsWith(qk)) s += 4;
     const tv = taste[tasteKey(t.artist)]; if (tv) s += Math.min(20, Math.log2((tv.n || 1) + 1) * 6);
@@ -2457,7 +2458,7 @@ function mergeSame(list) {
     if (g.length === 1) return g[0];
     g.sort((a, b) => prio(a) - prio(b));
     const [p, ...rest] = g;
-    return { ...p, alts: rest.map((x) => ({ ...x, alts: undefined })), _r: Math.min(...g.map((x) => x._r || 0)) };
+    return { ...p, alts: rest.map((x) => ({ ...x, alts: undefined })), _r: Math.min(...g.map((x) => x._r || 0)), _spr: Math.min(...g.map((x) => x._spr ?? 99)) };
   });
 }
 // 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
@@ -2508,7 +2509,7 @@ async function search(q) {
     const scCount = searchList.length;
     const bcList = (await bcP || []).filter((t) => t && t.id).map((t) => ({ ...t, provider: 'bandcamp' }));
     const spList = await spP;
-    searchList.forEach((t, i) => { t._r = i; }); bcList.forEach((t, i) => { t._r = i; });
+    searchList.forEach((t, i) => { t._r = i; }); bcList.forEach((t, i) => { t._r = i; }); (spList || []).forEach((t, i) => { t._spr = i; }); // Spotify が返した順位（名前の言語が違っても、公式の上位は信じる）
     // 同じ曲は、どのサービスのものでも1行にまとめる（Spotify・本人のSoundCloud・Bandcamp の順で先頭に）
     searchList = mergeSame([...spList, ...searchList, ...bcList]);
     searchList = mixRank(searchList, q);
