@@ -463,6 +463,7 @@
   .alb-meta { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--mute); }
   .alb-play { margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 22px; }
   .alb-play svg { width: 18px; height: 18px; }
+  .fling { position: fixed; z-index: 90; background: center / cover no-repeat; border-radius: 12px; pointer-events: none; transition: transform .5s cubic-bezier(.3,.0,.2,1), opacity .5s ease-in; box-shadow: 0 18px 40px rgba(0,0,0,.3); }
   /* プレイリスト */
   .pl-head { margin: 18px 20px 6px; font: 700 13px/1 inherit; color: var(--mute); }
   .pl-head:first-child { margin-top: 6px; }
@@ -3364,6 +3365,7 @@ function neighborMeta(dir) {
     if (track && dx !== 0) setPeek(dx < 0 ? 1 : -1);
     place(dx);
   });
+  el.addEventListener('pointerdown', () => { el._downAt = performance.now(); }, true);
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
@@ -3380,9 +3382,14 @@ function neighborMeta(dir) {
       // 顔の列が出ている時に下へ払った＝顔の列をしまう（画面は動かさない）
       if (horizontal === false && e.clientY - sy > 28 && !$('discPick').hidden) { if (call.state === 'idle') { hap('light'); closePick(); } return; }
       // 真ん中の穴から上へ払った＝ディスクの中（自分）を出す（タップと同じ）
+      const inHole = (() => { const r = el.getBoundingClientRect(); return Math.hypot(sx - (r.left + r.width / 2), sy - (r.top + r.height / 2)) < r.width * 0.2; })();
       if (horizontal === false && sy - e.clientY > 28 && $('discPick').hidden && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
-        const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        if (Math.hypot(sx - cx, sy - cy) < r.width * 0.2) { openPick(); return; }
+        if (inHole) { openPick(); return; }
+      }
+      // ジャケ（CD・四角・全画面）を上へシュッと投げた＝プレイリストに入れる（穴からの時は上の「自分」）
+      if (horizontal === false && !inHole && $('discPick').hidden && track) {
+        const up = sy - e.clientY, v = up / Math.max(1, performance.now() - (el._downAt || 0));
+        if (up > 70 && v > 0.45) { flingToPlaylist(el); return; }
       }
       // ほとんど動かさずに離した＝タップ：CD → 四角いジャケット → 全画面 → CD
       if (horizontal === null && !e.target.closest('#discPeer') && call.state === 'idle' && !$('np').classList.contains('square') && !$('np').classList.contains('full')) {
@@ -3665,6 +3672,18 @@ async function oplImport(title) {
   const id = await oplCreate(title); const ref = oplRef(id + '/tracks'), seen = new Set(); let n = 0; const t0 = Date.now();
   for (const t of list) { const k = songKey(t) || t.id; if (seen.has(k)) continue; seen.add(k); await ref.push({ ...oplTrack(t), at: t0 + n, by: me.uid }); n++; }
   toast(`Saved “${title}” · ${n} songs`);
+}
+// ジャケを上に投げる：ジャケの絵が上へ飛んでいって、プレイリストを選ぶシートが出る
+function flingToPlaylist(from) {
+  if (!track) return; hap('rigid');
+  const r = from.getBoundingClientRect(), img = track.artwork ? big(track.artwork) : '';
+  const f = document.createElement('div'); f.className = 'fling';
+  f.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background-image:url("${img}")`;
+  document.body.appendChild(f);
+  requestAnimationFrame(() => { f.style.transform = `translateY(${-r.bottom - 40}px) scale(.35) rotate(-8deg)`; f.style.opacity = '0'; });
+  setTimeout(() => f.remove(), 520);
+  const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret };
+  setTimeout(() => oplSheet(t), 260);
 }
 // 曲を長押し → プレイリストに追加（Otocloud のプレイリストを見ている時は「外す」も）
 async function oplSheet(t) {
