@@ -904,14 +904,14 @@
   .np.square #discPeek .hub, .np.square #discPeek .hole, .np.square #discPeek .shine { display: none; }
   .np.full { --ink: #FFFFFF; --mute: rgba(255,255,255,.72); --line: rgba(255,255,255,.32); --paper: #000; color: #fff; }
   .np.full .amb { display: none; }
-  /* 電球を消した（夜）時は、全画面のジャケットも暗く落とす */
-  .np .fullart .img { transition: filter .45s ease; }
-  :root[data-theme="dark"] .np .fullart .img { filter: brightness(.5) saturate(.9); }
-  :root[data-theme="dark"] .np .fullart .shade { background: linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.25) 35%, rgba(0,0,0,.35) 60%, rgba(0,0,0,.82) 100%); }
+  /* 全画面で電球を押すと、文字とボタンが白⇄黒に切りかわる（ジャケットの明るさはそのまま）。
+     黒い文字の時は、下の影を白っぽくして読みやすく */
+  :root[data-theme="dark"] .np.full { --ink: #111214; --mute: rgba(0,0,0,.62); --line: rgba(0,0,0,.28); color: #111214; }
+  :root[data-theme="dark"] .np.full .fullart .shade { background: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.12) 55%, rgba(255,255,255,.7) 100%); }
   /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
   .np .fulllyr { display: none; }
   .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
-    font-size: 19px; line-height: 1.55; font-weight: 700; letter-spacing: -0.01em; color: #fff; text-shadow: 0 1px 12px rgba(0,0,0,.45); padding: 28px 0 22px; touch-action: pan-y;
+    font-size: 19px; line-height: 1.55; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-shadow: 0 1px 12px color-mix(in srgb, var(--paper) 45%, transparent); padding: 28px 0 22px; touch-action: pan-y;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); }
   .np.full .titlebar { position: relative; }
   .np .fulllyr { scrollbar-width: none; } .np .fulllyr::-webkit-scrollbar { display: none; }
