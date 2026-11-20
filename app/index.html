@@ -252,7 +252,7 @@
   /* ---------- 再生画面 ---------- */
   .np { position: fixed; inset: 0; background: var(--paper); z-index: 40; display: flex; flex-direction: column; transform: translateY(100%); transition: transform .42s cubic-bezier(.2,.8,.2,1); }
   .np.open { transform: translateY(0); }
-  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) - 4px) 24px calc(24px + var(--safe-b)); overflow: hidden; }
+  .np .in { max-width: 440px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; padding: calc(6px + env(safe-area-inset-top)) 24px calc(24px + var(--safe-b)); overflow: hidden; }
   .np .in > * { flex-shrink: 0; }
   /* 画面は動かさない（スクロールさせない）。上をつまんで下に引くと閉じる */
   .np { overscroll-behavior: none; touch-action: none; }
@@ -380,15 +380,15 @@
     box-shadow: 0 0 8px currentColor; animation: heartspark .55s cubic-bezier(.2,.8,.3,1) forwards; }
   @keyframes heartspark { 0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--a)) translateY(-26px) scale(.2); opacity: 0; } }
   /* 三原色（背景の色）ボタンは、画面の右上に */
-  .np .top #ambBtn { position: absolute; right: -3px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
-  .np .recbtn { right: auto; left: 50%; transform: translateX(-50%); } /* 録音ボタンは上の真ん中 */
+  .np .top #ambBtn { position: absolute; right: -3px; top: -8px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
+  .np .recbtn { right: auto; left: 50%; top: -6px; transform: translateX(-50%); } /* 録音ボタンは上の真ん中（ほかのボタンと同じ高さ） */
   /* 左上：今の曲がどこのサービスの曲か（公式ロゴ）。押すとそのサービスで開く。右の3つのボタンと同じ高さ */
   /* 左上：今の曲のサービスのロゴ（右上のボタンと同じ高さ。左端は曲名にそろえる）。歌詞があればその右に「Lyrics」 */
-  .np .np-src { position: absolute; left: -7px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; color: var(--ink); }
+  .np .np-src { position: absolute; left: -7px; top: -9px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; color: var(--ink); }
   .np.ringing .np-src { display: none; }
   .np .np-src .glyph { width: 24px; height: 24px; }
   /* ★：右上のボタンの下（2段目）。右に寄せて、付けた数だけ並ぶ */
-  .np .top .np-stars { position: absolute; right: -3px; top: 42px; height: 30px; display: flex; gap: 4px; align-items: center; padding: 0 9px; z-index: 6; color: var(--ink); background: none; }
+  .np .top .np-stars { position: absolute; right: -3px; top: 31px; height: 30px; display: flex; gap: 4px; align-items: center; padding: 0 9px; z-index: 6; color: var(--ink); background: none; }
   .np .top .np-stars[hidden] { display: none; }
   .np .np-stars svg { width: 22px; height: 22px; }
   .np .np-stars.none svg { opacity: .5; }
@@ -401,7 +401,7 @@
   :root .np .in > .pick-name { position: static !important; transform: none !important; left: auto; top: auto !important; bottom: auto !important; margin: 0 auto 4px; text-align: center; max-width: 90%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; font-weight: 700; color: var(--ink); min-height: 0; }
   .np .in > .together { text-align: center; margin: 2px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
   .np .in > .together[hidden] { display: none; }
-  .np .top #themeBtn { position: absolute; right: 29px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
+  .np .top #themeBtn { position: absolute; right: 29px; top: -9px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
   .heart.ambt svg { width: 27px; height: 27px; }
@@ -791,7 +791,7 @@
   .np .stage { position: relative; }
 
   /* 地球儀：ディスクの場所が、本物っぽい地球になる。指で回して、友達のいる場所に顔が出る */
-  .np .top .globe-btn { position: absolute; right: 60px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; } /* 地球・電球・三原色を同じ高さ・同じ間かくで */
+  .np .top .globe-btn { position: absolute; right: 60px; top: -9px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; } /* 地球・電球・三原色を同じ高さ・同じ間かくで */
   .np .globe-btn svg { width: 24px; height: 24px; }
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
@@ -1937,9 +1937,21 @@ function showEmptyNp() {
   $('npS').textContent = sc ? 'Press play to start' : 'Songs you played will shuffle here';
   setPP('play');
 }
+// 開いた時、Spotify で何か流れていたら、それをそのまま Otocloud の「今の曲」にする（つないでいる人だけ）
+async function spotifyNowPlaying() {
+  if (!IN_APP) return null;
+  try {
+    const tok = await Promise.race([spToken(), new Promise((ok) => setTimeout(() => ok(''), 2500))]); if (!tok) return null;
+    const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
+    if (r.status !== 200) return null;
+    const d = await r.json();
+    return d && d.is_playing && d.item && d.item.type === 'track' ? spMap(d.item) : null;
+  } catch { return null; }
+}
 async function restoreLast() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch { /* 無視 */ }
+  { const sp = await spotifyNowPlaying(); if (sp) d = { meta: toMeta(sp), pos: 0 }; }
   $('miniOpen').click();
   if (!d || !d.meta || !d.meta.trackId) { showEmptyNp(); return; }
   if (await loadTrack(d.meta, false)) {
