@@ -4239,7 +4239,7 @@ class SpotifyMedia extends EventTarget {
         // つながっていない間は、Spotify のWeb の仕組みで「今なにが流れているか」を読む
         try {
           const tok = await spToken(); if (!tok) return;
-          const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
+          const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing?additional_types=episode', { headers: { Authorization: 'Bearer ' + tok } });
           if (r.status !== 200) return;
           const d = await r.json(), it = d && d.item;
           if (it && it.uri) this._state({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing });
@@ -4303,8 +4303,13 @@ class SpotifyMedia extends EventTarget {
         if (!(await this._waitOn(uri, 12000))) toast("Couldn't play on Spotify");
       })();
     }
-    this._web('PUT', '/play');
-    return nat('spResume').catch(() => {});
+    // 「続きから」の前に、Spotify が今もこの曲か確かめる。ラジオ・ポッドキャスト・別の曲に変わっていたら、Otocloud の曲をこの位置から流し直す
+    return (async () => {
+      const st = await nat('spNow').catch(() => null);
+      if (st && st.uri && !this._mine(st)) { this._pending = true; return this.play(); }
+      this._web('PUT', '/play');
+      return nat('spResume').catch(() => {});
+    })();
   }
   // Web の仕組みで、この曲をこの位置から流す（Spotify を開かない）。受け付けられたら true
   async _webPlay(uri, sec) {
@@ -4365,7 +4370,13 @@ class SpotifyMedia extends EventTarget {
   _finish() { this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
   _state(e) {
     if (!this._uri) return;
+    // Spotify でポッドキャスト・広告など「曲じゃないもの」が流れている：Otocloud の曲は一時停止の扱いにして、▶ でこの曲に戻れるようにしておく
+    if (e.uri && !/^spotify:track:/.test(e.uri)) {
+      if (!this._paused) { this._paused = true; this.fire('pause'); }
+      this._pending = true; this._follow = false; clearTimeout(this._followT); this.fire('timeupdate'); return;
+    }
     if (e.uri && e.uri !== this._uri && this._mine(e)) e = { ...e, uri: this._uri };
+    if (e.uri === this._uri && e.paused === false) this._pending = false;
     if (e.uri && e.uri !== this._uri) {
       // Spotify が「次に再生」に入れた曲へ進んだ（Otocloud が裏で眠っていた間も含む）
       const ei = this._enq.findIndex((x) => x.uri === e.uri);
