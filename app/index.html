@@ -1408,7 +1408,6 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <button class="recbtn glass" id="recBtn" hidden></button>
       <button class="np-src" id="npSrc" hidden aria-label="Open in SoundCloud"><i class="glyph"></i></button>
-      <button class="np-stars none" id="npStars" hidden aria-label="Rate"></button>
       <button class="heart ambt globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
       <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
@@ -5410,11 +5409,11 @@ async function openInSC() {
 $('scSrc').addEventListener('click', openInSC);
 $('npSrc').addEventListener('click', () => { hap('light'); openInSC(); });
 // 長押しで★を0に戻す
-(() => { let t = null; const b = $('npStars');
+if ($('npStars')) (() => { let t = null; const b = $('npStars');
   b.addEventListener('pointerdown', () => { clearTimeout(t); t = setTimeout(() => { if (!track) return; setStars(String(track.trackId), 0); hap('star0'); paintStars(); b.dataset.held = '1'; }, 550); });
   for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => clearTimeout(t));
 })();
-$('npStars').addEventListener('click', () => {
+if ($('npStars')) $('npStars').addEventListener('click', () => {
   if ($('npStars').dataset.held) { delete $('npStars').dataset.held; return; }
   if (!track) return;
   const id = String(track.trackId), n = ((starsMap()[id] || 0) + 1) % 6;
