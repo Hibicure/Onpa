@@ -1028,12 +1028,12 @@
   /* ホームなど全部のページ：同じ白い厚みの縁。曲が流れていない時も、色が抜けきらないやわらかい地 */
   /* ホーム側の地：明るすぎず暗すぎないグレー（昼）／ほぼ黒（夜）。どちらも白い厚みの縁 */
   :root.mist:not([data-theme="dark"]) {
-    --paper: #9FA0A4; --surface: #ABACB0; --ink: #121315; --mute: #45474C; --line: #8C8D91;
-    --chip: #929397; --nav: rgba(159,160,164,.92); --dot-off: #7C7D82; --mode-ic: #55575C;
+    --paper: #9FA0A4; --surface: #ABACB0; --ink: #121315; --mute: rgba(0,0,0,.6); --line: rgba(0,0,0,.14); --off: rgba(0,0,0,.36);
+    --chip: #929397; --nav: rgba(159,160,164,.92); --dot-off: rgba(0,0,0,.22); --mode-ic: rgba(0,0,0,.6); /* 薄いグレーは全部、黒を透かして */
     --glass-a: rgba(185,186,190,.9); --glass-b: rgba(150,151,155,.6);
     --pop-a: rgba(176,177,181,.97); --pop-b: rgba(160,161,165,.94);
   }
-  :root.mist[data-theme="dark"] { --paper: #46474C; --surface: #4F5055; --line: rgba(255,255,255,.22); --mute: rgba(255,255,255,.58); --chip: #515257; --nav: rgba(70,71,76,.94); } /* 薄いグレーは、白を透かして（背景の色がにじむ） */ /* 夜：黒すぎない、やわらかいグレー */
+  :root.mist[data-theme="dark"] { --paper: #46474C; --surface: #4F5055; --line: rgba(255,255,255,.22); --mute: rgba(255,255,255,.58); --off: rgba(255,255,255,.42); --chip: #515257; --nav: rgba(70,71,76,.94); } /* 薄いグレーは、白を透かして（背景の色がにじむ） */ /* 夜：黒すぎない、やわらかいグレー */
   :root.mist body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.07) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist[data-theme="dark"] body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: var(--scr-r, 54px); box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
@@ -1158,7 +1158,7 @@
   /* 下の列（シャッフル・…・マイク）も、再生ボタンと同じ白で光らせる */
   :root.mist .controls .mode { color: var(--ink) !important; opacity: 1; }
   :root.mist .controls .mode[data-mode="off"] { opacity: .72; }
-  :root.mist[data-theme="dark"] .controls .mode[data-mode="off"] { color: var(--line) !important; opacity: 1; } /* オフは、再生バーのまだの所と同じ薄さ */
+  :root.mist .controls .mode[data-mode="off"] { color: var(--off) !important; opacity: 1; } /* オフ：透けた色。再生バーのまだの所よりは少し濃く */
   /* この曲を送る：友達の顔を並べて、タップした人にすぐ送る */
   .send-card { display: grid; gap: 14px; }
   .send-h { display: flex; flex-direction: column; gap: 2px; } .send-h b { font-size: 17px; } .send-h span { font-size: 12.5px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
