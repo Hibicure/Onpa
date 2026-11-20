@@ -2676,7 +2676,7 @@ function buildGlobe() {
   gl.clouds = clouds; gl.cloudsMat = cloudsMat;
   // うっすら青い大気のふち
   const atm = new T.Mesh(new T.SphereGeometry(1.002, 48, 48), new T.ShaderMaterial({
-    side: T.FrontSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
+    uniforms: { L: { value: new T.Vector3(-1.4, 1.1, 1.3).normalize() } }, side: T.FrontSide, transparent: true, blending: T.AdditiveBlending, depthWrite: false,
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.4); gl_FragColor = vec4(0.42,0.72,1.0,1.0) * i * 1.25; }',
   }));
@@ -2690,9 +2690,10 @@ function buildGlobe() {
   }));
   halo.scale.setScalar(HALO); halo.visible = false; scene.add(halo); gl.halo = halo; // 外の光の輪は今は使わない（安っぽく見えたので）
   // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
-  scene.add(new T.HemisphereLight(0xdfefff, 0x334455, 0.7));
-  scene.add(new T.AmbientLight(0xffffff, 0.8));
+  const hemi = new T.HemisphereLight(0xdfefff, 0x334455, 0.7), amb = new T.AmbientLight(0xffffff, 0.8);
+  scene.add(hemi); scene.add(amb);
   const sun = new T.DirectionalLight(0xfff6e8, 1.2); sun.position.set(-2, 1.5, 3); scene.add(sun);
+  gl.lights = { hemi, amb, sun };
   Object.assign(gl, { renderer: R, scene, cam, earth });
   // 指で回す（離したあとも少し回り続ける）
   const box = $('globe');
@@ -2866,20 +2867,28 @@ $('globePins').addEventListener('click', (e) => {
 function globeStyle() { try { return localStorage.getItem('oto_globe_style') || 'white'; } catch { return 'white'; } }
 function applyGlobeStyle() {
   const m = gl.earthMat, t = gl.tex, T = gl.three; if (!m || !t) return;
-  const white = globeStyle() === 'white';
-  m.map = white ? null : t.map; m.bumpMap = t.bump; m.bumpScale = white ? 0.05 : 0.03; m.specularMap = t.water; m.emissiveMap = t.water;
+  const white = globeStyle() === 'white', L = gl.lights, a = gl.atm && gl.atm.material;
+  m.map = white ? null : t.map; m.bumpMap = t.bump; m.bumpScale = white ? 0.05 : 0.02; m.specularMap = t.water; m.emissiveMap = t.water;
   m.color.set(white ? 0xf2f4f7 : 0xffffff);
-  m.emissive.set(white ? 0x7fb2e6 : 0x0b3d7a); m.emissiveIntensity = 0.45;
-  m.specular.set(white ? 0xffffff : 0x2a3a4a); m.shininess = white ? 40 : 18; // 写真の地球は、真ん中がテカらないように控えめに
+  // 写真の地球は Google Earth のように：海はやわらかい青、全体に薄い大気のもや、雲なし、右下にかけてそっと影
+  m.emissive.set(white ? 0x7fb2e6 : 0x3d66b8); m.emissiveIntensity = white ? 0.45 : 0.55;
+  m.specular.set(white ? 0xffffff : 0x1a2230); m.shininess = white ? 40 : 10;
   m.needsUpdate = true;
-  if (gl.cloudsMat) gl.cloudsMat.opacity = white ? 0.35 : 0.9;
-  // 縁の光：白い時は白く強く（光の輪のように）
-  if (gl.atm) gl.atm.material.fragmentShader = white
-    ? 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.2); gl_FragColor = vec4(1.0,1.0,1.0,1.0) * i * 0.6; }'
-    : 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.2); gl_FragColor = vec4(0.5,0.78,1.0,1.0) * i * 1.15; }';
-  if (gl.atm) gl.atm.material.needsUpdate = true;
+  if (gl.clouds) { gl.clouds.visible = white; gl.cloudsMat.opacity = 0.35; }
+  if (L) {
+    L.hemi.intensity = white ? 0.7 : 0.25; L.amb.intensity = white ? 0.8 : 0.35; L.sun.intensity = white ? 1.2 : 2.4;
+    if (white) L.sun.position.set(-2, 1.5, 3); else L.sun.position.copy(a.uniforms.L.value);
+  }
+  if (a) {
+    a.blending = white ? T.AdditiveBlending : T.NormalBlending; a.depthTest = !white; gl.atm.renderOrder = white ? 0 : 5;
+    if (!white) a.depthTest = false;
+    a.fragmentShader = white
+      ? 'uniform vec3 L; varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, n.z), 2.2); gl_FragColor = vec4(1.0,1.0,1.0,1.0) * i * 0.6; }'
+      : 'uniform vec3 L; varying vec3 n; void main(){ float f = 1.0 - max(0.0, n.z); float lit = smoothstep(-0.45, 0.6, dot(n, L)); float k = (0.30 + 0.55 * pow(f, 2.0)) * lit; gl_FragColor = vec4(0.74,0.82,0.97, k); }';
+    a.needsUpdate = true;
+  }
   if (gl.halo) gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x5cb4ff);
-  if (gl.renderer) gl.renderer.toneMappingExposure = 1.1;
+  if (gl.renderer) gl.renderer.toneMappingExposure = white ? 1.1 : 1.08;
 }
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
 let _qa = null, _qb = null, _ax = null, _ay = null;
