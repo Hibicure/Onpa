@@ -3678,6 +3678,8 @@ class SpotifyMedia extends EventTarget {
     if (autoplay) {
       // Spotify アプリが寝ている時は起こすのに時間がかかる。待ちすぎず、始まったら Spotify からの知らせで「再生中」になる
       const uri = this._uri;
+      // 始まったかどうかを、Spotify に直接聞いて確かめる（知らせが来ない時のため）。始まっていれば秒数が動き出す
+      for (const ms of [1500, 3500, 7000, 12000]) setTimeout(() => { if (this._uri === uri && this._paused) nat('spNow').then((st) => { if (st && st.uri) this._state(st); }).catch(() => {}); }, ms);
       const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => null), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
       if (r === 'slow') { if (this._uri === uri && this._paused) toast('Waking up Spotify…'); return; }
       if (!r || !r.ok) { this.fire('error'); throw new Error("Couldn't play on Spotify"); }
@@ -4029,7 +4031,11 @@ document.addEventListener('visibilitychange', () => {
     nat('spEnqueue', { uris: p.plan.map((x) => x.uri) }).then((r) => { if (!r || !r.n) player.sp._enq = []; else player.sp._enq = p.plan.slice(0, r.n); }).catch(() => { player.sp._enq = []; });
   }
 });
-if (IN_APP) setTimeout(() => nat('spWarm').catch(() => {}), 2500); // 開いた時に、先にSpotifyとつないでおく
+if (IN_APP) setTimeout(() => nat('spWarm').catch(() => {}), 2500);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !player.sp || player.active !== player.sp) return;
+  setTimeout(() => nat('spNow').then((st) => { if (st && st.uri) player.sp._state(st); }).catch(() => {}), 600);
+}); // 開いた時に、先にSpotifyとつないでおく
 player.addEventListener('ended', () => {
   if (!isReal()) return;
   if (rb) { player.currentTime = 0; player.play().catch(() => {}); return; } // 呼出音が終わったら頭から

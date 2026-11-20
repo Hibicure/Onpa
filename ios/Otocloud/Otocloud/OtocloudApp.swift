@@ -394,6 +394,8 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     // Otocloud の次の曲たちを、Spotify アプリの「次に再生」に入れる（眠っていても順番どおりに流れる）
                     let uris = (body["uris"] as? [String] ?? []).filter { $0.hasPrefix("spotify:track:") }
                     result = ["ok": true, "n": await SpotifyBridge.shared.enqueue(uris)]
+                case "spNow":
+                    result = await SpotifyBridge.shared.now()
                 case "spWarm":
                     // 先につないでおく（Spotify は開かない）
                     result = ["ok": true, "connected": await SpotifyBridge.shared.warm()]
@@ -1015,6 +1017,23 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         }
         return n
     }
+    /// 今の再生状態（曲・位置・止まっているか）
+    func now() async -> [String: Any] {
+        guard remote.isConnected, let api = remote.playerAPI else { return ["ok": true, "connected": false] }
+        return await withCheckedContinuation { (c: CheckedContinuation<[String: Any], Never>) in
+            var done = false
+            api.getPlayerState { r, _ in
+                DispatchQueue.main.async {
+                    guard !done else { return }; done = true
+                    if let st = r as? SPTAppRemotePlayerState {
+                        c.resume(returning: ["ok": true, "connected": true, "uri": st.track.uri, "name": st.track.name, "artist": st.track.artist.name,
+                                             "pos": Double(st.playbackPosition) / 1000, "dur": Double(st.track.duration) / 1000, "paused": st.isPaused])
+                    } else { c.resume(returning: ["ok": true, "connected": true]) }
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if !done { done = true; c.resume(returning: ["ok": true, "connected": true]) } }
+        }
+    }
     func pause() { remote.playerAPI?.pause(nil) }
     func resume() { remote.playerAPI?.resume(nil) }
     func seek(_ t: Double) { remote.playerAPI?.seek(toPosition: Int(t * 1000), callback: nil) }
@@ -1046,6 +1065,8 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         appRemote.playerAPI?.subscribe(toPlayerState: nil)
         finishConnect(true)
         onEvent?(["type": "spState", "connected": true])
+        // つながった時点で、もう流れている曲の状態もすぐ知らせる（変化がないと知らせが来ないため）
+        appRemote.playerAPI?.getPlayerState { [weak self] r, _ in if let st = r as? SPTAppRemotePlayerState { self?.playerStateDidChange(st) } }
     }
     func appRemote(_ appRemote: SPTAppRemote, didFailConnectionAttemptWithError error: Error?) { finishConnect(false) }
     func appRemote(_ appRemote: SPTAppRemote, didDisconnectWithError error: Error?) { onEvent?(["type": "spState", "connected": false]) }
