@@ -806,9 +806,7 @@
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
   .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%;
-    -webkit-mask-image: radial-gradient(circle closest-side, #000 86%, rgba(0,0,0,.55) 94%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 86%, rgba(0,0,0,.55) 94%, transparent 100%); }
-  .np .globe::before { content: ""; position: absolute; inset: -6%; border-radius: 50%; pointer-events: none; z-index: -1;
-    background: radial-gradient(circle closest-side, transparent 80%, rgba(255,255,255,.28) 90%, rgba(255,255,255,.1) 95%, transparent 100%); }
+    -webkit-mask-image: radial-gradient(circle closest-side, #000 90%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 90%, transparent 100%); }
   .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
   .gpins { position: absolute; inset: 0; pointer-events: none; }
   .gpin { position: absolute; left: 0; top: 0; will-change: transform; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
@@ -2622,8 +2620,9 @@ function globePeople() {
   dummyFriends().forEach((d, i) => { const [la, ln] = DUMMY_PLACES[i % DUMMY_PLACES.length]; const [a, b] = jitter(d.uid); list.push({ ...d, lat: la + a, lng: ln + b }); });
   return list;
 }
-// 地球がジャケットとちょうど同じ大きさに見えるカメラの距離（画角30°）と、いつもの回る速さ（1ミリ秒あたり）
-const GLOBE_FAR = 1 / Math.sin(15 * Math.PI / 180), GLOBE_SPIN = 0.00011;
+// 地球はジャケットより少し小さく（84%）置いて、まわりに大気の光の輪が入るすき間を作る（画角30°）。いつもの回る速さ（1ミリ秒あたり）
+const GLOBE_FAR = 1 / Math.sin(Math.atan(0.84 * Math.tan(15 * Math.PI / 180))), GLOBE_SPIN = 0.00011;
+const GLOBE_TAN = Math.tan(15 * Math.PI / 180);
 async function openGlobe() {
   const box = $('globe'), disc = $('disc');
   const r = disc.getBoundingClientRect(), st = disc.parentElement.getBoundingClientRect();
@@ -2682,10 +2681,18 @@ function buildGlobe() {
     fragmentShader: 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.4); gl_FragColor = vec4(0.42,0.72,1.0,1.0) * i * 1.25; }',
   }));
   scene.add(atm); gl.atm = atm; gl.earthMat = earthMat;
+  // 外側の光の輪（Google Earth のような大気）：地球のふちが一番明るく、外へ向かってふわっと消える
+  const HALO = 1.16, haloE = Math.sqrt(1 - 1 / (HALO * HALO)).toFixed(3);
+  const halo = new T.Mesh(new T.SphereGeometry(1, 64, 64), new T.ShaderMaterial({
+    uniforms: { c: { value: new T.Color(0x5cb4ff) }, a: { value: 0.75 } }, side: T.BackSide, transparent: true, depthWrite: false,
+    vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'uniform vec3 c; uniform float a; varying vec3 n; void main(){ float k = pow(clamp(-n.z / ' + haloE + ', 0.0, 1.0), 1.6); gl_FragColor = vec4(c, k * a); }',
+  }));
+  halo.scale.setScalar(HALO); scene.add(halo); gl.halo = halo;
   // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
-  scene.add(new T.HemisphereLight(0xdfefff, 0x334455, 1.1));
-  scene.add(new T.AmbientLight(0xffffff, 0.45));
-  const sun = new T.DirectionalLight(0xfff6e8, 1.6); sun.position.set(-1.2, 1.0, 4); scene.add(sun);
+  scene.add(new T.HemisphereLight(0xdfefff, 0x334455, 0.7));
+  scene.add(new T.AmbientLight(0xffffff, 0.8));
+  const sun = new T.DirectionalLight(0xfff6e8, 1.2); sun.position.set(-2, 1.5, 3); scene.add(sun);
   Object.assign(gl, { renderer: R, scene, cam, earth });
   // 指で回す（離したあとも少し回り続ける）
   const box = $('globe');
@@ -2860,16 +2867,17 @@ function applyGlobeStyle() {
   const white = globeStyle() === 'white';
   m.map = white ? null : t.map; m.bumpMap = t.bump; m.bumpScale = white ? 0.05 : 0.03; m.specularMap = t.water; m.emissiveMap = t.water;
   m.color.set(white ? 0xf2f4f7 : 0xffffff);
-  m.emissive.set(white ? 0x9cc2ea : 0x1f5f9e); m.emissiveIntensity = white ? 0.32 : 0.55;
-  m.specular.set(white ? 0xffffff : 0x9fbad8); m.shininess = white ? 40 : 24;
+  m.emissive.set(white ? 0x7fb2e6 : 0x0b3d7a); m.emissiveIntensity = 0.45;
+  m.specular.set(white ? 0xffffff : 0x2a3a4a); m.shininess = white ? 40 : 18; // 写真の地球は、真ん中がテカらないように控えめに
   m.needsUpdate = true;
   if (gl.cloudsMat) gl.cloudsMat.opacity = white ? 0.35 : 0.9;
   // 縁の光：白い時は白く強く（光の輪のように）
   if (gl.atm) gl.atm.material.fragmentShader = white
-    ? 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 1.8); gl_FragColor = vec4(1.0,1.0,1.0,1.0) * i * 1.35; }'
-    : 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.4); gl_FragColor = vec4(0.42,0.72,1.0,1.0) * i * 1.25; }';
+    ? 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.2); gl_FragColor = vec4(1.0,1.0,1.0,1.0) * i * 0.6; }'
+    : 'varying vec3 n; void main(){ float i = pow(1.0 - max(0.0, dot(n, vec3(0.0,0.0,1.0))), 2.2); gl_FragColor = vec4(0.5,0.78,1.0,1.0) * i * 1.15; }';
   if (gl.atm) gl.atm.material.needsUpdate = true;
-  if (gl.renderer) gl.renderer.toneMappingExposure = white ? 1.1 : 1.25;
+  if (gl.halo) gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x5cb4ff);
+  if (gl.renderer) gl.renderer.toneMappingExposure = 1.1;
 }
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
 let _qa = null, _qb = null, _ax = null, _ay = null;
@@ -2901,7 +2909,8 @@ function loopGlobe() {
       const front = v.z > 0.08;
       if (!front) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
       v.project(gl.cam);
-      const px = v.x * half, py = v.y * half, out = Math.hypot(px, py) - half; // 円の縁からどれだけ外か（マイナス＝内側）
+      const z = gl.cam.position.z, rEarth = Math.min(half, half * Math.tan(Math.asin(Math.min(1, 1 / z))) / GLOBE_TAN);
+      const px = v.x * half, py = v.y * half, out = Math.hypot(px, py) - rEarth; // 円の縁からどれだけ外か（マイナス＝内側）
       if (out > 4) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
       const fade = out > -12 ? String(Math.max(0, Math.min(1, (4 - out) / 16)).toFixed(2)) : '1';
       const tr = `translate3d(${(half + v.x * half).toFixed(1)}px,${(half - v.y * half).toFixed(1)}px,0)`;
