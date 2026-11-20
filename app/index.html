@@ -2720,7 +2720,7 @@ function buildGlobe() {
   const halo = new T.Mesh(new T.SphereGeometry(1, 64, 64), new T.ShaderMaterial({
     uniforms: { c: { value: new T.Color(0x5cb4ff) }, a: { value: 0.75 } }, side: T.BackSide, transparent: true, depthWrite: false,
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: 'uniform vec3 c; uniform float a; varying vec3 n; void main(){ float k = pow(clamp(-n.z / ' + haloE + ', 0.0, 1.0), 1.6); gl_FragColor = vec4(c, k * a); }',
+    fragmentShader: 'uniform vec3 c; uniform float a; varying vec3 n; void main(){ float k = pow(clamp(-n.z / ' + haloE + ', 0.0, 1.0), 1.1); gl_FragColor = vec4(c, k * a); }',
   }));
   halo.scale.setScalar(HALO); scene.add(halo); gl.halo = halo;
   // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
@@ -2958,7 +2958,7 @@ function applyGlobeStyle() {
       : 'uniform vec3 L; varying vec3 n; void main(){ float mu = max(n.z, 0.0); float depth = 1.0 / (mu * 0.85 + 0.15); float lit = smoothstep(-0.35, 0.7, dot(n, L)); float k = 1.0 - exp(-0.42 * depth); vec3 c = mix(vec3(0.80,0.86,0.98), vec3(0.42,0.62,1.0), smoothstep(1.2, 5.0, depth)) * mix(0.35, 1.0, lit); gl_FragColor = vec4(c, clamp(k, 0.0, 0.9) * mix(0.55, 1.0, lit)); }';
     a.needsUpdate = true;
   }
-  if (gl.halo) { gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x7fbcff); gl.halo.material.uniforms.a.value = white ? 0.7 : 0.8; }
+  if (gl.halo) { gl.halo.material.uniforms.c.value.set(white ? 0xffffff : 0x8cc4ff); gl.halo.material.uniforms.a.value = white ? 0.7 : 1.0; }
   if (gl.renderer) gl.renderer.toneMappingExposure = 1.1;
 }
 // 画面の横向き・縦向きの軸で回す（指の動きどおりに回る）
