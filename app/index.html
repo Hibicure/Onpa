@@ -451,6 +451,15 @@
   .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 19px; line-height: 1.6; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
   /* スクロールした歌詞は、上と下でふわっと透けて消える（見えない壁でぶつっと切れないように） */
   .lyr-body { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 90px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 90px), transparent 100%); }
+  .lyr-body .ll, .np .fulllyr .ll { display: block; transition: opacity .35s, transform .35s; }
+  .lyr-body.synced .ll, .np .fulllyr.synced .ll { opacity: .32; }
+  .lyr-body.synced .ll.on, .np .fulllyr.synced .ll.on { opacity: 1; }
+  .lyr-body.synced .ll.past, .np .fulllyr.synced .ll.past { opacity: .5; }
+  .lyr-body.syncing .ll { opacity: .35; } .lyr-body.syncing .ll.next { opacity: 1; } .lyr-body.syncing .ll.done { opacity: .6; }
+  .lyr-syncbar { position: absolute; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; align-items: center; z-index: 3; padding: 10px 10px 10px 16px; border-radius: 22px; background: color-mix(in srgb, var(--paper) 80%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.5), 0 10px 30px rgba(0,0,0,.25); }
+  .lyr-syncbar span { flex: 1; font-size: 13px; font-weight: 600; color: var(--mute); }
+  .lyr-syncbar button { height: 44px; padding: 0 16px; border-radius: 99px; font-weight: 700; color: var(--ink); background: var(--chip); }
+  .lyr-syncbar #lyrSyncTap { min-width: 96px; background: var(--ink); color: var(--paper); font-size: 16px; }
   .lyr-body .src { display: block; margin-top: 34px; font-size: 12px; font-weight: 600; color: var(--mute); letter-spacing: 0; }
   /* CDの真ん中をタップ：まず自分、上下にスライドで友達。自分をタップで自分のページ、友達をタップでそのまま電話 */
   .disc .pick { position: absolute; inset: 35.2%; border-radius: 50%; overflow: hidden; z-index: 4; background: var(--holo); touch-action: none; cursor: pointer;
@@ -1024,7 +1033,7 @@
     --glass-a: rgba(185,186,190,.9); --glass-b: rgba(150,151,155,.6);
     --pop-a: rgba(176,177,181,.97); --pop-b: rgba(160,161,165,.94);
   }
-  :root.mist[data-theme="dark"] { --paper: #46474C; --surface: #4F5055; --line: #58595E; --chip: #515257; --nav: rgba(70,71,76,.94); } /* 夜：黒すぎない、やわらかいグレー */
+  :root.mist[data-theme="dark"] { --paper: #46474C; --surface: #4F5055; --line: rgba(255,255,255,.22); --mute: rgba(255,255,255,.58); --chip: #515257; --nav: rgba(70,71,76,.94); } /* 薄いグレーは、白を透かして（背景の色がにじむ） */ /* 夜：黒すぎない、やわらかいグレー */
   :root.mist body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.07) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist[data-theme="dark"] body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: var(--scr-r, 54px); box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
@@ -1148,6 +1157,7 @@
   /* 下の列（シャッフル・…・マイク）も、再生ボタンと同じ白で光らせる */
   :root.mist .controls .mode { color: var(--ink) !important; opacity: 1; }
   :root.mist .controls .mode[data-mode="off"] { opacity: .72; }
+  :root.mist[data-theme="dark"] .controls .mode[data-mode="off"] { color: var(--line) !important; opacity: 1; } /* オフは、再生バーのまだの所と同じ薄さ */
   /* この曲を送る：友達の顔を並べて、タップした人にすぐ送る */
   .send-card { display: grid; gap: 14px; }
   .send-h { display: flex; flex-direction: column; gap: 2px; } .send-h b { font-size: 17px; } .send-h span { font-size: 12.5px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1504,9 +1514,11 @@
   <div class="lyr-top"><div class="lyr-t"><div class="t" id="lyrTitle"></div><div class="s" id="lyrArtist"></div></div><button class="lyr-x" id="lyrClose" aria-label="Close" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <div class="lyr-body" id="lyrBody"></div>
   <textarea class="lyr-edit" id="lyrEdit" hidden placeholder="Paste or type the lyrics" spellcheck="false"></textarea>
+  <div class="lyr-syncbar" id="lyrSyncBar" hidden><span id="lyrSyncHint">Play the song and tap when each line starts</span><button id="lyrSyncBack">Undo</button><button id="lyrSyncTap">Tap</button></div>
   <div class="lyr-tools">
     <button id="lyrWrong">Wrong lyrics</button>
     <button id="lyrEditBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>Edit</button>
+    <button id="lyrSyncBtn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.5 1.6M9.5 2.8h5"/></svg>Sync</button>
     <button id="lyrSave" hidden>Save</button>
   </div>
 </section>
@@ -4815,12 +4827,54 @@ var lyr = null, lyrFor = null; // var：上の renderTrack から先に使われ
 const lyrKey = (m) => songKey({ artist: m.artist, title: m.title }) || String(m.trackId);
 function lyrMine() { try { return JSON.parse(localStorage.getItem('oto_lyr_mine') || '{}') || {}; } catch { return {}; } }
 function lyrBad() { try { return new Set(JSON.parse(localStorage.getItem('oto_lyr_bad') || '[]')); } catch { return new Set(); } }
+// ---- みんなで直せる歌詞（ウィキのように）。同じ曲ならサービスが違っても共通（ISRC か、曲名＋アーティスト）
+const lyrIds = (m) => { const out = [], isrc = String(m.isrc || ((m.alts || []).find((x) => x && x.isrc) || {}).isrc || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (isrc.length >= 10) out.push('i_' + isrc); const k = lyrKey(m); if (k) out.push('k_' + String(k).replace(/[.#$\[\]\/%]/g, '_').slice(0, 300)); return out; };
+async function lyrShared(meta) {
+  for (const id of lyrIds(meta)) { try { const v = (await db.ref('lyrics/' + id).get()).val(); if (v && (v.text || v.lrc)) return v; } catch {} }
+  return null;
+}
+async function lyrShare(meta, text, lrc) {
+  if (!me || !me.uid) throw new Error('no user');
+  const v = { text: text || '', lrc: lrc || '', by: me.uid, byName: me.name || me.handle || '', at: TS, title: meta.title || '', artist: meta.artist || '' };
+  const ids = lyrIds(meta); if (!ids.length) throw new Error('no id');
+  await Promise.all(ids.map((id) => db.ref('lyrics/' + id).set(v)));
+  try { db.ref('lyricsLog/' + ids[0]).push({ text: v.text, lrc: v.lrc, by: v.by, at: TS }); } catch {}
+}
+// [mm:ss.xx] 形式の歌詞 → [{t 秒, s 行}]
+function parseLrc(lrc) {
+  const out = []; for (const line of String(lrc || '').split(/\r?\n/)) { const ts = [...line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)]; const txt = line.replace(/\[[^\]]*\]/g, '').trim(); for (const m of ts) out.push({ t: +m[1] * 60 + +m[2], s: txt }); }
+  return out.sort((a, b) => a.t - b.t);
+}
+const lrcStamp = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `[${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}]`; };
+// 歌詞を1行ずつの <span> に（時間つきなら data-t）
+function lyrLinesHTML(l) {
+  const L = l.lines && l.lines.length ? l.lines : String(l.lyrics || '').split('\n').map((s) => ({ s }));
+  return L.map((x, i) => `<span class="ll"${x.t != null ? ` data-t="${x.t}"` : ''} data-i="${i}">${esc(x.s) || '&nbsp;'}</span>`).join('');
+}
+// 再生に合わせて、今の行を光らせて真ん中へ（Apple Music のように）
+let lyrLastOn = -1;
+function lyrFollow() {
+  if (!lyr || !lyr.lines || !lyr.lines.length || !track || lyrFor !== track.trackId) return;
+  const t = player.currentTime || 0; let k = -1; for (let i = 0; i < lyr.lines.length; i++) { if (lyr.lines[i].t <= t + 0.15) k = i; else break; }
+  if (k === lyrLastOn) return; lyrLastOn = k;
+  for (const box of [$('lyrBody'), $('fullLyr')]) {
+    if (!box || box.hidden || !box.classList.contains('synced')) continue;
+    box.querySelectorAll('.ll').forEach((el, i) => { el.classList.toggle('on', i === k); el.classList.toggle('past', i < k); });
+    const cur = box.querySelector('.ll.on'); if (cur && !box.dataset.touch) box.scrollTo({ top: cur.offsetTop - box.clientHeight * 0.38, behavior: 'smooth' });
+  }
+}
+player.addEventListener('timeupdate', lyrFollow);
 async function loadLyrics(meta) {
   lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; geniusUrl = ''; paintFullLyr();
-  if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる
+  if (!$('lyrSheet').hidden) { $('lyrSheet').hidden = true; lyrEndEdit(); } // 開いていた歌詞（前の曲）は閉じる
   $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius; delete $('lyrBtn').dataset.add;
   // 自分で直した歌詞があれば、それを使う。「違う歌詞」と報告した曲は、自動で見つけた歌詞を使わない
   const lk = lyrKey(meta), mine = lyrMine()[lk];
+  // みんなで直した歌詞があれば、それが一番
+  const sh = await lyrShared(meta);
+  if (lyrFor !== meta.trackId) return;
+  if (sh) { const lines = parseLrc(sh.lrc); lyr = { lyrics: sh.text || lines.map((x) => x.s).join('\n'), lines: lines.length ? lines : null, lrc: sh.lrc || '', from: 'otocloud', by: sh.byName || '' }; $('lyrBtn').hidden = false; paintFullLyr(); return; }
   if (mine) { lyr = { lyrics: mine, from: 'you' }; $('lyrBtn').hidden = false; paintFullLyr(); return; }
   const bad = lyrBad().has(lk);
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
@@ -4836,7 +4890,7 @@ async function loadLyrics(meta) {
     try {
       const d = await fetch(`${WORKER}/lyrics/by?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '', dur: String(Math.round((meta.duration || 0) / 1000)) })).then((r) => r.json());
       if (lyrFor !== meta.trackId) return;
-      if (d && d.lyrics && !bad) { lyr = d; $('lyrBtn').hidden = false; paintFullLyr(); return; }
+      if (d && d.lyrics && !bad) { lyr = d; if (d.synced) { const ln = parseLrc(d.synced); if (ln.length) { lyr.lines = ln; lyr.lrc = d.synced; } } $('lyrBtn').hidden = false; paintFullLyr(); return; }
     } catch {}
     toGenius(); return;
   }
@@ -4845,7 +4899,7 @@ async function loadLyrics(meta) {
     const d = await r.json();
     if (lyrFor !== meta.trackId) return;
     if (!d.lyrics || bad) { toGenius(); return; }
-    lyr = d; $('lyrBtn').hidden = false; paintFullLyr();
+    lyr = d; if (d.synced) { const ln = parseLrc(d.synced); if (ln.length) { lyr.lines = ln; lyr.lrc = d.synced; } } $('lyrBtn').hidden = false; paintFullLyr();
   } catch { toGenius(); }
 }
 var geniusUrl = '';
@@ -4860,7 +4914,7 @@ async function openGenius() {
 // 歌詞がどこから来たか（間違っていた時に分かるように、いつも書いておく）
 function lyrSource(l) {
   if (!l) return '';
-  return l.from === 'you' ? 'Your lyrics (only you see them)' : l.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : l.from === 'description' ? 'From the description on SoundCloud' : l.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${l.by || 'a listener'} on SoundCloud`;
+  return l.from === 'otocloud' ? (l.by ? `Edited by ${l.by} on Otocloud` : 'Edited on Otocloud') : l.from === 'you' ? 'Your lyrics (only you see them)' : l.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : l.from === 'description' ? 'From the description on SoundCloud' : l.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${l.by || 'a listener'} on SoundCloud`;
 }
 // 全画面の歌詞：文字のない所をタップしたら、全画面をやめていつもの表示へ（スクロールした時は何もしない）
 $('fullLyr').addEventListener('click', (e) => {
@@ -4874,7 +4928,7 @@ function paintFullLyr() {
   const el = $('fullLyr'); if (!el) return;
   const ok = !!(fullLyrOn && lyr && track && lyrFor === track.trackId && lyr.lyrics);
   if (!ok) { el.hidden = true; el.textContent = ''; return; }
-  if (el.hidden || el.dataset.for !== String(track.trackId)) { el.innerHTML = esc(lyr.lyrics) + `<span class="fl-src">${esc(lyrSource(lyr))}</span>`; el.scrollTop = 0; el.dataset.for = String(track.trackId); }
+  if (el.hidden || el.dataset.for !== String(track.trackId) || el.dataset.ver !== String(lyr.lrc || lyr.lyrics).length + '') { el.innerHTML = lyrLinesHTML(lyr) + `<span class="fl-src">${esc(lyrSource(lyr))}</span>`; el.classList.toggle('synced', !!(lyr.lines && lyr.lines.length)); el.scrollTop = 0; el.dataset.for = String(track.trackId); el.dataset.ver = String(lyr.lrc || lyr.lyrics).length + ''; lyrLastOn = -1; }
   el.hidden = false;
   if (gl.on) closeGlobe(); // 歌詞を出す時は、地球儀はしまう
   // 上のボタン（ロゴ・Lyrics・地球など）にかからない高さまで
@@ -4890,7 +4944,8 @@ function openLyrics() {
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
   const src = lyrSource(lyr);
-  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
+  $('lyrBody').classList.toggle('synced', !!(lyr.lines && lyr.lines.length)); lyrLastOn = -1; setTimeout(lyrFollow, 30);
+  $('lyrBody').innerHTML = lyrLinesHTML(lyr) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
   // 歌詞があるときは Genius のリンクは出さない（歌詞が無い曲だけ「Lyrics ↗」で Genius へ）
   $('lyrBody').scrollTop = 0;
@@ -4912,15 +4967,55 @@ $('lyrWrong').addEventListener('click', () => {
 $('lyrEditBtn').addEventListener('click', () => {
   if (!track) return; hap('light');
   $('lyrEdit').value = (lyr && lyr.lyrics) || ''; $('lyrEdit').hidden = false; $('lyrBody').hidden = true;
-  $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrEdit').focus();
+  $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrSyncBtn').hidden = false; $('lyrEdit').focus();
 });
+// 保存：みんなの歌詞として保存（だれでも直せる。前の版も残る）。だめな時だけ自分の中に
+async function lyrCommit(text, lrc) {
+  if (!track) return; const t0 = track;
+  let shared = false; try { await lyrShare(t0, text, lrc); shared = true; } catch {}
+  if (!shared) { const lk = lyrKey(t0), m = lyrMine(); if (text) m[lk] = text; else delete m[lk]; try { localStorage.setItem('oto_lyr_mine', JSON.stringify(m)); } catch {} }
+  hap('rigid'); toast(shared ? (lrc ? 'Saved with timing · everyone sees it' : 'Saved · everyone sees these lyrics') : 'Saved on this phone');
+  lyrEndEdit(); await loadLyrics(t0); if (lyr) openLyrics();
+}
+function lyrEndEdit() {
+  $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSave').hidden = true; $('lyrSyncBtn').hidden = true; $('lyrEditBtn').hidden = false; $('lyrWrong').hidden = false;
+  $('lyrSyncBar').hidden = true; $('lyrBody').classList.remove('syncing'); lyrSync = null;
+}
 $('lyrSave').addEventListener('click', () => {
-  if (!track) return; const lk = lyrKey(track), m = lyrMine(), v = $('lyrEdit').value.trim();
-  if (v) m[lk] = v; else delete m[lk];
-  try { localStorage.setItem('oto_lyr_mine', JSON.stringify(m)); } catch {}
-  hap('rigid'); toast(v ? 'Saved · only you see these lyrics for now' : 'Removed your lyrics');
-  $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSave').hidden = true; $('lyrEditBtn').hidden = false; $('lyrWrong').hidden = false;
-  loadLyrics(track); setTimeout(() => { if (lyr) openLyrics(); }, 50);
+  if (lyrSync) { // タイミング合わせの途中：合わせた所までを時間つきで保存
+    const out = lyrSync.lines.map((x, i) => (lyrSync.t[i] != null ? lrcStamp(lyrSync.t[i]) : '') + x).filter((x, i) => lyrSync.t[i] != null || !x.trim());
+    return lyrCommit(lyrSync.lines.join('\n'), lyrSync.t.some((x) => x != null) ? out.join('\n') : '');
+  }
+  const v = $('lyrEdit').value.replace(/\s+$/, '');
+  const same = lyr && v === String(lyr.lyrics || '').replace(/\s+$/, ''); // 文字を変えていなければ、時間はそのまま残す
+  lyrCommit(v, same ? (lyr.lrc || '') : '');
+});
+// タイミング合わせ：曲を流しながら、各行が始まる時に「Tap」
+let lyrSync = null;
+$('lyrSyncBtn').addEventListener('click', () => {
+  const text = $('lyrEdit').value.replace(/\s+$/, ''); if (!text.trim()) { toast('Add the lyrics first'); return; }
+  const lines = text.split('\n'); lyrSync = { lines, t: lines.map(() => null), i: lines.findIndex((x) => x.trim()) };
+  $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSyncBtn').hidden = true;
+  $('lyrBody').classList.remove('synced'); $('lyrBody').classList.add('syncing');
+  $('lyrBody').innerHTML = lines.map((x, i) => `<span class="ll" data-i="${i}">${esc(x) || '&nbsp;'}</span>`).join('');
+  $('lyrSyncBar').hidden = false; lyrSyncPaint();
+  if (player.paused) { player.currentTime = 0; player.play().catch(() => {}); }
+  hap('light');
+});
+function lyrSyncPaint() {
+  if (!lyrSync) return; const els = $('lyrBody').querySelectorAll('.ll');
+  els.forEach((el, i) => { el.classList.toggle('next', i === lyrSync.i); el.classList.toggle('done', lyrSync.t[i] != null); });
+  const n = els[lyrSync.i]; if (n) $('lyrBody').scrollTo({ top: n.offsetTop - $('lyrBody').clientHeight * 0.35, behavior: 'smooth' });
+  $('lyrSyncHint').textContent = lyrSync.i < 0 || lyrSync.i >= lyrSync.lines.length ? 'All lines timed · tap Save' : 'Tap when this line starts';
+}
+$('lyrSyncTap').addEventListener('click', () => {
+  if (!lyrSync || lyrSync.i < 0 || lyrSync.i >= lyrSync.lines.length) return;
+  lyrSync.t[lyrSync.i] = Math.max(0, (player.currentTime || 0) - 0.15); hap('light');
+  let j = lyrSync.i + 1; while (j < lyrSync.lines.length && !lyrSync.lines[j].trim()) j++; lyrSync.i = j; lyrSyncPaint();
+});
+$('lyrSyncBack').addEventListener('click', () => {
+  if (!lyrSync) return; let j = lyrSync.i - 1; while (j >= 0 && lyrSync.t[j] == null) j--; if (j < 0) return;
+  lyrSync.t[j] = null; lyrSync.i = j; hap('light'); if (player.currentTime > 3) player.currentTime = Math.max(0, player.currentTime - 3); lyrSyncPaint();
 });
 $('lyrBtn').addEventListener('click', (e) => {
   if ($('lyrBtn').dataset.add && track) {
@@ -4933,8 +5028,10 @@ $('lyrBtn').addEventListener('click', (e) => {
 });
 $('lyrBtn').addEventListener('click', () => {
   if ($('lyrBtn').dataset.add) return; hap('light'); if ($('lyrBtn').dataset.genius) openGenius(); else openLyrics(); });
-$('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; });
-$('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidden = true; });
+$('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; lyrEndEdit(); });
+$('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidden = true; lyrEndEdit(); });
+// 指で歌詞を動かしている間は、自動で追いかけない（3秒後にまた追う）
+for (const id of ['lyrBody', 'fullLyr']) { const el = $(id); if (!el) continue; let t = null; el.addEventListener('touchstart', () => { el.dataset.touch = '1'; clearTimeout(t); }, { passive: true }); el.addEventListener('touchend', () => { clearTimeout(t); t = setTimeout(() => { delete el.dataset.touch; lyrLastOn = -1; lyrFollow(); }, 3000); }, { passive: true }); }
 async function loadWave(meta) {
   waveBars = null; waveFor = meta.trackId; $('seek').classList.remove('waved');
   try {
