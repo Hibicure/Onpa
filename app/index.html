@@ -2688,7 +2688,7 @@ function buildGlobe() {
   R.setPixelRatio(Math.min(2, window.devicePixelRatio || 2)); // 3倍は重いので2倍まで（見た目はほぼ同じ）
   // 明るく、写真のような色に（暗く沈まないように）
   R.outputColorSpace = T.SRGBColorSpace; R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 1.25;
-  const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.1, 100); cam.position.set(0, 0, GLOBE_FAR);
+  const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.005, 100); cam.position.set(0, 0, GLOBE_FAR);
   const IMG = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.4/example/img/';
   const ld = new T.TextureLoader(); ld.setCrossOrigin('anonymous');
   let onTex = () => {};
@@ -2733,7 +2733,7 @@ function buildGlobe() {
   const box = $('globe');
   // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
   const pts = new Map(); let pinch = null, multiAt = 0;
-  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.1, Math.min(GLOBE_FAR, z));
+  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.25, Math.min(GLOBE_FAR, z));
     // ふちのぼかし：ふだんは細く（輪郭がほんのり分かる）、寄るほど広く（穴からのぞく感じ）
     const t = Math.max(0, Math.min(1, (GLOBE_FAR - gl.cam.position.z) / (GLOBE_FAR - 2.2)));
     if (gl.cloudsMat) gl.cloudsMat.opacity = (globeStyle() === 'white' ? 0.35 : 0.9) * Math.max(0, Math.min(1, (gl.cam.position.z - 1.35) / 1.1)); $('globeCv').style.setProperty('--gf', (99 - 9 * t).toFixed(1) + '%'); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
@@ -2996,7 +2996,7 @@ function globeDetail(now) {
     _detailLoading = false; if (!gl.on || gl.cam.position.z > 2.5) { tx.dispose(); return; }
     tx.colorSpace = T.SRGBColorSpace; tx.anisotropy = 8;
     const geo = new T.SphereGeometry(1.0006, 96, 96, (w1 + 180) * Math.PI / 180, (e1 - w1) * Math.PI / 180, (90 - n1) * Math.PI / 180, (n1 - s1) * Math.PI / 180);
-    const m = gl.earthMat, mat = new T.MeshPhongMaterial({ map: tx, transparent: true, opacity: 0, specular: m.specular.clone(), shininess: m.shininess, emissive: m.emissive.clone(), emissiveIntensity: m.emissiveIntensity * 0.4 });
+    const m = gl.earthMat, mat = new T.MeshPhongMaterial({ map: tx, transparent: true, opacity: 0, specular: m.specular.clone(), shininess: m.shininess, emissiveIntensity: 0 });
     const mesh = new T.Mesh(geo, mat);
     if (gl.patch) { const old = gl.patch; mat.opacity = 1; gl.earth.remove(old); old.material.map && old.material.map.dispose(); old.geometry.dispose(); }
     gl.earth.add(mesh); gl.patch = mesh; gl.patchKey = { lat, lng, span };
