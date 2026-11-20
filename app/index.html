@@ -2621,7 +2621,7 @@ function globePeople() {
   return list;
 }
 // 地球はジャケットより少し小さく（84%）置いて、まわりに大気の光の輪が入るすき間を作る（画角30°）。いつもの回る速さ（1ミリ秒あたり）
-const GLOBE_FAR = 1 / Math.sin(Math.atan(0.84 * Math.tan(15 * Math.PI / 180))), GLOBE_SPIN = 0.00011;
+const GLOBE_FAR = 1 / Math.sin(15 * Math.PI / 180), GLOBE_SPIN = 0.00011; // 地球はジャケットと同じ大きさ
 const GLOBE_TAN = Math.tan(15 * Math.PI / 180);
 async function openGlobe() {
   const box = $('globe'), disc = $('disc');
@@ -2688,7 +2688,7 @@ function buildGlobe() {
     vertexShader: 'varying vec3 n; void main(){ n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
     fragmentShader: 'uniform vec3 c; uniform float a; varying vec3 n; void main(){ float k = pow(clamp(-n.z / ' + haloE + ', 0.0, 1.0), 1.6); gl_FragColor = vec4(c, k * a); }',
   }));
-  halo.scale.setScalar(HALO); scene.add(halo); gl.halo = halo;
+  halo.scale.setScalar(HALO); halo.visible = false; scene.add(halo); gl.halo = halo; // 外の光の輪は今は使わない（安っぽく見えたので）
   // 空の青い光＋やわらかい太陽（夜側を作らず、どこを見ても昼の明るさ）
   scene.add(new T.HemisphereLight(0xdfefff, 0x334455, 0.7));
   scene.add(new T.AmbientLight(0xffffff, 0.8));
