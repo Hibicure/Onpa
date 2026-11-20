@@ -447,6 +447,8 @@
   .lyr-t .t { font-weight: 800; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lyr-t .s { font-size: 13px; color: var(--mute); margin-top: 2px; }
   .lyr-x { width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink); }
+  .lyr-x { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); } .lyr-x svg { width: 20px; height: 20px; }
+  .lyr-x[hidden], .lyr-back[hidden] { display: none !important; }
   .lyr-x svg { width: 20px; height: 20px; }
   .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 19px; line-height: 1.6; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
   /* スクロールした歌詞は、上と下でふわっと透けて消える（見えない壁でぶつっと切れないように） */
@@ -1061,7 +1063,7 @@
   .lyr-tools button { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 14px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
   .lyr-tools button[hidden] { display: none; }
   .lyr-tools svg { width: 14px; height: 14px; }
-  .lyr-edit { flex: 1; margin: 8px 24px; padding: 14px; border-radius: 16px; border: 0; resize: none; font: 600 16px/1.55 inherit; color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; -webkit-user-select: text; user-select: text; }
+  .lyr-edit { flex: 1; margin: 8px 24px; padding: 14px; border-radius: 16px; border: 0; resize: none; font: 600 19px/1.6 inherit; color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; -webkit-user-select: text; user-select: text; }
   .lyr-edit[hidden] { display: none; }
   body:not(.artist-mode) #shuffleLikes { display: none !important; }
   #ahPic { cursor: pointer; }
@@ -4993,7 +4995,9 @@ $('lyrWrong').addEventListener('click', () => {
 $('lyrEditBtn').addEventListener('click', () => {
   if (!track) return; hap('light');
   $('lyrEdit').value = (lyr && lyr.lyrics) || ''; $('lyrEdit').hidden = false; $('lyrBody').hidden = true;
-  $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrSyncBtn').hidden = false; $('lyrEdit').focus();
+  $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrSyncBtn').hidden = false;
+  $('lyrBack').hidden = true; $('lyrClose').hidden = false; // 編集中は上の「Lyrics」を出さず、右上の × でやめられる
+  $('lyrEdit').focus();
 });
 // 保存：みんなの歌詞として保存（だれでも直せる。前の版も残る）。だめな時だけ自分の中に
 async function lyrCommit(text, lrc) {
@@ -5004,6 +5008,7 @@ async function lyrCommit(text, lrc) {
   lyrEndEdit(); await loadLyrics(t0); if (lyr) openLyrics();
 }
 function lyrEndEdit() {
+  $('lyrBack').hidden = false; $('lyrClose').hidden = true;
   $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSave').hidden = true; $('lyrSyncBtn').hidden = true; $('lyrEditBtn').hidden = false; $('lyrWrong').hidden = false;
   $('lyrSyncBar').hidden = true; $('lyrBody').classList.remove('syncing'); lyrSync = null;
 }
@@ -5054,7 +5059,12 @@ $('lyrBtn').addEventListener('click', (e) => {
 });
 $('lyrBtn').addEventListener('click', () => {
   if ($('lyrBtn').dataset.add) return; hap('light'); if ($('lyrBtn').dataset.genius) openGenius(); else openLyrics(); });
-$('lyrClose').addEventListener('click', () => { $('lyrSheet').hidden = true; lyrEndEdit(); });
+$('lyrClose').addEventListener('click', () => {
+  hap('light'); const editing = !$('lyrEdit').hidden || !!lyrSync;
+  lyrEndEdit(); // 保存しないでやめる
+  if (editing && lyr && track && lyrFor === track.trackId && lyr.lyrics) openLyrics(); else $('lyrSheet').hidden = true;
+  if (editing) toast('Not saved');
+});
 $('lyrBack').addEventListener('click', () => { hap('rigid'); $('lyrSheet').hidden = true; lyrEndEdit(); });
 // 指で歌詞を動かしている間は、自動で追いかけない（3秒後にまた追う）
 for (const id of ['lyrBody', 'fullLyr']) { const el = $(id); if (!el) continue; let t = null; el.addEventListener('touchstart', () => { el.dataset.touch = '1'; clearTimeout(t); }, { passive: true }); el.addEventListener('touchend', () => { clearTimeout(t); t = setTimeout(() => { delete el.dataset.touch; lyrLastOn = -1; lyrFollow(); }, 3000); }, { passive: true }); }
