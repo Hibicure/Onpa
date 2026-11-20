@@ -172,6 +172,8 @@
   .albums { display: flex; gap: 12px; overflow-x: auto; margin: 4px -16px 10px; padding: 2px 16px 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .albums::-webkit-scrollbar { display: none; }
   .alb { flex: 0 0 112px; width: 112px; display: flex; flex-direction: column; gap: 3px; text-align: left; }
+  /* ジャケットのふちを、ふわっとぼかす（四角のまま、角だけでなく四辺とも） */
+  #results .row .art, .alb-art { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%), linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent 0, #000 13%, #000 87%, transparent 100%), linear-gradient(180deg, transparent 0, #000 13%, #000 87%, transparent 100%); mask-composite: intersect; box-shadow: none !important; }
   .alb-art { display: block; width: 112px; height: 112px; background: var(--holo); box-shadow: 0 6px 14px -8px rgba(0,0,0,.45); overflow: hidden; }
   .alb-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .alb-t { margin-top: 5px; font-weight: 700; font-size: 13px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1085,7 +1087,8 @@
   body.artist-mode .head { display: none; }
   .artist-head { position: sticky; top: 0; z-index: 6; margin: 0 0 0; background: var(--ah-page, var(--paper)); }
   .artist-head[hidden] { display: none; }
-  .artist-head .ah-bg { position: relative; width: 100%; aspect-ratio: 2.75 / 1; /* SoundCloudのアプリと同じ割合（画面の上から） */ min-height: calc(env(safe-area-inset-top) + 40px); background: var(--ah-tint, var(--chip)) center / cover no-repeat; overflow: hidden; }
+  .artist-head .ah-bg { -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%); mask-image: linear-gradient(180deg, #000 55%, transparent 100%); } /* 下の境目をぼかして、ページに溶けこませる */
+  .artist-head .ah-bg { position: relative; width: 100%; aspect-ratio: 2 / 1; /* SoundCloudのアプリと同じ割合（画面の上から） */ min-height: calc(env(safe-area-inset-top) + 40px); background: var(--ah-tint, var(--chip)) center / cover no-repeat; overflow: hidden; }
   .artist-head:not(.banner) .ah-bg { filter: blur(20px) saturate(1.25); transform: scale(1.3); }
   .artist-head .ah-row { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 0 18px 6px; margin-top: -28px; z-index: 1; }
   .artist-head .ah-pic { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 0 0 2.5px rgba(70,72,78,.75), 0 8px 20px -8px rgba(0,0,0,.5); } /* 少し小さく。濃すぎないグレーの縁 */
