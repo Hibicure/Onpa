@@ -2242,7 +2242,8 @@ function mergeSame(list) {
     if (g && g[0].duration && t.duration && Math.abs(g[0].duration - t.duration) > 12000) { order.push([t]); continue; }
     if (g) g.push(t); else { const ng = [t]; groups.set(k, ng); order.push(ng); }
   }
-  const prio = (x) => { const c = srcCode(x); if (c === 'sp') return 0; if (c === 'bc') return 2; const a = normT(x.artist), u = normT(x.uploader); return a && u && (a === u || u.includes(a) || a.includes(u)) ? 1 : 3; };
+  const lim = bcLimited();
+  const prio = (x) => { const c = srcCode(x); if (c === 'sp') return 0; if (c === 'bc') return lim.has(String(x.id)) ? 4 : 2; const a = normT(x.artist), u = normT(x.uploader); return a && u && (a === u || u.includes(a) || a.includes(u)) ? 1 : 3; };
   return order.map((g) => {
     if (g.length === 1) return g[0];
     g.sort((a, b) => prio(a) - prio(b));
@@ -3710,7 +3711,12 @@ class BandcampMedia extends EventTarget {
     if (st.paused === false && this._paused) { this._paused = false; this.fire('play'); this.fire('playing'); }
     else if (st.paused === true && !this._paused && !st.ended) { this._paused = true; this.fire('pause'); }
     this.fire('timeupdate');
-    if (st.ended && !this._ended) { this._ended = true; this._paused = true; this.fire('ended'); }
+    if (st.ended && !this._ended) {
+      this._ended = true; this._paused = true;
+      // 曲の長さよりずっと手前で終わった＝Bandcamp の「無料で聴ける回数」を使い切った（途中で止められた）
+      if (this._dur > 30 && this._t < this._dur - 10) { this.dispatchEvent(new CustomEvent('bclimit', { detail: { id: this._id } })); return; }
+      this.fire('ended');
+    }
   }
 }
 // Spotify：音は iPhone の Spotify アプリが鳴らす。Otocloud はリモコン（Spotify Premium・つないだ人だけ）
@@ -4073,6 +4079,25 @@ player.addEventListener('spadopt', async (e) => {
     const im = (t.album && t.album.images) || [], art = (im[1] || im[0] || {}).url;
     if (art && track === meta) { meta.artwork = art; queue[qi].artwork = art; renderTrack(); publishNow(true); }
   } catch {}
+});
+// Bandcamp の無料回数を使い切った曲：分かるように知らせて、同じ曲を Spotify（つないでいれば）か SoundCloud で続きから流す。
+// 次からその曲は Bandcamp 以外を先に使う
+const BCLIMIT_KEY = 'oto_bclimit';
+const bcLimited = () => { try { return new Set(JSON.parse(localStorage.getItem(BCLIMIT_KEY) || '[]')); } catch { return new Set(); } };
+player.addEventListener('bclimit', async (e) => {
+  if (!track) return;
+  const at = player.currentTime || 0, me0 = track;
+  try { const s0 = bcLimited(); s0.add('bc:' + (e.detail && e.detail.id)); localStorage.setItem(BCLIMIT_KEY, JSON.stringify([...s0].slice(-300))); } catch {}
+  toast('Free Bandcamp plays used up for this song · buy it on Bandcamp to keep playing there');
+  let alt = null;
+  try {
+    const q = `${String(track.artist || '').split(',')[0]} ${track.title}`;
+    const sp = await spSearch(q); alt = sp.find((x) => songKey(x) === songKey(me0));
+    if (!alt) { const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() }).then((x) => x.json()); alt = (r || []).map(splitArtist).find((x) => songKey(x) === songKey(me0)); }
+  } catch {}
+  if (track !== me0) return;
+  if (alt) { await pick(toMeta(alt), true); if (at > 5) setTimeout(() => { if (track && track.trackId === toMeta(alt).trackId) player.currentTime = at; }, 1500); }
+  else if (!playNext()) playRelated(true);
 });
 // Spotify の曲を流している間に、Otocloud の次の曲たちの「Spotify 版」を探しておく。
 // アプリを閉じた・画面を消した瞬間に、それを Spotify の「次に再生」に入れる（Otocloud が眠っても順番どおりに続く）
