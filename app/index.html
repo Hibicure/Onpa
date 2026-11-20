@@ -5150,6 +5150,21 @@ document.addEventListener('visibilitychange', () => {
     nat('spEnqueue', { uris: p.plan.map((x) => x.uri) }).then((r) => { if (!r || !r.n) player.sp._enq = []; else player.sp._enq = p.plan.slice(0, r.n); }).catch(() => { player.sp._enq = []; });
   }
 });
+// 画面を開いている時も、Spotify の曲の終わり12秒前に「次の Spotify の曲」を Spotify 自身の順番に入れておく
+// → 曲の切れ目で待たずに、そのまま次へ（Spotify が自分で続けて流す）。次が Spotify 以外でも、Spotify の曲が次なら先につないでおく
+let spEnqAt = '';
+player.addEventListener('timeupdate', () => {
+  if (!IN_APP || !player.sp || player.paused || call.state === 'live' || !loadedId) return;
+  const d = player.duration, t = player.currentTime; if (!isFinite(d) || !d || d - t > 12 || d - t < 1.5) return;
+  if (spEnqAt === loadedId) return; spEnqAt = loadedId;
+  if (player.active === player.sp) {
+    const p = spNextPlan; if (!p || p.for !== loadedId || !p.plan.length || player.sp._enq.length) return;
+    player.sp._enq = [p.plan[0]];
+    nat('spEnqueue', { uris: [p.plan[0].uri] }).then((r) => { if (!r || !r.n) player.sp._enq = []; }).catch(() => { player.sp._enq = []; });
+  } else {
+    const nx = upcomingItems(1)[0]; if (nx && String(nx.id).startsWith('sp:')) nat('spWarm').catch(() => {}); // 次が Spotify：先につないでおく
+  }
+});
 if (IN_APP) setTimeout(() => nat('spWarm').catch(() => {}), 2500);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !player.sp || player.active !== player.sp) return;
