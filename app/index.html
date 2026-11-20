@@ -1616,7 +1616,9 @@ let toastTimer = null;
 function toast(msg) {
   // 再生画面が開いている時は、お知らせは再生ボタンの下に出す（ジャケットの上には出さない）
   const t = $('toast'), np = $('np'), c = np && np.classList.contains('open') ? np.querySelector('.controls') : null, r = c && c.getBoundingClientRect();
-  if (r && r.height) { t.style.top = Math.round(r.bottom + 8) + 'px'; t.classList.add('low'); } else { t.style.top = ''; t.classList.remove('low'); }
+  // 再生画面に出すお知らせは、再生画面の中に入れる＝画面を引き下げて閉じると、一緒に動いて消える（ホームに残らない）
+  if (r && r.height) { if (t.parentNode !== np) np.appendChild(t); t.style.top = Math.round(r.bottom + 8) + 'px'; t.classList.add('low'); }
+  else { if (t.parentNode !== document.body) document.body.appendChild(t); t.style.top = ''; t.classList.remove('low'); }
   $('toast').textContent = msg;
   $('toast').classList.add('show');
   clearTimeout(toastTimer);
@@ -4323,7 +4325,8 @@ function setFull(on) {
   panFull(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0, true);
   drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
 }
-function closeNp() { const n = $('np'); n.classList.remove('open', 'dragging'); n.style.transform = ''; n.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
+function closeNp() { const tt = $('toast'); if (tt.parentNode === $('np')) { tt.classList.remove('show'); clearTimeout(toastTimer); }
+  const n = $('np'); n.classList.remove('open', 'dragging'); n.style.transform = ''; n.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
 $('npClose').addEventListener('click', closeNp);
 // 上の部分（ディスクより上）をつまんで下に引くと、引き出しのように閉じる
 (() => {
