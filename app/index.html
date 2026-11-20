@@ -4240,6 +4240,17 @@ class SpotifyMedia extends EventTarget {
         try {
           const tok = await spToken(); if (!tok) return;
           const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing?additional_types=episode', { headers: { Authorization: 'Bearer ' + tok } });
+          if (r.status === 204 || r.status === 200) {
+            const d0 = r.status === 200 ? await r.clone().json().catch(() => null) : null;
+            const silent = !d0 || !d0.is_playing;
+            if (silent && !this._paused && performance.now() - (this._loadAt || 0) > 8000) {
+              this._silentN = (this._silentN || 0) + 1;
+              if (this._silentN >= 3) { // 6秒くらい、Spotify で何も流れていない：止まっていると表示して、1回だけこの曲を流し直す
+                this._silentN = 0; this._paused = true; this.fire('pause');
+                if (!this._retried) { this._retried = true; this._pending = true; this.play(); }
+              }
+            } else this._silentN = 0;
+          }
           if (r.status !== 200) return;
           const d = await r.json(), it = d && d.item;
           if (it && it.uri) this._state({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing });
@@ -4261,7 +4272,7 @@ class SpotifyMedia extends EventTarget {
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
-    this._enq = []; this._loadAt = performance.now(); this._meta = meta ? { title: meta.title, artist: meta.artist } : null;
+    this._enq = []; this._loadAt = performance.now(); this._retried = false; this._silentN = 0; this._meta = meta ? { title: meta.title, artist: meta.artist } : null;
     this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
     this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
     this._pending = !autoplay;
@@ -4473,6 +4484,19 @@ function unlockAudio() {
   } catch { /* 古い端末では何もしない */ }
 }
 
+// 再生中のはずなのに時間が進んでいない（音が出ていない）のを見つけて、同じ位置から流し直す
+const playWatch = { t: -1, n: 0, id: '' };
+setInterval(async () => {
+  if (!track || !loadedId || player.paused || document.visibilityState !== 'visible') { playWatch.n = 0; return; }
+  if (player.active === player.sp) return; // Spotify は上の見張りで
+  const t = player.currentTime || 0;
+  if (playWatch.id !== loadedId) { playWatch.id = loadedId; playWatch.t = t; playWatch.n = 0; return; }
+  if (Math.abs(t - playWatch.t) < 0.05 && t > 0.5) playWatch.n++; else { playWatch.n = 0; playWatch.t = t; }
+  if (playWatch.n >= 4) { // 8秒止まったまま
+    playWatch.n = 0;
+    try { player.currentTime = t; await player.play(); } catch {}
+  }
+}, 2000);
 async function loadTrack(meta, autoplay = false) {
   const my = ++loadToken;
   loading = true; loadedId = null;
