@@ -372,13 +372,14 @@
   .np .top #ambBtn { position: absolute; right: -3px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
   .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
   /* 左上：今の曲がどこのサービスの曲か（公式ロゴ）。押すとそのサービスで開く。右の3つのボタンと同じ高さ */
-  /* 左下：今の曲のサービスのロゴ（右下の共有ボタンと同じ高さ。左端は曲名にそろえる） */
-  .np .np-src { position: absolute; left: 17px; bottom: calc(25px + env(safe-area-inset-bottom)); width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; color: var(--ink); }
+  /* 左上：今の曲のサービスのロゴ（右上のボタンと同じ高さ。左端は曲名にそろえる）。歌詞があればその右に「Lyrics」 */
+  .np .np-src { position: absolute; left: -7px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; color: var(--ink); }
   .np.ringing .np-src { display: none; }
   .np .np-src .glyph { width: 24px; height: 24px; }
   .np .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
-  .np:has(#lyrBtn:not([hidden])) .top #recBtn { left: 96px; } /* 歌詞ボタンがある時は、録音ボタンをその右へ */
+  .np .top:has(#npSrc:not([hidden])) #recBtn { left: 35px; } /* 録音ボタンはロゴの右 */
+  .np:has(#lyrBtn:not([hidden])) .top #recBtn { left: 106px; } /* 歌詞ボタンもある時は、さらにその右 */
   .np .top #themeBtn { position: absolute; right: 29px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
@@ -409,7 +410,7 @@
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   .artistPlace { display: flex; align-items: center; gap: 6px; padding: 2px 4px 12px; font-size: 13px; color: var(--mute, #8a8d93); }
   .artistPlace svg { width: 15px; height: 15px; flex: none; }
-  .np .lyrbtn { position: absolute; left: 24px; top: calc(14px + env(safe-area-inset-top)); /* 左上：右上のボタンと同じ高さ。左端は曲名にそろえる */ padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
+  .np .lyrbtn { position: absolute; left: 58px; top: calc(14px + env(safe-area-inset-top)); /* 左上：ロゴのすぐ右。右上のボタンと同じ高さ */ padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
   .np.ringing .lyrbtn, .np .lyrbtn[hidden] { display: none; }
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
   /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
@@ -1361,6 +1362,7 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
+      <button class="np-src" id="npSrc" hidden aria-label="Open in SoundCloud"><i class="glyph"></i></button>
       <button class="heart ambt globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
       <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
@@ -1394,7 +1396,6 @@
     <!-- 共有：いちばん下の右。曲のリンクを送る（開くとその場で再生できるページ） -->
     <button class="scsrc" id="scSrc" aria-label="Open in SoundCloud">on SoundCloud <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>
     <button class="lyrbtn" id="lyrBtn" hidden>Lyrics</button>
-    <button class="np-src" id="npSrc" hidden aria-label="Open in SoundCloud"><i class="glyph"></i></button>
     <button class="sharefab" id="shareBtn" aria-label="Share this song"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5"/><path d="m7.5 8 4.5-4.5L16.5 8"/><path d="M5 12.5v5.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/></svg></button>
   </div>
 </section>
@@ -2120,12 +2121,40 @@ async function spSearch(q) {
     if (!r.ok) { if (r.status === 401) spTokAt = 0; spWhy = 'error ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 120); return []; }
     const d = await r.json();
     spWhy = 'ok ' + (((d.tracks && d.tracks.items) || []).length);
-    return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t) => ({
+    return ((d.tracks && d.tracks.items) || []).filter((t) => t && t.id).map((t, i) => ({ _r: i,
       id: 'sp:' + t.id, title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
       artwork: ((t.album && t.album.images) || [])[1] ? t.album.images[1].url : (((t.album && t.album.images) || [])[0] || {}).url || '',
-      duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify',
+      duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify', pop: t.popularity || 0,
     }));
   } catch (e) { spWhy = 'failed ' + (e && e.message); return []; }
+}
+// 検索結果を1つの順番に並べる（SoundCloud・Bandcamp・Spotify を混ぜて）。
+// 上に来るもの：言葉がちゃんと合っている曲・自分がよく聴くアーティスト・公式の曲（Spotify・Bandcamp・本人のアップ）・よく聴かれている曲。
+// 下に行くもの：他人のアップ・聴かれていない謎のアップ・nightcore などの加工版
+function mixRank(list, q) {
+  const words = String(q || '').toLowerCase().normalize('NFKC').split(/\s+/).filter(Boolean);
+  const qk = artKey(q), taste = loadTaste(), liked = new Set((likesList || []).map((t) => String(t.id)));
+  const scoreOf = (t) => {
+    const all = [t, ...(t.alts || [])], ids = all.map((x) => String(x.id || ''));
+    const hasSp = ids.some((x) => x.startsWith('sp:')), hasBc = ids.some((x) => x.startsWith('bc:')), sc = all.find((x) => /^\d+$/.test(String(x.id)));
+    const hay = (t.title + ' ' + t.artist).toLowerCase().normalize('NFKC');
+    let s = 0;
+    if (words.length && words.every((w) => hay.includes(w))) s += 10;
+    const ak = artKey(t.artist); if (qk && ak && (ak === qk || qk.includes(ak))) s += 8;
+    const tv = taste[tasteKey(t.artist)]; if (tv) s += Math.min(20, Math.log2((tv.n || 1) + 1) * 6);
+    if (ids.some((x) => liked.has(x))) s += 40;
+    if (hasSp) s += 14 + (Math.max(0, ...all.map((x) => x.pop || 0)) / 8);
+    if (hasBc) s += 10;
+    if (all.length > 1) s += 6;
+    if (sc) {
+      const a = normT(sc.artist), u = normT(sc.uploader), own = !!a && !!u && (a === u || u.includes(a) || a.includes(u));
+      const edit = /nightcore|sped ?up|slowed|8d audio|reverb|type beat|bass ?boost|1 hour|lyrics? video/i.test(sc.title || '');
+      s += (own ? 6 : -8) - (edit ? 14 : 0) + Math.log10((sc.plays || 0) + 1) * 3;
+      if (!own && (sc.plays || 0) < 300 && !hasSp && !hasBc && !tv) s -= 10; // 誰のものか分からず、聴かれてもいない
+    }
+    return s - (t._r || 0) * 0.6;
+  };
+  return list.map((t) => ({ t, s: scoreOf(t) })).sort((a, b) => b.s - a.s).map((x) => x.t);
 }
 // 同じ曲かどうかの目印：アーティスト名＋曲名から、カッコ・feat・記号を取ったもの
 function songKey(t) {
@@ -2174,6 +2203,7 @@ async function search(q) {
       const close = m && (!m.duration || !b.duration || Math.abs(m.duration - b.duration) < 8000);
       if (close && !(m.alts || []).length) m.alts = [b]; else bcOnly.push(b);
     }
+    searchList.forEach((t, i) => { t._r = i; }); bcOnly.forEach((t, i) => { t._r = i; });
     searchList = [...searchList, ...bcOnly];
     // Spotify：同じ曲は Spotify を先頭にしてまとめる（つないでいる人は Spotify で流すのが一番：公式・高音質・アーティストに入る）。
     // Spotify にしかない曲は、SoundCloud の結果と交互に並べる
@@ -2186,17 +2216,16 @@ async function search(q) {
         if (i != null && !String(searchList[i].id).startsWith('sp:')) { const old = searchList[i]; searchList[i] = { ...sp, alts: [{ ...old, alts: undefined }, ...(old.alts || [])] }; }
         else spOnly.push(sp);
       }
-      const mixed = []; let a = 0, b = 0;
-      while (a < spOnly.length || b < searchList.length) { if (a < spOnly.length) mixed.push(spOnly[a++]); if (b < searchList.length) mixed.push(searchList[b++]); }
-      searchList = mixed;
+      searchList = [...searchList, ...spOnly];
     }
+    searchList = mixRank(searchList, q);
     if (mode === 'search') {
       renderTracks(searchList, msg('No results', 'Try different words'));
       // 調査用（一時的）：Spotify の検索がどうなったか、一番下に小さく
       if (IN_APP) $('results').insertAdjacentHTML('beforeend', `<p class="set-hint" style="text-align:center;opacity:.6;margin:14px 0 30px">Spotify: ${esc(spWhy || 'not tried')}</p>`);
       // Bandcamp の結果は、SoundCloud の下にまとめて（区切りに「Bandcamp」）
       // 出どころ：SoundCloudのロゴ（黒か白のまま。色は変えない）→ SoundCloudの検索ページへ
-      if (searchList.length) $('results').insertAdjacentHTML('afterbegin', `<a class="src-by" href="https://soundcloud.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener" aria-label="Results from SoundCloud"><img class="sc-logo dark-hide" src="sc_black.png" alt="SoundCloud"><img class="sc-logo light-hide" src="sc_white.png" alt="SoundCloud"></a>`);
+      // 出どころは各行のロゴで示す（上の「SoundCloud」の文字は出さない）
     }
   } catch (e) {
     if (mode !== 'search') return;
