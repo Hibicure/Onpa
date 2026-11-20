@@ -4930,6 +4930,7 @@ async function loadLyrics(meta) {
   const sh = await lyrShared(meta);
   if (lyrFor !== meta.trackId) return;
   if (sh) { const lines = parseLrc(sh.lrc); lyr = { lyrics: sh.text || lines.map((x) => x.s).join('\n'), lines: lines.length ? lines : null, lrc: sh.lrc || '', from: 'otocloud', by: sh.byName || '' }; $('lyrBtn').hidden = false; paintFullLyr(); return; }
+  if (mine && typeof mine === 'object') { const ln = parseLrc(mine.lrc); lyr = { lyrics: mine.text, lines: ln.length ? ln : null, lrc: mine.lrc || '', from: 'you' }; $('lyrBtn').hidden = false; paintFullLyr(); return; }
   if (mine) { lyr = { lyrics: mine, from: 'you' }; $('lyrBtn').hidden = false; paintFullLyr(); return; }
   const bad = lyrBad().has(lk);
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
@@ -5035,7 +5036,7 @@ $('lyrEditBtn').addEventListener('click', () => {
 async function lyrCommit(text, lrc) {
   if (!track) return; const t0 = track;
   let shared = false; try { await lyrShare(t0, text, lrc); shared = true; } catch {}
-  if (!shared) { const lk = lyrKey(t0), m = lyrMine(); if (text) m[lk] = text; else delete m[lk]; try { localStorage.setItem('oto_lyr_mine', JSON.stringify(m)); } catch {} }
+  if (!shared) { const lk = lyrKey(t0), m = lyrMine(); if (text) m[lk] = lrc ? { text, lrc } : text; else delete m[lk]; try { localStorage.setItem('oto_lyr_mine', JSON.stringify(m)); } catch {} }
   hap('rigid'); toast(shared ? (lrc ? 'Saved with timing · everyone sees it' : 'Saved · everyone sees these lyrics') : 'Saved on this phone');
   lyrEndEdit(); await loadLyrics(t0); if (lyr) openLyrics();
 }
@@ -5070,6 +5071,16 @@ $('lmPP').addEventListener('click', () => { hap('light'); if (player.paused) pla
 $('lmBack').addEventListener('click', () => { hap('light'); player.currentTime = Math.max(0, (player.currentTime || 0) - 5); lmPaint(); });
 $('lmSeek').addEventListener('input', () => { lmDrag = true; $('lmTime').textContent = fmt(+$('lmSeek').value); $('lmSeek').style.setProperty('--p', (+$('lmSeek').value / (+$('lmSeek').max || 1)) * 100 + '%'); });
 $('lmSeek').addEventListener('change', () => { player.currentTime = +$('lmSeek').value; lmDrag = false; lmPaint(); });
+// 時間付きの歌詞：行を押すと、その行から再生（Apple Music のように）
+for (const id of ['lyrBody', 'fullLyr']) {
+  const box = $(id); if (!box) continue;
+  box.addEventListener('click', (e) => {
+    const ln = e.target.closest('.ll[data-t]'); if (!ln || !box.classList.contains('synced') || e.target.closest('.lyr-q')) return;
+    e.stopPropagation(); hap('light');
+    player.currentTime = Math.max(0, +ln.dataset.t); if (player.paused) player.play().catch(() => {});
+    delete box.dataset.touch; lyrLastOn = -1; setTimeout(lyrFollow, 80);
+  });
+}
 // 「?」：聞き取れない所に穴をあける（カーソルの所に [?] を入れる）
 $('lyrQBtn').addEventListener('click', () => {
   const ta = $('lyrEdit'), a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
