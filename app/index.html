@@ -3009,21 +3009,25 @@ function loopGlobe() {
       if (out > 4) { hide(q); continue; }
       vis.push({ q, x: half + px, y: half - py, fade: out > -12 ? Math.max(0, Math.min(1, (4 - out) / 16)) : 1 });
     }
-    // 近すぎる顔は1つにまとめる（自分→友達→アーティストの順で代表になる）
-    const R = 24, lead = [], clusters = new Map(), pos = new Map();
+    // 近すぎる顔は、まとめずに少しずつずらして並べる（自分→友達→アーティストの順に良い場所を取る）。どの顔も必ず押せる
+    const D = 27, placed = [];
+    const free = (x, y) => { for (const p of placed) if (Math.abs(p.x - x) < D && Math.abs(p.y - y) < D && Math.hypot(p.x - x, p.y - y) < D) return false; return true; };
     for (const it of vis) {
-      let host = null; for (const l of lead) if (Math.abs(l.x - it.x) < R && Math.abs(l.y - it.y) < R && Math.hypot(l.x - it.x, l.y - it.y) < R) { host = l; break; }
-      if (host) { clusters.get(host.q.i).push(it.q.i); hide(it.q); continue; }
-      lead.push(it); clusters.set(it.q.i, [it.q.i]); pos.set(it.q.i, [it.x, it.y]);
-    }
-    gl.clusters = clusters; gl.pinPos = pos;
-    for (const it of lead) {
-      const q = it.q, tr = `translate3d(${it.x.toFixed(1)}px,${it.y.toFixed(1)}px,0)`, n = clusters.get(q.i).length;
+      let x = it.x, y = it.y;
+      if (!free(x, y)) {
+        let done = false;
+        for (let ring = 1; ring <= 6 && !done; ring++) {
+          const r = ring * D, m = ring * 6;
+          for (let k = 0; k < m; k++) { const a = -Math.PI / 2 + 2 * Math.PI * k / m; const cx = it.x + Math.cos(a) * r, cy = it.y + Math.sin(a) * r; if (free(cx, cy)) { x = cx; y = cy; done = true; break; } }
+        }
+      }
+      placed.push({ x, y });
+      const q = it.q, tr = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
       q.el.style.transform = tr; if (gl.near) q.lb.style.transform = tr + ' translate(-50%, 18px)';
       const f = it.fade.toFixed(2); q.el.style.opacity = q.lb.style.opacity = f;
-      if (n > 1) { const t = '+' + (n - 1); if (q.nb.textContent !== t) q.nb.textContent = t; q.nb.style.transform = tr; q.nb.style.opacity = f; } else q.nb.style.opacity = '0';
       if (q.shown !== true) { q.el.style.pointerEvents = 'auto'; q.shown = true; }
     }
+    gl.clusters = null;
     gl.raf = requestAnimationFrame(step);
   };
   step();
