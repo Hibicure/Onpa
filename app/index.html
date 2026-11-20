@@ -2296,12 +2296,19 @@ function mixRank(list, q) {
 function srcCode(t) { const d = String(t.id || ''); return d.startsWith('sp:') ? 'sp' : d.startsWith('bc:') ? 'bc' : d.startsWith('am:') ? 'am' : 'sc'; }
 function mergeSame(list) {
   const groups = new Map(), order = [];
+  // ISRC（世界共通の曲番号）が同じなら、名前の書き方が違っても確実に同じ曲（一番確かな目印なので先に使う）
+  const byIsrc = new Map();
+  const isrcOf = (t) => String(t.isrc || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   for (const t of list) {
+    const ir = isrcOf(t);
+    const gi = ir && byIsrc.get(ir);
+    if (gi) { gi.push(t); continue; }
     const k = songKey(t);
     if (!k) { order.push([t]); continue; }
     const g = groups.get(k);
     if (g && g[0].duration && t.duration && Math.abs(g[0].duration - t.duration) > 12000) { order.push([t]); continue; }
-    if (g) g.push(t); else { const ng = [t]; groups.set(k, ng); order.push(ng); }
+    if (g) { g.push(t); if (ir && !byIsrc.has(ir)) byIsrc.set(ir, g); }
+    else { const ng = [t]; groups.set(k, ng); order.push(ng); if (ir) byIsrc.set(ir, ng); }
   }
   const lim = bcLimited();
   const prio = (x) => { const c = srcCode(x); if (c === 'sp') return 0; if (c === 'bc') return lim.has(String(x.id)) ? 4 : 2; const a = normT(x.artist), u = normT(x.uploader); return a && u && (a === u || u.includes(a) || a.includes(u)) ? 1 : 3; };
