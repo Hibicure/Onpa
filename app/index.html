@@ -1071,7 +1071,7 @@
   .mark .mark-ic { width: 0.98em; height: 0.98em; flex: none; margin-top: -1px; }
   :root.mist .disc .pick.sliding .pick-it .avatar { box-shadow: none !important; }
   /* 再生・前・次：MacBookの背中のりんごみたいに、少しあたたかい白で、ぼわっと光る */
-  :root.mist .controls .pp, :root.mist .controls .skip { color: #FFFFFF !important; } /* 光らせない（見やすさ優先） */
+  :root.mist .controls .pp, :root.mist .controls .skip { color: var(--ink) !important; } /* 光らせない。ライトは黒、ダークは白 */
   /* 前・次：三角＋縦の線（1つの三角） */
   .controls .skip.one svg { width: 46px !important; height: 46px !important; }
   /* キュン：ハートが右に傾く時、右上にだけ短い線がピッと出て消える */
@@ -1146,7 +1146,7 @@
   #results .rheart .flash i { position: absolute; left: -.75px; top: 0; width: 1.5px; height: var(--l); border-radius: 1px; background: currentColor; opacity: 0; transform-origin: 50% 0; animation: heartflash .34s cubic-bezier(.1,.9,.2,1) .1s forwards; }
   @media (prefers-reduced-motion: reduce) { #heart .flash, #results .rheart .flash { display: none; } }
   /* 下の列（シャッフル・…・マイク）も、再生ボタンと同じ白で光らせる */
-  :root.mist .controls .mode { color: #FFFFFF !important; opacity: 1; }
+  :root.mist .controls .mode { color: var(--ink) !important; opacity: 1; }
   :root.mist .controls .mode[data-mode="off"] { opacity: .72; }
   /* この曲を送る：友達の顔を並べて、タップした人にすぐ送る */
   .send-card { display: grid; gap: 14px; }
