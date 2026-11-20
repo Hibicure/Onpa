@@ -4438,7 +4438,7 @@ function openLyrics() {
   const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
   $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
-  { const id0 = track.trackId; fetch(`${WORKER}/genius?` + new URLSearchParams({ title: track.title || '', artist: track.artist || '' })).then((r) => r.json()).then((g) => { if (g && g.url && track && track.trackId === id0 && $('lyrGenius')) { geniusUrl = g.url; $('lyrGenius').hidden = false; } }).catch(() => {}); }
+  // 歌詞があるときは Genius のリンクは出さない（歌詞が無い曲だけ「Lyrics ↗」で Genius へ）
   $('lyrBody').scrollTop = 0;
   $('lyrSheet').hidden = false;
   // 「Lyrics」ボタンとぴったり同じ場所に、閉じるボタンを置く
