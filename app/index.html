@@ -4095,16 +4095,23 @@ $('npPP').addEventListener('click', () => {
 $('miniOpen').addEventListener('click', () => { $('np').style.transform = ''; $('np').classList.add('open'); $('np').setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; });
 // 全画面：ジャケットが画面いっぱいに、ゆっくり流れる（SoundCloudの再生画面みたいに）
 let fullSwiping = false;
-function panFull(frac) {
+// 再生位置は細かく前後に揺れることがある（プレーヤーの位置の補正）。そのたびに画像が行ったり来たりして震えないよう、
+// 少しだけ戻る動きは無視して、前にだけなめらかに進める（シーク・曲の切りかえの大きな戻りだけは従う）
+let fullPanX = 0;
+function panFull(frac, force = false) {
   if (!$('np').classList.contains('full') || fullSwiping) return;
   const img = $('fullImg'), over = Math.max(0, img.offsetWidth - $('np').clientWidth);
-  img.style.transform = `translateX(${-over * Math.min(1, Math.max(0, frac || 0))}px)`;
+  const x = Math.round(over * Math.min(1, Math.max(0, frac || 0)) * 2) / 2;
+  if (!force && x < fullPanX && fullPanX - x < Math.max(6, over * 0.03)) return; // 小さな戻りは無視
+  if (!force && Math.abs(x - fullPanX) < 0.5) return;
+  fullPanX = x;
+  img.style.transform = `translate3d(${-x}px,0,0)`;
 }
 function setFull(on) {
   const np = $('np');
   if (on && track && track.artwork) $('fullImg').style.backgroundImage = `url("${track.artwork.replace('-large.', '-t500x500.')}")`;
   np.classList.toggle('full', !!on);
-  panFull(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
+  panFull(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0, true);
   drawWave(isFinite(player.duration) && player.duration ? (player.currentTime || 0) / player.duration : 0);
 }
 function closeNp() { const n = $('np'); n.classList.remove('open', 'dragging'); n.style.transform = ''; n.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; }
@@ -4161,7 +4168,7 @@ $('npClose').addEventListener('click', closeNp);
       card.style.transform = `translateX(${-side * W()}px)`;
       pcard.style.transform = 'translateX(0px)';
       setTimeout(() => {
-        img.style.backgroundImage = pk.style.backgroundImage; img.style.transform = 'translateX(0px)';
+        img.style.backgroundImage = pk.style.backgroundImage; img.style.transform = 'translate3d(0px,0,0)'; fullPanX = 0;
         done();
         if (side > 0) $('npNext').click(); else $('npPrev').click();
       }, 380);
