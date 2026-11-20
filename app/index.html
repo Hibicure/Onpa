@@ -174,7 +174,7 @@
   .alb { flex: 0 0 112px; width: 112px; display: flex; flex-direction: column; gap: 3px; text-align: left; }
   /* ジャケットのふちを、ふわっとぼかす（四角のまま、角だけでなく四辺とも） */
   .row .art:not(.pl-plus), .pl-sh-art { -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 3.4%, rgba(0,0,0,0.38) 6.8%, rgba(0,0,0,0.68) 10.2%, rgba(0,0,0,0.9) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.9) 86.4%, rgba(0,0,0,0.68) 89.8%, rgba(0,0,0,0.38) 93.2%, rgba(0,0,0,0.12) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 3.4%, rgba(0,0,0,0.38) 6.8%, rgba(0,0,0,0.68) 10.2%, rgba(0,0,0,0.9) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.9) 86.4%, rgba(0,0,0,0.68) 89.8%, rgba(0,0,0,0.38) 93.2%, rgba(0,0,0,0.12) 96.6%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 3.4%, rgba(0,0,0,0.38) 6.8%, rgba(0,0,0,0.68) 10.2%, rgba(0,0,0,0.9) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.9) 86.4%, rgba(0,0,0,0.68) 89.8%, rgba(0,0,0,0.38) 93.2%, rgba(0,0,0,0.12) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 3.4%, rgba(0,0,0,0.38) 6.8%, rgba(0,0,0,0.68) 10.2%, rgba(0,0,0,0.9) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.9) 86.4%, rgba(0,0,0,0.68) 89.8%, rgba(0,0,0,0.38) 93.2%, rgba(0,0,0,0.12) 96.6%, rgba(0,0,0,0) 100%); mask-composite: intersect; box-shadow: none !important; border-radius: 9px !important; }
-  .alb-art, .jk .cover img { -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%); mask-composite: intersect; box-shadow: none !important; border-radius: 7% !important; } /* 大きいジャケ：少し広めになめらかにぼかして、角を少し丸く */
+  .alb-art, .jk .cover img, .alb-big { -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.12) 2.0%, rgba(0,0,0,0.38) 4.0%, rgba(0,0,0,0.68) 6.0%, rgba(0,0,0,0.9) 8.0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0.9) 92.0%, rgba(0,0,0,0.68) 94.0%, rgba(0,0,0,0.38) 96.0%, rgba(0,0,0,0.12) 98.0%, rgba(0,0,0,0) 100%); mask-composite: intersect; box-shadow: none !important; border-radius: 7% !important; } /* 大きいジャケ：少し広めになめらかにぼかして、角を少し丸く */
   .jk .cover { box-shadow: none !important; background: transparent !important; }
   .alb-art { display: block; width: 112px; height: 112px; background: var(--holo); box-shadow: 0 6px 14px -8px rgba(0,0,0,.45); overflow: hidden; }
   .alb-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -455,6 +455,14 @@
   .lyr-x { width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink); }
   .lyr-x { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); } .lyr-x svg { width: 20px; height: 20px; }
   .lyr-x[hidden], .lyr-back[hidden] { display: none !important; }
+  /* アルバムのページ：上に大きなジャケット */
+  .alb-head { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 6px 24px 18px; }
+  .alb-big { width: min(64vw, 260px); aspect-ratio: 1; object-fit: cover; border-radius: 7%; margin-bottom: 16px; }
+  .alb-name { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.2; letter-spacing: -0.02em; color: var(--ink); }
+  .alb-by { margin-top: 4px; font-weight: 700; font-size: 15px; color: var(--ink); opacity: .8; }
+  .alb-meta { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--mute); }
+  .alb-play { margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 22px; }
+  .alb-play svg { width: 18px; height: 18px; }
   /* プレイリスト */
   .pl-head { margin: 18px 20px 6px; font: 700 13px/1 inherit; color: var(--mute); }
   .pl-head:first-child { margin-top: 6px; }
@@ -1589,6 +1597,7 @@
   <div class="eg-card as-card">
     <button class="as-item" id="asCall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Set as call song</button>
     <button class="as-item" id="asSC"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span class="as-col"><span>Open in SoundCloud</span><small id="asBy"></small></span></button>
+    <button class="as-item" id="asAgain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg>Play again next</button>
     <button class="as-item" id="asPl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 11h12M4 16h7"/><path d="M18 13v7M14.5 16.5h7"/></svg>Add to playlist</button>
     <button class="as-item" id="asLyr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h11M4 11h11M4 16h6"/><path d="M14.5 19.5l5.6-5.6a1.6 1.6 0 0 0-2.3-2.3l-5.6 5.6-.6 2.9z"/></svg><span id="asLyrT">Add lyrics</span></button>
     <button class="as-item" id="asLess"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M8 12h8"/></svg><span class="as-col"><span>Fewer like this</span><small>Suggested less often</small></span></button>
@@ -2599,6 +2608,8 @@ $('results').addEventListener('click', (e) => {
   const pnew = e.target.closest('[data-plnew]');
   if (pnew) { if (!me || !me.uid) { toast('Sign in to make playlists'); return; } askName('New playlist', 'Name').then((name) => { if (name && name.trim()) oplCreate(name.trim()).then((id) => { hap('rigid'); openOpl(id); }); }); return; }
   const imp = e.target.closest('[data-plimport]'); if (imp) { oplImport(imp.dataset.plimport); return; }
+  if (e.target.closest('[data-albplay]')) { if (lastResults && lastResults.length) { hap('light'); playFrom(lastResults, 0); } return; }
+  const aby = e.target.closest('[data-albart]'); if (aby) { openArtist(null, aby.dataset.albartn, { spArtistId: aby.dataset.albart, byName: true }); return; }
   const lk = e.target.closest('[data-like]');
   if (lk) { toggleRowLike(lk); return; }
   const sl = e.target.closest('.srclogo');
@@ -3825,7 +3836,16 @@ async function openSpAlbum(id, title) {
     const a = await fetch('https://api.spotify.com/v1/albums/' + id, { headers: { Authorization: 'Bearer ' + tok } }).then((r) => r.json());
     $('libTitle').textContent = a.name || title || '';
     const list = ((a.tracks && a.tracks.items) || []).map((t) => spMap({ ...t, album: { id: a.id, name: a.name, images: a.images } }));
-    if (mode === 'playlist') renderTracks(list, msg('This album is empty'));
+    if (mode !== 'playlist') return;
+    renderTracks(list, msg('This album is empty'));
+    // 上に大きなジャケット・名前・種類（シングル／EP／アルバム）・年・アーティスト
+    const kind = a.album_type === 'single' ? (a.total_tracks > 1 ? 'EP' : 'Single') : a.album_type === 'compilation' ? 'Compilation' : 'Album';
+    const art0 = ((a.images || [])[0] || {}).url || '', who = (a.artists || []).map((x) => x.name).join(', '), yr = String(a.release_date || '').slice(0, 4);
+    $('libTitle').textContent = '';
+    $('results').insertAdjacentHTML('afterbegin', `<div class="alb-head"><img class="alb-big" src="${esc(art0)}" alt=""><div class="alb-name">${esc(a.name || '')}</div>
+      <button class="alb-by" data-albart="${esc(((a.artists || [])[0] || {}).id || '')}" data-albartn="${esc(((a.artists || [])[0] || {}).name || '')}">${esc(who)}</button>
+      <div class="alb-meta">${kind}${yr ? ' · ' + yr : ''}${a.total_tracks > 1 ? ` · ${a.total_tracks} songs` : ''}</div>
+      <button class="btn primary alb-play" data-albplay="1"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>Play</button></div>`);
   } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
 async function spArtistAlbums(spId) {
@@ -6385,6 +6405,8 @@ $('npMore').addEventListener('click', () => {
   $('asLyrT').textContent = lyr && lyr.lyrics ? 'Edit lyrics' : 'Add lyrics';
   $('moreSheet').hidden = false;
 });
+// 今の曲を、次にもう一度
+$('asAgain').addEventListener('click', () => { $('moreSheet').hidden = true; if (!track) return; const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret }; addToUpNext({ ...t }); hap('rigid'); });
 $('asPl').addEventListener('click', () => { $('moreSheet').hidden = true; if (!track) return; const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret }; oplSheet(t); });
 // 「…」→ 歌詞を足す／直す
 $('asLyr').addEventListener('click', () => {
