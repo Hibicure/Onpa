@@ -1011,8 +1011,9 @@
   /* 四角いジャケット・全画面の時は、ディスクの中の顔を出さない */
   .np.square .disc .pick, .np.full .disc .pick, .np.square .np .pick-name, .np.full .np .pick-name { display: none !important; }
   /* 「Liked on SoundCloud」などの知らせ：小さめ・1行・控えめな光 */
-  :root.mist .toast { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 4px; opacity: .95;
-    text-shadow: 0 0 6px rgba(255,255,255,.3), 0 1px 8px rgba(0,0,0,.28); }
+  /* お知らせの文字：曲名の太い書体は使わず、ふつうの落ち着いた文字で */
+  :root.mist .toast { font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 4px; opacity: .92;
+    text-shadow: 0 1px 6px rgba(0,0,0,.25); }
   /* 左上のロゴ：アイコンの「受話器と音符」マークを、文字の横に */
   .mark { display: inline-flex; align-items: center; gap: 6px; }
   .mark .mark-ic { width: 0.98em; height: 0.98em; flex: none; margin-top: -1px; }
@@ -1427,7 +1428,6 @@
       <div class="rb"><button class="ringbtn glass" id="ringNo" aria-label="Decline"></button><span id="ringNoLbl">Decline</span></div>
       <div class="rb" id="ringYesWrap"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span id="ringYesLbl">Accept</span></div>
     </div>
-    <pre id="spDbg" style="margin:0 auto;font:10px/1.35 ui-monospace,monospace;color:var(--mute);white-space:pre-wrap;text-align:left;max-width:100%;opacity:.8"></pre>
     <div class="pick-name" id="pickName" hidden></div>
     <div class="together" id="npTogether" hidden></div>
     <div class="upnext">
@@ -3801,7 +3801,6 @@ class SpotifyMedia extends EventTarget {
     setInterval(() => {
       if (!this._uri || document.visibilityState !== 'visible') return;
       nat('spNow').then(async (st) => {
-        if (!st || !st.uri) spDbg('now ' + JSON.stringify(st || null).slice(0, 50));
         if (st && st.uri) { this._state(st); return; }
         if (st && st.connected === false && Date.now() - warmAt > 6000) { warmAt = Date.now(); nat('spWarm').catch(() => {}); }
         // つながっていない間は、Spotify のWeb の仕組みで「今なにが流れているか」を読む
@@ -3838,22 +3837,41 @@ class SpotifyMedia extends EventTarget {
       const uri = this._uri;
       // 始まったかどうかを、Spotify に直接聞いて確かめる（知らせが来ない時のため）。始まっていれば秒数が動き出す
       for (const ms of [1500, 3500, 7000, 12000]) setTimeout(() => { if (this._uri === uri && this._paused) nat('spNow').then((st) => { if (st && st.uri) this._state(st); }).catch(() => {}); }, ms);
-      spDbg('load ' + uri.slice(-6));
-      const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch((e) => ({ ok: false, err: e.message })), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
-      spDbg('spPlay ' + (r === 'slow' ? 'slow' : JSON.stringify(r).slice(0, 60)));
-      if (r === 'slow') return; // 始まれば Spotify からの知らせ・問い合わせで再生中になる
+      // アプリのつながりが切れている時は、まず Web の仕組みで流す（Spotify を開かずに済む）。
+      // Spotify が寝ていて受け付けない時だけ、Spotify を一瞬開いて起こす
+      const now = await nat('spNow').catch(() => null);
+      if (!(now && now.connected)) {
+        try {
+          const tok = await spToken();
+          const w = await fetch('https://api.spotify.com/v1/me/player/play', { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri] }) });
+          if (w.status === 204 || w.status === 202 || w.status === 200) return;
+        } catch {}
+      }
+      const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => ({ ok: false })), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
+      if (r === 'slow') return; // 始まれば、知らせ・問い合わせで再生中になる
       if (!r || !r.ok) {
-        // 「失敗」と返ってきても、実は Spotify で流れていることがある。確かめてから判断する
-        const st = await nat('spNow').catch(() => null);
-        if (st && st.uri === uri) { this._state(st); return; }
+        // 「失敗」と返ってきても、実は流れていることがある。確かめてから判断する
+        await new Promise((ok) => setTimeout(ok, 1200));
+        if (await this._isOn(uri)) return;
         this.fire('error'); throw new Error("Couldn't play on Spotify");
       }
     }
   }
   play() {
-    if (this._pending) { this._pending = false; const uri = this._uri; return nat('spPlay', { uri, at: this._t }).then(async (r) => { if (r && r.ok) return; const st = await nat('spNow').catch(() => null); if (st && st.uri === uri) this._state(st); else toast("Couldn't play on Spotify"); }).catch(() => {}); }
+    if (this._pending) { this._pending = false; const uri = this._uri; return nat('spPlay', { uri, at: this._t }).then(async (r) => { if (r && r.ok) return; await new Promise((ok) => setTimeout(ok, 1200)); if (!(await this._isOn(uri))) toast("Couldn't play on Spotify"); }).catch(() => {}); }
     this._web('PUT', '/play');
     return nat('spResume').catch(() => {});
+  }
+  // 今 Spotify でこの曲が流れているか（アプリのつながり、なければWebの仕組みで確かめる）
+  async _isOn(uri) {
+    const st = await nat('spNow').catch(() => null);
+    if (st && st.uri) { if (st.uri === uri) { this._state(st); return true; } return false; }
+    try {
+      const tok = await spToken(); const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
+      if (r.status !== 200) return false; const d = await r.json(), it = d && d.item;
+      if (it && it.uri === uri) { this._state({ uri: it.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing }); return true; }
+    } catch {}
+    return false;
   }
   // つながりが切れていても効くように、Spotify のWeb の仕組みからも同じ操作を送る（Premium なら効く）
   async _web(method, path, body) {
@@ -3876,7 +3894,6 @@ class SpotifyMedia extends EventTarget {
   }
   _finish() { this._ended = true; this._t = this._dur; this._paused = true; nat('spPause').catch(() => {}); this.fire('timeupdate'); this.fire('ended'); }
   _state(e) {
-    if (e && (e.uri || e.paused != null)) spDbg(`st ${String(e.uri || '').slice(-6)} ${e.uri === this._uri ? '=' : '≠'}${String(this._uri || '').slice(-6)} p=${e.paused} t=${Math.round(e.pos || 0)} ui=${this._paused ? 'stop' : 'play'}`);
     if (!this._uri) return;
     if (e.uri && e.uri !== this._uri) {
       // Spotify が「次に再生」に入れた曲へ進んだ（Otocloud が裏で眠っていた間も含む）
