@@ -112,6 +112,12 @@
   .field input { width: 100%; height: 48px; padding: 0 16px 0 42px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font-size: 16px; outline: none; }
   .field input:focus { border-color: var(--ink); }
   .field svg { position: absolute; left: 14px; top: 15px; width: 18px; height: 18px; color: var(--mute); }
+  /* 検索欄の右はし：× で消す */
+  .field input { padding-right: 44px !important; }
+  .field input::-webkit-search-cancel-button { -webkit-appearance: none; }
+  .field .qclear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; display: grid; place-items: center; color: var(--mute); background: none; }
+  .field .qclear[hidden] { display: none; }
+  .field .qclear svg { position: static; width: 16px; height: 16px; color: inherit; }
 
   /* ---------- 聴くタブの切り替え ---------- */
   .seg { display: flex; gap: 4px; margin: 8px 16px 0; padding: 4px; border-radius: 13px; background: var(--chip); }
@@ -1185,6 +1191,7 @@
     <div class="field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" placeholder="Search songs or artists" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+      <button class="qclear" id="qClear" hidden aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg></button>
     </div>
     <button class="cancel" id="qCancel" hidden>Cancel</button>
   </div>
@@ -2031,7 +2038,9 @@ $('npArt').addEventListener('error', () => { if ($('npArt').getAttribute('src') 
 $('miniArt').addEventListener('error', () => { if ($('miniArt').getAttribute('src') !== NO_ART) $('miniArt').src = NO_ART; });
 $('q').addEventListener('focus', () => { if ($('viewListen').hidden) showTab('listen'); if (mode !== 'search') setMode('search'); });
 $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); const v = e.target.value.trim(); if (v.length >= 1) search(v); e.target.blur(); } });
-$('qCancel').addEventListener('click', () => { $('q').value = ''; $('q').blur(); showTab('home'); });
+$('q').addEventListener('input', () => { $('qClear').hidden = !$('q').value; });
+$('qClear').addEventListener('click', () => { hap('light'); $('q').value = ''; $('qClear').hidden = true; $('q').focus(); });
+$('qCancel').addEventListener('click', () => { $('qClear').hidden = true; $('q').value = ''; $('q').blur(); showTab('home'); });
 $('tabFriends').addEventListener('click', () => showTab('friends'));
 
 // ===================== 音楽：一覧（検索・いいね・プレイリスト） =====================
@@ -3767,9 +3776,17 @@ class SpotifyMedia extends EventTarget {
     let warmAt = 0;
     setInterval(() => {
       if (!this._uri || document.visibilityState !== 'visible') return;
-      nat('spNow').then((st) => {
-        if (st && st.uri) this._state(st);
-        else if (st && st.connected === false && Date.now() - warmAt > 6000) { warmAt = Date.now(); nat('spWarm').catch(() => {}); }
+      nat('spNow').then(async (st) => {
+        if (st && st.uri) { this._state(st); return; }
+        if (st && st.connected === false && Date.now() - warmAt > 6000) { warmAt = Date.now(); nat('spWarm').catch(() => {}); }
+        // つながっていない間は、Spotify のWeb の仕組みで「今なにが流れているか」を読む
+        try {
+          const tok = await spToken(); if (!tok) return;
+          const r = await fetch('https://api.spotify.com/v1/me/player/currently-playing', { headers: { Authorization: 'Bearer ' + tok } });
+          if (r.status !== 200) return;
+          const d = await r.json(), it = d && d.item;
+          if (it && it.uri) this._state({ uri: it.uri, name: it.name, artist: (it.artists || []).map((a) => a.name).join(', '), pos: (d.progress_ms || 0) / 1000, dur: (it.duration_ms || 0) / 1000, paused: !d.is_playing });
+        } catch {}
       }).catch(() => {});
     }, 2000);
     setInterval(() => {
@@ -3783,7 +3800,7 @@ class SpotifyMedia extends EventTarget {
   get paused() { return this._paused; }
   get duration() { return this._dur; }
   get currentTime() { return this._paused ? this._t : Math.min(this._dur || 1e9, this._t + (performance.now() - this._at) / 1000); }
-  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); nat('spSeek', { t: this._t }).catch(() => {}); this.fire('timeupdate'); }
+  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); nat('spSeek', { t: this._t }).catch(() => {}); this._web('PUT', '/seek?position_ms=' + Math.round(this._t * 1000)); this.fire('timeupdate'); }
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
@@ -3808,9 +3825,14 @@ class SpotifyMedia extends EventTarget {
   }
   play() {
     if (this._pending) { this._pending = false; const uri = this._uri; return nat('spPlay', { uri, at: this._t }).then(async (r) => { if (r && r.ok) return; const st = await nat('spNow').catch(() => null); if (st && st.uri === uri) this._state(st); else toast("Couldn't play on Spotify"); }).catch(() => {}); }
+    this._web('PUT', '/play');
     return nat('spResume').catch(() => {});
   }
-  pause() { nat('spPause').catch(() => {}); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
+  // つながりが切れていても効くように、Spotify のWeb の仕組みからも同じ操作を送る（Premium なら効く）
+  async _web(method, path, body) {
+    try { const tok = await spToken(); if (!tok) return; await fetch('https://api.spotify.com/v1/me/player' + path, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); } catch {}
+  }
+  pause() { nat('spPause').catch(() => {}); this._web('PUT', '/pause'); if (!this._paused) { this._t = this.currentTime; this._paused = true; this.fire('pause'); } }
   stop() { if (this._uri && !this._paused) nat('spPause').catch(() => {}); this._uri = null; if (!this._paused) { this._paused = true; this.fire('pause'); } }
   _end() {
     // Spotify の「次に再生」に Otocloud の次の曲を入れてある時は、止めずに Spotify に進んでもらう
