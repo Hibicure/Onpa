@@ -391,9 +391,9 @@
   .np .top .np-stars { position: absolute; right: -3px; top: 40px; height: 22px; display: flex; gap: 2px; align-items: center; padding: 0 8px; z-index: 6; color: var(--ink); background: none; }
   .np .top .np-stars[hidden] { display: none; }
   .np .np-stars svg { width: 15px; height: 15px; }
-  .np .np-stars.none svg { opacity: .28; }
-  .np .np-stars.pop svg:last-child { animation: starpop .35s cubic-bezier(.2,1.8,.4,1); }
-  @keyframes starpop { from { transform: scale(.4); } to { transform: scale(1); } }
+  .np .np-stars.none svg { opacity: .55; }
+  .np .np-stars.pop svg:last-child { animation: starpop .42s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes starpop { 0% { transform: scale(.3); } 55% { transform: scale(1.28); } 100% { transform: scale(1); } }
   .np .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
   /* 「Listening with 〜」などの文字は、再生ボタンの下（ジャケットの上には出さない） */
@@ -3462,7 +3462,10 @@ function paintHeart() {
 // ★：♡した曲にだけ、自分だけの「どれくらい好きか」（1〜5）。人には見せない・平均も出さない・嫌いはない。
 // 付けた数だけ★が並ぶ（カードゲームみたいに、空の★は出さない）。まだ付けていない時は、うすい★が1つ。タップで1つずつ増えて、5の次は0に戻る
 const STAR_KEY = 'oto_stars';
-const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l2.75 6.08 6.63.66-4.98 4.43 1.43 6.51L12 16.9l-5.83 3.38 1.43-6.51-4.98-4.43 6.63-.66z"/></svg>';
+// 付けた★：角を丸めてぷくっと。まだの時：線だけの★（「ここに★を付けられる」のしるし。数には入らない）
+const STAR_PATH = 'M12 3.6l2.5 5.5 6 .6-4.5 4 1.3 5.9L12 16.5l-5.3 3.1L8 13.7l-4.5-4 6-.6z';
+const STAR_SVG = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="currentColor" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>`;
+const STAR_EMPTY = `<svg viewBox="0 0 24 24"><path d="${STAR_PATH}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
 function starsMap() { try { return JSON.parse(localStorage.getItem(STAR_KEY) || '{}') || {}; } catch { return {}; } }
 function setStars(id, n) {
   const m = starsMap(); if (n > 0) m[id] = n; else delete m[id];
@@ -3473,7 +3476,7 @@ function paintStars() {
   const id = track && String(track.trackId), on = !!id && likedIds.has(id);
   el.hidden = !on; if (!on) return;
   const n = starsMap()[id] || 0;
-  el.innerHTML = n ? STAR_SVG.repeat(n) : STAR_SVG;
+  el.innerHTML = n ? STAR_SVG.repeat(n) : STAR_EMPTY;
   el.classList.toggle('none', !n);
   el.setAttribute('aria-label', n ? `${n} star${n > 1 ? 's' : ''} · tap to change` : 'How much do you love it? Tap to add a star');
 }
@@ -4003,7 +4006,8 @@ async function pick(meta, auto = false) {
     pushRoomState({ ...meta, playing: true, position: 0, startIn: startLead(meta.trackId) });
     return;
   }
-  if (!auto && track && track.trackId === meta.trackId && loadedId) { togglePlay(); return; }
+  // 今の曲をもう一度選んだら、最初から流し直す
+  if (!auto && track && track.trackId === meta.trackId && loadedId) { player.currentTime = 0; drawProgress(0); if (player.paused) player.play().catch(() => {}); return; }
   if (await loadTrack(meta, true)) {
     setMusicVol();
     if (player.paused) player.play().catch(() => { setPP('play'); toast('Tap play to start'); });
