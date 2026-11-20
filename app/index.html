@@ -3746,6 +3746,21 @@ async function artistPlace(userId) {
     }
   } catch { /* 取れなくても、曲はそのまま */ }
 }
+// 今の曲の Spotify のアルバム・アーティスト番号。前の曲のものを使わないように、今の曲から（なければ Spotify に聞く）
+async function spInfoNow() {
+  const t = track; if (!t || !String(t.trackId).startsWith('sp:')) return {};
+  const q = queue && queue[qi], same = q && String(q.trackId || q.id) === String(t.trackId) ? q : null;
+  let album = t.spAlbumId || (same && same.spAlbumId) || '', artist = t.spArtistId || (same && same.spArtistId) || '', albumName = t.album || (same && same.album) || '';
+  if (!album || !artist) {
+    try {
+      const tok = await spToken();
+      const d = tok ? await fetch('https://api.spotify.com/v1/tracks/' + String(t.trackId).slice(3), { headers: { Authorization: 'Bearer ' + tok } }).then((r) => (r.ok ? r.json() : null)) : null;
+      if (d) { album = album || (d.album && d.album.id) || ''; albumName = albumName || (d.album && d.album.name) || ''; artist = artist || ((d.artists || [])[0] || {}).id || ''; }
+    } catch {}
+    if (track === t) { t.spAlbumId = album; t.spArtistId = artist; if (albumName) t.album = albumName; }
+  }
+  return { album, artist, albumName };
+}
 async function openTrackArtist() {
   if (!track) return;
   // SoundCloud 以外の曲（Spotify・Bandcamp）：アーティスト名で、その人の SoundCloud（本人のアカウント）と Spotify をまとめたページへ
@@ -3753,7 +3768,7 @@ async function openTrackArtist() {
     const name = String(track.artist || '').split(',')[0].trim(), k = artKey(name);
     let scId = null;
     try { const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(name)}`, { headers: await scHeaders() }).then((x) => x.json()); const hit = (r || []).find((x) => artKey(x.uploader || '') === k); if (hit) scId = hit.userId; } catch {}
-    const q = queue && queue[qi]; const spId = (track.spArtistId) || (q && q.spArtistId) || '';
+    const spId = String(track.trackId).startsWith('sp:') ? (await spInfoNow()).artist || '' : '';
     openArtist(scId, name, { spArtistId: spId, byName: true });
     return;
   }
@@ -3764,10 +3779,9 @@ async function openTrackArtist() {
   if (id) openArtist(id, name); else toast("Couldn't open this artist");
 }
 $('npS').addEventListener('click', openTrackArtist);
-$('npT').addEventListener('click', () => {
-  if (!track) return;
-  const q = queue && queue[qi], alb = track.spAlbumId || (q && q.spAlbumId);
-  if (String(track.trackId).startsWith('sp:') && alb) openSpAlbum(alb, track.album || '');
+$('npT').addEventListener('click', async () => {
+  if (!track || !String(track.trackId).startsWith('sp:')) return;
+  const i = await spInfoNow(); if (i.album) openSpAlbum(i.album, i.albumName || ''); else toast("Couldn't open this album");
 });
 // 曲名・アーティスト名を長押しでコピー（青い選択は出さない）。コピーしたら「Copied」
 for (const id of ['npT', 'npS']) {
