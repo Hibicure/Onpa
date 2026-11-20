@@ -824,6 +824,14 @@
   .gpin.art img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .gpin:not(.art) { z-index: 2; }
   .gpin.on::after { content: ""; position: absolute; right: 0; bottom: 0; width: 7px; height: 7px; border-radius: 50%; background: #3BD16F; box-shadow: 0 0 0 1.5px #fff; }
+  .gpin-n { position: absolute; left: 0; top: 0; will-change: transform; margin: -22px 0 0 6px; min-width: 18px; height: 16px; padding: 0 4px; border-radius: 99px; background: #fff; color: #1d1e22; font: 800 10px/16px "Instrument Sans", sans-serif; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.35); pointer-events: none; opacity: 0; z-index: 3; }
+  .gfan { position: absolute; inset: 0; z-index: 5; pointer-events: auto; border-radius: 50%; background: radial-gradient(circle, rgba(0,0,0,.42), rgba(0,0,0,.18)); opacity: 0; transition: opacity .18s; }
+  .gfan.on { opacity: 1; }
+  .gfan-i { position: absolute; left: 0; top: 0; }
+  .gfan-i .gpin { position: absolute; transform: none; opacity: 1 !important; pointer-events: auto; }
+  .gfan-i span { position: absolute; left: 0; top: 0; transform: translate(-50%, 18px); font: 700 9px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; max-width: 70px; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
+  .gfan.on .gfan-i { animation: fanIn .22s cubic-bezier(.2,.9,.3,1.3) both; }
+  @keyframes fanIn { from { scale: .4; opacity: 0; } }
   .gpin-l { position: absolute; left: 0; top: 0; will-change: transform; transform: translate(-50%, 18px); font: 700 10px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
   .amb { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
   .np.amb-on .amb.ready { opacity: 1; }
@@ -2645,7 +2653,7 @@ async function openGlobe() {
 }
 function closeGlobe() {
   gl.last = 0;
-  gl.on = false; cancelAnimationFrame(gl.raf);
+  gl.on = false; cancelAnimationFrame(gl.raf); closeFan();
   $('globe').hidden = true; $('np').classList.remove('globe-on'); $('globeBtn').setAttribute('aria-pressed', 'false');
 }
 function buildGlobe() {
@@ -2751,14 +2759,36 @@ function buildGlobe() {
   let lastTap = 0;
   box.addEventListener('pointerup', (e) => { const n = performance.now(); if (e.target.closest('.gpin') || gl.dragMoved || pts.size || n - multiAt < 400) { lastTap = 0; return; } if (n - lastTap < 300) zoomTo(gl.cam.position.z > 3 ? 2.1 : GLOBE_FAR); lastTap = n; });
 }
+const pinName = (p) => p.artist ? p.name : (p.self ? 'You' : (p.f.name || '@' + (p.f.handle || '')));
+const pinFace = (p, i, cls = '') => p.artist
+  ? `<button class="gpin art${cls}" data-gi="${i}"><img src="${esc(p.avatar)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"></button>`
+  : `<button class="gpin${p.self ? ' self' : ''}${p.f && p.f.online ? ' on' : ''}${cls}" data-gi="${i}">${face(p.f)}</button>`;
+// 重なった顔：まとめて「+3」のように1つにし、押すと周りに広げて1人ずつ選べる（重なって押せない、をなくす）
+function openFan(lead) {
+  const ids = gl.clusters && gl.clusters.get(lead); if (!ids || ids.length < 2) return false;
+  closeFan(); hap('light');
+  const half = gl.size / 2, c = gl.pinPos.get(lead) || [half, half], n = ids.length;
+  const pos = []; let r = 46, k = 0;
+  while (k < n) { const cap = Math.max(5, Math.floor(2 * Math.PI * r / 40)); const m = Math.min(cap, n - k); for (let j = 0; j < m; j++) { const a = -Math.PI / 2 + 2 * Math.PI * j / m + (r > 46 ? Math.PI / m : 0); pos.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); } k += m; r += 40; }
+  // 広げた輪が地球の外にはみ出すなら、内側へ寄せる
+  let mx = 0, my = 0;
+  const minX = Math.min(...pos.map((p) => p[0])), maxX = Math.max(...pos.map((p) => p[0])), minY = Math.min(...pos.map((p) => p[1])), maxY = Math.max(...pos.map((p) => p[1]));
+  mx = minX < 18 ? 18 - minX : maxX > gl.size - 18 ? gl.size - 18 - maxX : 0; my = minY < 18 ? 18 - minY : maxY > gl.size - 30 ? gl.size - 30 - maxY : 0;
+  const f = document.createElement('div'); f.id = 'globeFan'; f.className = 'gfan';
+  f.innerHTML = ids.map((i, j) => `<div class="gfan-i" style="transform:translate3d(${(pos[j][0] + mx).toFixed(1)}px,${(pos[j][1] + my).toFixed(1)}px,0)">${pinFace(gl.people[i], i)}<span>${esc(pinName(gl.people[i]))}</span></div>`).join('');
+  for (const ev of ['pointerdown', 'pointermove', 'pointerup']) f.addEventListener(ev, (e) => e.stopPropagation());
+  f.addEventListener('click', (e) => { if (!e.target.closest('[data-gi]')) closeFan(); });
+  $('globePins').appendChild(f); requestAnimationFrame(() => f.classList.add('on'));
+  return true;
+}
+function closeFan() { const f = $('globeFan'); if (f) f.remove(); }
 function renderPins() {
-  $('globePins').innerHTML = gl.people.map((p, i) => p.artist
-    ? `<button class="gpin art" data-gi="${i}"><img src="${esc(p.avatar)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"></button><span class="gpin-l" data-gl="${i}">${esc(p.name)}</span>`
-    : `<button class="gpin${p.self ? ' self' : ''}${p.f && p.f.online ? ' on' : ''}" data-gi="${i}">${face(p.f)}</button><span class="gpin-l" data-gl="${i}">${esc(p.self ? 'You' : (p.f.name || '@' + (p.f.handle || '')))}</span>`).join('');
+  closeFan();
+  $('globePins').innerHTML = gl.people.map((p, i) => `${pinFace(p, i)}<span class="gpin-l" data-gl="${i}">${esc(pinName(p))}</span><span class="gpin-n" data-gn="${i}"></span>`).join('');
   // 毎フレーム探さないように、ここで覚えておく。地球の上の位置も先に計算しておく
   gl.pinEls = gl.people.map((p, i) => {
     const la = p.lat * Math.PI / 180, ln = p.lng * Math.PI / 180;
-    return { el: $('globePins').querySelector(`[data-gi="${i}"]`), lb: $('globePins').querySelector(`[data-gl="${i}"]`), x: Math.cos(la) * Math.cos(ln), y: Math.sin(la), z: -Math.cos(la) * Math.sin(ln), shown: null };
+    return { i, el: $('globePins').querySelector(`[data-gi="${i}"]`), lb: $('globePins').querySelector(`[data-gl="${i}"]`), nb: $('globePins').querySelector(`[data-gn="${i}"]`), x: Math.cos(la) * Math.cos(ln), y: Math.sin(la), z: -Math.cos(la) * Math.sin(ln), shown: null };
   });
 }
 // 地球儀のアーティスト：つないでいる音楽サービスぜんぶから集めて、同じ人は1つにまとめる。
@@ -2866,6 +2896,9 @@ function paintGlobeEmpty() {
 $('globePins').addEventListener('click', (e) => {
   if (gl.dragMoved) { gl.dragMoved = false; return; } // 回した指を離しただけ
   const b = e.target.closest('[data-gi]'); if (!b) return;
+  const inFan = !!b.closest('#globeFan');
+  if (!inFan && openFan(Number(b.dataset.gi))) return;
+  if (inFan) closeFan();
   const p = gl.people[Number(b.dataset.gi)]; if (!p) return;
   hap('light');
   if (p.artist) { playArtistNow(p); return; }
@@ -2942,20 +2975,31 @@ function loopGlobe() {
     if (gl.clouds) gl.clouds.rotation.y += 0.00004 * dt; // 雲はゆっくり自分で流れる
     gl.renderer.render(gl.scene, gl.cam);
     // 顔の位置：地球の表面の点を画面に写す。裏側に回ったら消す
-    const half = gl.size / 2;
+    const half = gl.size / 2, z = gl.cam.position.z, rEarth = Math.min(half, half * Math.tan(Math.asin(Math.min(1, 1 / z))) / GLOBE_TAN);
+    const hide = (q) => { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.nb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } };
+    const vis = [];
     for (const q of gl.pinEls || []) {
       if (!q.el) continue;
       v.set(q.x, q.y, q.z).applyQuaternion(gl.earth.quaternion);
-      const front = v.z > 0.08;
-      if (!front) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
+      if (v.z <= 0.08) { hide(q); continue; } // 裏側
       v.project(gl.cam);
-      const z = gl.cam.position.z, rEarth = Math.min(half, half * Math.tan(Math.asin(Math.min(1, 1 / z))) / GLOBE_TAN);
       const px = v.x * half, py = v.y * half, out = Math.hypot(px, py) - rEarth; // 円の縁からどれだけ外か（マイナス＝内側）
-      if (out > 4) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
-      const fade = out > -12 ? String(Math.max(0, Math.min(1, (4 - out) / 16)).toFixed(2)) : '1';
-      const tr = `translate3d(${(half + v.x * half).toFixed(1)}px,${(half - v.y * half).toFixed(1)}px,0)`;
-      q.el.style.transform = tr; if (gl.near) q.lb.style.transform = tr + ' translate(-50%, 16px)';
-      q.el.style.opacity = q.lb.style.opacity = fade;
+      if (out > 4) { hide(q); continue; }
+      vis.push({ q, x: half + px, y: half - py, fade: out > -12 ? Math.max(0, Math.min(1, (4 - out) / 16)) : 1 });
+    }
+    // 近すぎる顔は1つにまとめる（自分→友達→アーティストの順で代表になる）
+    const R = 24, lead = [], clusters = new Map(), pos = new Map();
+    for (const it of vis) {
+      let host = null; for (const l of lead) if (Math.abs(l.x - it.x) < R && Math.abs(l.y - it.y) < R && Math.hypot(l.x - it.x, l.y - it.y) < R) { host = l; break; }
+      if (host) { clusters.get(host.q.i).push(it.q.i); hide(it.q); continue; }
+      lead.push(it); clusters.set(it.q.i, [it.q.i]); pos.set(it.q.i, [it.x, it.y]);
+    }
+    gl.clusters = clusters; gl.pinPos = pos;
+    for (const it of lead) {
+      const q = it.q, tr = `translate3d(${it.x.toFixed(1)}px,${it.y.toFixed(1)}px,0)`, n = clusters.get(q.i).length;
+      q.el.style.transform = tr; if (gl.near) q.lb.style.transform = tr + ' translate(-50%, 18px)';
+      const f = it.fade.toFixed(2); q.el.style.opacity = q.lb.style.opacity = f;
+      if (n > 1) { const t = '+' + (n - 1); if (q.nb.textContent !== t) q.nb.textContent = t; q.nb.style.transform = tr; q.nb.style.opacity = f; } else q.nb.style.opacity = '0';
       if (q.shown !== true) { q.el.style.pointerEvents = 'auto'; q.shown = true; }
     }
     gl.raf = requestAnimationFrame(step);
