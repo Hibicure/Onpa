@@ -3448,8 +3448,8 @@ function heartBurst(btn, like) {
   if (!btn) return;
   btn.classList.remove('pop', 'unpop'); void btn.offsetWidth; btn.classList.add(like ? 'pop' : 'unpop');
   setTimeout(() => btn.classList.remove('pop', 'unpop'), 620);
-  if (!like) { hap('light'); return; }
-  hap('medium'); setTimeout(() => hap('rigid'), 150); // ドクン、ドクン
+  if (!like) { hap('unheart'); return; }
+  hap('heart'); // ぷくっ→ポンッ→ぷるっ（アプリで作った手ごたえ）
   btn.querySelector('.flash')?.remove();
   const k = document.createElement('span'); k.className = 'flash';
   k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('')
@@ -5352,7 +5352,7 @@ $('npSrc').addEventListener('click', () => { hap('light'); openInSC(); });
 $('npStars').addEventListener('click', () => {
   if (!track) return;
   const id = String(track.trackId), n = ((starsMap()[id] || 0) + 1) % 6;
-  setStars(id, n); hap(n ? 'rigid' : 'light'); paintStars();
+  setStars(id, n); hap('star' + n); paintStars();
   const el = $('npStars'); el.classList.remove('pop'); void el.offsetWidth; if (n) el.classList.add('pop');
 });
 $('asSC').addEventListener('click', () => { $('moreSheet').hidden = true; openInSC(); });

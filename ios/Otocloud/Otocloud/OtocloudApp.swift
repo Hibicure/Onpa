@@ -7,6 +7,7 @@ import ObjectiveC
 import MusicKit
 import SpotifyiOS
 import StoreKit
+import CoreHaptics
 
 // Otocloud のアプリ本体。
 // 画面とふるまいは https://otocloud.app/app/ と同じものを、アプリの中でそのまま表示する。
@@ -1099,7 +1100,51 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         case "rigid": rigid.impactOccurred(intensity: 0.8); rigid.prepare() // ボタンのカチッ
         case "thud": medium.impactOccurred(); medium.prepare()          // CDが入れかわる
         case "success": note.notificationOccurred(.success)
-        default: sel.selectionChanged()
+        case "medium": medium.impactOccurred(); medium.prepare()
+        default:
+            // 自分で作った手ごたえ（Core Haptics）。使えない端末では、近いふつうの手ごたえで代わりにする
+            if let p = Custom.patterns[k], Custom.play(p) { return }
+            if k.hasPrefix("star") || k == "heart" { rigid.impactOccurred(intensity: 0.9); rigid.prepare() }
+            else if k == "unheart" { soft.impactOccurred(intensity: 0.5); soft.prepare() }
+            else { sel.selectionChanged() }
+        }
+    }
+
+    /// Core Haptics：強さ（intensity）と鋭さ（sharpness）を時間に合わせて組み立てた、Otocloud だけの手ごたえ
+    enum Custom {
+        typealias Tap = (t: Double, i: Float, s: Float, d: Double) // 時間・強さ・鋭さ・長さ（0なら一瞬）
+        static var engine: CHHapticEngine?
+        static let patterns: [String: [Tap]] = [
+            // ♡：ぷくっ（やわらかく膨らむ）→ ポンッ（はじける）→ ぷるっ（小さく戻る）
+            "heart": [(0, 0.45, 0.15, 0.07), (0.09, 1.0, 0.55, 0), (0.2, 0.35, 0.35, 0)],
+            // ♡を外す：しぼむ感じの、やわらかい1回
+            "unheart": [(0, 0.4, 0.1, 0.09)],
+            // ★：1つ増えるごとに、少しずつ強く・高く（コッ、コッ、コン）
+            "star1": [(0, 0.5, 0.45, 0)], "star2": [(0, 0.6, 0.55, 0)], "star3": [(0, 0.7, 0.65, 0)],
+            "star4": [(0, 0.82, 0.75, 0)], "star5": [(0, 1.0, 0.9, 0), (0.08, 0.5, 0.9, 0)],
+            "star0": [(0, 0.3, 0.1, 0.05)],
+        ]
+        static func play(_ taps: [Tap]) -> Bool {
+            guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return false }
+            do {
+                if engine == nil {
+                    let e = try CHHapticEngine()
+                    e.playsHapticsOnly = true
+                    e.isAutoShutdownEnabled = true
+                    e.resetHandler = { try? Custom.engine?.start() }
+                    e.stoppedHandler = { _ in }
+                    engine = e
+                }
+                try engine?.start()
+                let events = taps.map { t -> CHHapticEvent in
+                    let ps = [CHHapticEventParameter(parameterID: .hapticIntensity, value: t.i), CHHapticEventParameter(parameterID: .hapticSharpness, value: t.s)]
+                    return t.d > 0 ? CHHapticEvent(eventType: .hapticContinuous, parameters: ps, relativeTime: t.t, duration: t.d)
+                                   : CHHapticEvent(eventType: .hapticTransient, parameters: ps, relativeTime: t.t)
+                }
+                let player = try engine?.makePlayer(with: CHHapticPattern(events: events, parameters: []))
+                try player?.start(atTime: CHHapticTimeImmediate)
+                return true
+            } catch { return false }
         }
     }
 }
