@@ -379,6 +379,8 @@
   .np .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
   /* 「Listening with 〜」などの文字は、再生ボタンの下（ジャケットの上には出さない） */
+  /* ダイヤルの名前（You・友達の名前・「Listen together」など）も、ジャケットの上ではなく再生ボタンの下に */
+  :root .np .in > .pick-name { position: static !important; transform: none !important; left: auto; top: auto !important; bottom: auto !important; margin: 0 auto 4px; text-align: center; max-width: 90%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; font-weight: 700; color: var(--ink); min-height: 0; }
   .np .in > .together { text-align: center; margin: 2px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
   .np .in > .together[hidden] { display: none; }
   .np .top #themeBtn { position: absolute; right: 29px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
@@ -433,13 +435,13 @@
   /* CDの真ん中をタップ：まず自分、上下にスライドで友達。自分をタップで自分のページ、友達をタップでそのまま電話 */
   .disc .pick { position: absolute; inset: 35.2%; border-radius: 50%; overflow: hidden; z-index: 4; background: var(--holo); touch-action: none; cursor: pointer;
     box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); animation: pickin .26s cubic-bezier(.2,.9,.25,1); }
-  .disc .pick[hidden], .disc .pick-name[hidden] { display: none; }
+  .disc .pick[hidden], .np .pick-name[hidden] { display: none; }
   .disc .pick-rail { position: absolute; inset: 0; will-change: transform; }
   .disc .pick-it { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
   .disc .pick-it .avatar { width: 100%; height: 100%; font-size: calc(min(80vw, 340px, 43dvh) * .15); }
-  .disc .pick-name { position: absolute; left: 50%; top: 67.5%; transform: translateX(-50%); z-index: 4; padding: 4px 11px; border-radius: 999px; max-width: 70%; overflow: hidden; text-overflow: ellipsis;
+  .np .pick-name { position: absolute; left: 50%; top: 67.5%; transform: translateX(-50%); z-index: 4; padding: 4px 11px; border-radius: 999px; max-width: 70%; overflow: hidden; text-overflow: ellipsis;
     background: color-mix(in srgb, var(--paper) 82%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-size: 12px; font-weight: 700; white-space: nowrap; color: var(--ink); pointer-events: none; }
-  .disc .pick-name .on { color: var(--live); }
+  .np .pick-name .on { color: var(--live); }
   .disc.picking .hole { display: block; }
   @keyframes pickin { from { transform: scale(.6); opacity: 0; } }
   /* ===== 新しい見た目（お試し）：ミルクのすりガラス＋ジャケットの色がにじむ ===== */
@@ -477,7 +479,7 @@
   :root.mist .disc .pick.sliding .pick-it .avatar { box-shadow: inset 0 0 0 2px rgba(0,0,0,.62), inset 0 0 0 3.5px rgba(176,182,192,.55), inset 0 0 0 4.5px rgba(0,0,0,.3), inset 0 -5px 10px rgba(0,0,0,.28) !important; }
   :root.mist .disc .pick-it .avatar .tex::after { display: none; }
   :root.mist .disc .pick .avatar::after, :root.mist .disc .pick .avatar::before { box-shadow: none !important; border: 0 !important; outline: 0; }
-  :root.mist .disc .pick-name { top: auto; bottom: 103%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; letter-spacing: -0.01em; max-width: 90%; }
+  :root.mist .np .pick-name { top: auto; bottom: 103%; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0; font-size: 15px; letter-spacing: -0.01em; max-width: 90%; }
   .avatar .tex { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
   .avatar .tex::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 6px 1px rgba(255,255,255,.7), inset 0 0 14px 3px rgba(255,255,255,.3); }
   /* 自分の欄：白い箱はなし。トップ画をタップで変えられる */
@@ -967,9 +969,9 @@
   :root.mist[data-theme="dark"] #app::after { box-shadow: inset 0 0 5px 2px rgba(255,255,255,.8), inset 0 0 18px 6px rgba(255,255,255,.55), inset 0 0 38px 9px rgba(255,255,255,.28), inset 0 0 80px 11px rgba(255,255,255,.1); }
   :root.mist .nav { background: linear-gradient(180deg, rgba(159,160,164,0) 0%, rgba(159,160,164,.88) 45%); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0; box-shadow: none; }
   :root.mist[data-theme="dark"] .nav { background: linear-gradient(180deg, rgba(43,44,48,0) 0%, rgba(43,44,48,.9) 45%); }
-  :root.mist .disc .pick-name { transition: opacity .5s ease; }
-  :root.mist .disc .pick-name.fade { opacity: 0; }
-  .disc .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
+  :root.mist .np .pick-name { transition: opacity .5s ease; }
+  :root.mist .np .pick-name.fade { opacity: 0; }
+  .np .pick-name .pk-on { display: block; font-size: 11px; font-weight: 600; color: var(--live); letter-spacing: .02em; text-align: center; text-shadow: 0 0 8px color-mix(in srgb, var(--live) 60%, transparent); }
   /* 一時停止：もう少し四角く */
   /* 全画面のジャケットのすき間 */
   /* ディスクの中の顔：1枚1枚に、顔の外側に枠（真ん中に収まった時は穴のふちの外になって見えない。回している時だけ見える） */
@@ -982,12 +984,13 @@
   .lyr-x[hidden] { display: none; }
   .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
   .lyr-back:active { transform: scale(.94); }
+  .lyrbtn svg, .lyr-genius svg { width: 12px; height: 12px; margin-left: 2px; vertical-align: -1.5px; display: inline-block; }
   .lyr-genius { display: block; margin: 10px 0 40px; font-size: 12px; font-weight: 700; color: var(--mute); text-decoration: underline; padding: 6px 0; }
   /* 下のミニプレーヤーとタブ：透けない（ジャケットなどが後ろに見えないように） */
   :root.mist .nav, :root.mist[data-theme="dark"] .nav { background: var(--paper) !important; }
   .mini { background: var(--paper) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   /* 四角いジャケット・全画面の時は、ディスクの中の顔を出さない */
-  .np.square .disc .pick, .np.full .disc .pick, .np.square .disc .pick-name, .np.full .disc .pick-name { display: none !important; }
+  .np.square .disc .pick, .np.full .disc .pick, .np.square .np .pick-name, .np.full .np .pick-name { display: none !important; }
   /* 「Liked on SoundCloud」などの知らせ：小さめ・1行・控えめな光 */
   :root.mist .toast { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 4px; opacity: .95;
     text-shadow: 0 0 6px rgba(255,255,255,.3), 0 1px 8px rgba(0,0,0,.28); }
@@ -1036,9 +1039,9 @@
   #cbMute.nudge { animation: joinpulse 1s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .np.joinmode .controls .pp svg, #cbMute.nudge { animation: none; } }
   /* 左スライド：その人の今の曲（小さいジャケット＋曲名） */
-  .disc .pick-name .pk-now { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 3px; font-size: 11px; font-weight: 600; color: inherit; opacity: .9; max-width: 62vw; }
-  .disc .pick-name .pk-now img { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none; }
-  .disc .pick-name .pk-now span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np .pick-name .pk-now { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 3px; font-size: 11px; font-weight: 600; color: inherit; opacity: .9; max-width: 62vw; }
+  .np .pick-name .pk-now img { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none; }
+  .np .pick-name .pk-now span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .controls .pp.dim { opacity: .4; }
   /* 一緒に聴くのお願い：上に小さく（鳴らさない） */
   .joinbanner { position: fixed; left: 12px; right: 12px; top: calc(10px + env(safe-area-inset-top)); z-index: 90; display: flex; align-items: center; gap: 10px; padding: 9px 9px 9px 10px; border-radius: 20px;
@@ -1376,7 +1379,7 @@
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
     </div>
     <div class="stage">
-            <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div><div class="pick" id="discPick" hidden><div class="pick-rail" id="pickRail"></div></div><div class="pick-name" id="pickName" hidden></div></div>
+            <div class="disc" id="disc"><div class="platter"><img class="face" id="npArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div><div class="peer" id="discPeer" hidden><span id="discPeerInitial"></span><i></i></div><div class="pick" id="discPick" hidden><div class="pick-rail" id="pickRail"></div></div></div>
       <div class="globe" id="globe" hidden><canvas id="globeCv"></canvas><div class="gpins" id="globePins"></div></div>
       <div class="orbit" id="sendOrbit" hidden></div>
       <div class="disc peek" id="discPeek" aria-hidden="true"><div class="platter"><img class="face" id="peekArt" alt=""></div><div class="L shine"></div><div class="L edge"></div><div class="hub"></div><div class="hole"></div></div>
@@ -1397,6 +1400,7 @@
       <div class="rb"><button class="ringbtn glass" id="ringNo" aria-label="Decline"></button><span id="ringNoLbl">Decline</span></div>
       <div class="rb" id="ringYesWrap"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span id="ringYesLbl">Accept</span></div>
     </div>
+    <div class="pick-name" id="pickName" hidden></div>
     <div class="together" id="npTogether" hidden></div>
     <div class="upnext">
       <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
@@ -4178,7 +4182,7 @@ async function loadLyrics(meta) {
   lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true;
   if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
-  const toGenius = () => { if (lyrFor !== meta.trackId || lyr) return; $('lyrBtn').textContent = 'Lyrics ↗'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
+  const toGenius = () => { if (lyrFor !== meta.trackId || lyr) return; $('lyrBtn').innerHTML = 'Lyrics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg>'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
   if (!/^\d+$/.test(String(meta.trackId))) {
     try {
       const d = await fetch(`${WORKER}/lyrics/by?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '', dur: String(Math.round((meta.duration || 0) / 1000)) })).then((r) => r.json());
@@ -4207,7 +4211,7 @@ function openLyrics() {
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
   const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
-  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius">See on Genius ↗</button>`;
+  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius">See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
   $('lyrBody').scrollTop = 0;
   $('lyrSheet').hidden = false;
