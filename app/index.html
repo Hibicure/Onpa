@@ -2626,22 +2626,36 @@ function buildGlobe() {
   const box = $('globe');
   // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
   const pts = new Map(); let pinch = null;
-  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z)); $('globe').classList.toggle('near', gl.cam.position.z < 3.1); };
+  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z)); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
   box.addEventListener('pointerdown', (e) => {
     pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: gl.cam.position.z }; gl.drag = null; return; }
-    if (e.target.closest('.gpin')) return; gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() }; gl.vy = gl.vp = 0; try { box.setPointerCapture(e.pointerId); } catch {}
+    // 顔の上からでも回せる（少しでも動かしたら回す。動かさずに離したら、その顔を押したことにする）
+    gl.drag = { x: e.clientX, y: e.clientY, t: performance.now(), x0: e.clientX, y0: e.clientY, moved: false, samples: [] }; gl.vy = gl.vp = 0; gl.dragMoved = false;
   });
   box.addEventListener('pointermove', (e) => {
     if (pts.has(e.pointerId)) pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pinch && pts.size === 2) { const [a, b] = [...pts.values()]; zoomTo(pinch.z * pinch.d / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1]))); return; }
     if (!gl.drag) return;
-    const k = 2.6 / gl.size * ((gl.cam.position.z - 1) / (GLOBE_FAR - 1)), dx = e.clientX - gl.drag.x, dy = e.clientY - gl.drag.y, dt = Math.max(8, performance.now() - gl.drag.t);
+    const now = performance.now(), g = gl.drag;
+    if (!g.moved && Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 6) return;
+    if (!g.moved) { try { box.setPointerCapture(e.pointerId); } catch {} } // 回し始めてから指をつかまえる（ただのタップは顔に届くように）
+    g.moved = true; gl.dragMoved = true;
+    const k = 3.2 / gl.size * ((gl.cam.position.z - 1) / (GLOBE_FAR - 1)), dx = e.clientX - g.x, dy = e.clientY - g.y;
     gl.yaw += dx * k; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + dy * k));
-    gl.vy = dx * k / dt; gl.vp = dy * k / dt; // 1ミリ秒あたり
-    gl.drag = { x: e.clientX, y: e.clientY, t: performance.now() };
+    // 離した時の勢い：最後の0.1秒の動きの平均（1回の指の揺れに左右されない）
+    g.samples.push({ t: now, dx: dx * k, dy: dy * k }); while (g.samples.length && now - g.samples[0].t > 100) g.samples.shift();
+    g.x = e.clientX; g.y = e.clientY; g.t = now;
   });
-  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; gl.drag = null; };
+  const up = (e) => {
+    pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
+    const g = gl.drag;
+    if (g && g.moved && g.samples.length) {
+      const span = Math.max(16, performance.now() - g.samples[0].t), sx = g.samples.reduce((a, b) => a + b.dx, 0), sy = g.samples.reduce((a, b) => a + b.dy, 0);
+      gl.vy = Math.max(-0.03, Math.min(0.03, sx / span)); gl.vp = Math.max(-0.02, Math.min(0.02, sy / span)); // くるくるっと回り続ける
+    }
+    gl.drag = null;
+  };
   box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
   box.addEventListener('wheel', (e) => { e.preventDefault(); zoomTo(gl.cam.position.z * (1 + e.deltaY * 0.002)); }, { passive: false });
   // ダブルタップで、寄る／戻る
@@ -2695,7 +2709,7 @@ async function loadArtistPins() {
     const list = await gatherArtists();
     let where = {}; try { where = JSON.parse(localStorage.getItem(WHERE_KEY) || '{}') || {}; } catch {}
     const show = () => {
-      gl.artists = list.map((a) => { const w = a.lat != null ? a : where[a.key]; return w && w.lat != null ? { ...a, lat: w.lat, lng: w.lng, place: w.place } : null; }).filter(Boolean);
+      gl.artists = list.slice(0, 150).map((a) => { const w = a.lat != null ? a : where[a.key]; return w && w.lat != null ? { ...a, lat: w.lat, lng: w.lng, place: w.place } : null; }).filter(Boolean);
       if (gl.on) { gl.people = globePeople(); renderPins(); }
       paintGlobeEmpty();
     };
@@ -2761,6 +2775,7 @@ function paintGlobeEmpty() {
   el.hidden = false;
 }
 $('globePins').addEventListener('click', (e) => {
+  if (gl.dragMoved) { gl.dragMoved = false; return; } // 回した指を離しただけ
   const b = e.target.closest('[data-gi]'); if (!b) return;
   const p = gl.people[Number(b.dataset.gi)]; if (!p) return;
   hap('light');
@@ -2778,8 +2793,8 @@ function loopGlobe() {
     // 時間で回す（60Hzでも120Hzでも同じ速さ）。指で回した勢いは、なめらかにいつもの速さへ戻る
     const now = performance.now(), dt = Math.min(50, now - (gl.last || now)); gl.last = now;
     if (!gl.drag) {
-      const ease = 1 - Math.exp(-dt / 900);
-      gl.vy += (GLOBE_SPIN - gl.vy) * ease; gl.vp += (0 - gl.vp) * (1 - Math.exp(-dt / 350));
+      const ease = 1 - Math.exp(-dt / 2600); // 勢いは、ゆっくり（約2.6秒）いつもの速さへ
+      gl.vy += (GLOBE_SPIN - gl.vy) * ease; gl.vp += (0 - gl.vp) * (1 - Math.exp(-dt / 700));
       gl.yaw += gl.vy * dt; gl.pitch = Math.max(-1.25, Math.min(1.25, gl.pitch + gl.vp * dt));
     }
     gl.earth.rotation.set(gl.pitch, gl.yaw, 0, 'XYZ');
@@ -2793,7 +2808,7 @@ function loopGlobe() {
       if (!front) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
       v.project(gl.cam);
       const tr = `translate3d(${(half + v.x * half).toFixed(1)}px,${(half - v.y * half).toFixed(1)}px,0)`;
-      q.el.style.transform = tr; q.lb.style.transform = tr + ' translate(-50%, 16px)';
+      q.el.style.transform = tr; if (gl.near) q.lb.style.transform = tr + ' translate(-50%, 16px)';
       q.el.style.opacity = q.lb.style.opacity = '1';
       if (q.shown !== true) { q.el.style.pointerEvents = 'auto'; q.shown = true; }
     }
