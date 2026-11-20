@@ -1097,6 +1097,29 @@ export default {
           return json({ total: people.length, located: out.length, artists: out }, 200, cors);
         }
 
+        // この曲にコメント・いいねした人を、プロフィールの場所つきで: /sc/listeners?id=TRACK
+        if (p === '/sc/listeners') {
+          const id = url.searchParams.get('id') || '';
+          if (!/^\d{1,20}$/.test(id)) return json({ error: 'bad id' }, 400, cors);
+          const [c, f] = await Promise.all([scUser(`/tracks/${id}/comments?limit=200&linked_partitioning=true`, userToken), scUser(`/tracks/${id}/favoriters?limit=200&linked_partitioning=true`, userToken)]);
+          const seen = new Map();
+          const add = (u, src) => { if (!u || !u.id || seen.has(String(u.id))) return; seen.set(String(u.id), { id: String(u.id), name: u.username || u.full_name || '', avatar: u.avatar_url || '', city: String(u.city || '').trim(), country: String(u.country || u.country_code || '').trim(), src, hasPlace: 'city' in u || 'country_code' in u || 'country' in u }); };
+          if (c.ok) for (const cm of listOf(c.body)) add(cm && cm.user, 'comment');
+          if (f.ok) for (const u of listOf(f.body)) add(u, 'like');
+          const people = [...seen.values()].slice(0, 300);
+          // コメントの人は場所が付いてこないことがあるので、足りない人だけプロフィールを見に行く（多すぎないように）
+          const need = people.filter((u) => !u.hasPlace).slice(0, 60);
+          for (let i = 0; i < need.length; i += 12) {
+            await Promise.all(need.slice(i, i + 12).map(async (u) => { const r = await scUser(`/users/${u.id}`, userToken); if (r.ok && r.body) { u.city = String(r.body.city || '').trim(); u.country = String(r.body.country || r.body.country_code || '').trim(); } }));
+          }
+          const places = new Map();
+          for (const u of people) if (u.city || u.country) places.set((u.city + '|' + u.country).toLowerCase(), null);
+          let budget = 30;
+          for (const k of places.keys()) { const [city, country] = k.split('|'); const g = await geocode(city, country, budget > 0); if (g && g.fresh) budget--; places.set(k, g); }
+          const out = people.map((u) => { const g = places.get((u.city + '|' + u.country).toLowerCase()); return g && g.lat != null ? { id: u.id, name: u.name, avatar: u.avatar, src: u.src, lat: g.lat, lng: g.lng, place: g.name } : null; }).filter(Boolean);
+          return json({ total: people.length, comments: c.ok ? listOf(c.body).length : -c.status, likes: f.ok ? listOf(f.body).length : -f.status, located: out.length, people: out }, 200, cors);
+        }
+
         // SoundCloudでその人をフォローしているか／フォローする／外す: /sc/follow?id=123（GET / PUT / DELETE）
         if (p === '/sc/follow') {
           const id = url.searchParams.get('id') || '';
