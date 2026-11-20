@@ -452,6 +452,10 @@
   /* 歌詞を書く時の小さな再生バー：聞き直しながら、その場で書ける */
   .lyr-mini { display: flex; align-items: center; gap: 8px; margin: 0 20px 4px; padding: 6px 12px 6px 6px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
   .lyr-mini[hidden] { display: none; }
+  /* 書いている間は、ボタン（Can't hear・Sync・Save）を上に：キーボードで隠れないように */
+  .lyr.editing .lyr-top { order: 0; padding-top: calc(14px + env(safe-area-inset-top)); } .lyr.editing .lyr-mini { order: 1; } .lyr.editing .lyr-tools { order: 2; padding: 6px 20px 2px; flex-wrap: wrap; }
+  .lyr.editing .lyr-edit, .lyr.editing .lyr-body { order: 3; } .lyr.editing .lyr-syncbar { order: 4; }
+  .lyr.editing #lyrSave { background: var(--ink); color: var(--paper); }
   .lyr-mini button { flex: none; width: 38px; height: 38px; display: grid; place-items: center; color: var(--ink); border-radius: 50%; position: relative; }
   .lyr-mini button svg { width: 22px; height: 22px; }
   .lyr-mini #lmBack b { position: absolute; font: 800 8.5px/1 inherit; top: 50%; left: 50%; transform: translate(-50%, -38%); }
@@ -5024,7 +5028,7 @@ $('lyrEditBtn').addEventListener('click', () => {
   if (!track) return; hap('light');
   $('lyrEdit').value = (lyr && lyr.lyrics) || ''; $('lyrEdit').hidden = false; $('lyrBody').hidden = true;
   $('lyrEditBtn').hidden = true; $('lyrWrong').hidden = true; $('lyrSave').hidden = false; $('lyrSyncBtn').hidden = false;
-  $('lyrBack').hidden = true; $('lyrClose').hidden = false; $('lyrQBtn').hidden = false; $('lyrMini').hidden = false; lmPaint(); // 編集中は上の「Lyrics」を出さず、右上の × でやめられる
+  $('lyrBack').hidden = true; $('lyrClose').hidden = false; $('lyrQBtn').hidden = false; $('lyrMini').hidden = false; lmPaint(); $('lyrSheet').classList.add('editing'); // 編集中は上の「Lyrics」を出さず、右上の × でやめられる
   $('lyrEdit').focus();
 });
 // 保存：みんなの歌詞として保存（だれでも直せる。前の版も残る）。だめな時だけ自分の中に
@@ -5036,7 +5040,7 @@ async function lyrCommit(text, lrc) {
   lyrEndEdit(); await loadLyrics(t0); if (lyr) openLyrics();
 }
 function lyrEndEdit() {
-  $('lyrBack').hidden = false; $('lyrClose').hidden = true; $('lyrQBtn').hidden = true; $('lyrMini').hidden = true;
+  $('lyrBack').hidden = false; $('lyrClose').hidden = true; $('lyrQBtn').hidden = true; $('lyrMini').hidden = true; $('lyrSheet').classList.remove('editing');
   $('lyrEdit').hidden = true; $('lyrBody').hidden = false; $('lyrSave').hidden = true; $('lyrSyncBtn').hidden = true; $('lyrEditBtn').hidden = false; $('lyrWrong').hidden = false;
   $('lyrSyncBar').hidden = true; $('lyrBody').classList.remove('syncing'); lyrSync = null;
 }
