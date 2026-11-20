@@ -806,7 +806,7 @@
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
   .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%;
-    -webkit-mask-image: radial-gradient(circle closest-side, #000 90%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 90%, transparent 100%); }
+    -webkit-mask-image: radial-gradient(circle closest-side, #000 var(--gf, 96.5%), transparent 100%); mask-image: radial-gradient(circle closest-side, #000 var(--gf, 96.5%), transparent 100%); }
   .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
   .gpins { position: absolute; inset: 0; pointer-events: none; }
   .gpin { position: absolute; left: 0; top: 0; will-change: transform; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
@@ -2640,7 +2640,7 @@ async function openGlobe() {
   const c = me && me.place ? me.place : { lat: 36, lng: 138 };
   gl.yaw = -c.lng * Math.PI / 180 - Math.PI / 2; gl.pitch = c.lat * Math.PI / 180 * 0.85; gl.vy = GLOBE_SPIN;
   // 向きは「くるっと回す量」を重ねていく形にする（上下にも好きなだけ回せる。北極を越えてもOK）
-  gl.earth.quaternion.setFromEuler(new gl.three.Euler(gl.pitch, gl.yaw, 0, 'XYZ')); gl.vp = 0; gl.cam.position.z = GLOBE_FAR; $('globe').classList.remove('near');
+  gl.earth.quaternion.setFromEuler(new gl.three.Euler(gl.pitch, gl.yaw, 0, 'XYZ')); gl.vp = 0; gl.cam.position.z = GLOBE_FAR; $('globe').classList.remove('near'); $('globeCv').style.removeProperty('--gf');
   loopGlobe();
 }
 function closeGlobe() {
@@ -2698,7 +2698,9 @@ function buildGlobe() {
   const box = $('globe');
   // 2本指でつまむと寄る・離れる（人が集まっている場所を広げて見られる）
   const pts = new Map(); let pinch = null, multiAt = 0;
-  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z)); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
+  const zoomTo = (z) => { gl.cam.position.z = Math.max(1.55, Math.min(GLOBE_FAR, z));
+    // ふちのぼかし：ふだんは細く（輪郭がほんのり分かる）、寄るほど広く（穴からのぞく感じ）
+    const t = Math.max(0, Math.min(1, (GLOBE_FAR - gl.cam.position.z) / (GLOBE_FAR - 2.2))); $('globeCv').style.setProperty('--gf', (96.5 - 6.5 * t).toFixed(1) + '%'); gl.near = gl.cam.position.z < 3.1; $('globe').classList.toggle('near', gl.near); };
   // 地球を触っている間は、地球だけが動く（再生画面の引き下げ・全画面の切りかえなどには伝えない）
   for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'touchstart', 'touchmove']) box.addEventListener(ev, (e) => e.stopPropagation());
   box.addEventListener('pointerdown', (e) => {
