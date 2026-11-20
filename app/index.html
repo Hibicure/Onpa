@@ -2528,7 +2528,9 @@ async function playArtistNow(p) {
         spSearch(`artist:"${p.name}"`),
       ]);
       const mine = (t) => artKey(t.artist).includes(k) || k.includes(artKey(t.artist));
-      list = [...spR.filter(mine), ...(scR || []).map(splitArtist).filter(mine)];
+      // SoundCloud は「本人がアップした曲」だけ（ほかの人が上げた曲・未公開曲は入れない）
+      const ownUp = (t) => { const u = artKey(t.uploader || ''); return u && (u === k || u.includes(k) || k.includes(u)); };
+      list = [...spR.filter(mine), ...(scR || []).map(splitArtist).filter(ownUp)];
     }
   } catch {}
   if (!list.length) { toast(`Couldn't find songs by ${p.name}`); return; }
