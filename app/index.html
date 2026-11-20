@@ -469,7 +469,7 @@
   /* 色ボタンを切ったら：ホームと同じ無地（昼は明るいグレー、夜はほぼ黒） */
   :root.mist .np:not(.amb-on) .amb { opacity: 0 !important; }
   :root.mist .np:not(.amb-on) { background: #9FA0A4; }
-  :root.mist[data-theme="dark"] .np:not(.amb-on) { background: #2B2C30; }
+  :root.mist[data-theme="dark"] .np:not(.amb-on) { background: #3B3C41; }
   :root.mist .np .amb .blob { filter: blur(60px) saturate(1.35) brightness(1.08); }
   :root.mist .np .amb .veil { background: linear-gradient(180deg, rgba(240,238,244,.16) 0%, rgba(240,238,244,.26) 60%, rgba(240,238,244,.3) 100%); } /* 下まで色を残す（白っぽくすると縁の白が見えなくなる） */
   :root.mist[data-theme="dark"] .np .amb .veil { background: linear-gradient(180deg, rgba(18,17,22,.22) 0%, rgba(18,17,22,.36) 60%, rgba(18,17,22,.42) 100%); } /* 下まで色を残して、縁の光が見えるように */
@@ -991,7 +991,7 @@
     --glass-a: rgba(185,186,190,.9); --glass-b: rgba(150,151,155,.6);
     --pop-a: rgba(176,177,181,.97); --pop-b: rgba(160,161,165,.94);
   }
-  :root.mist[data-theme="dark"] { --paper: #2B2C30; --surface: #34353A; --line: #3D3E43; --chip: #36373C; --nav: rgba(43,44,48,.94); }
+  :root.mist[data-theme="dark"] { --paper: #3B3C41; --surface: #44454A; --line: #4D4E53; --chip: #46474C; --nav: rgba(59,60,65,.94); } /* 夜：黒すぎない、やわらかいグレー */
   :root.mist body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.07) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist[data-theme="dark"] body { background: radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 70%), var(--paper); background-attachment: fixed; }
   :root.mist #app::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 30; border-radius: var(--scr-r, 54px); box-shadow: inset 0 0 5px 2px rgba(255,255,255,1), inset 0 0 18px 6px rgba(255,255,255,.86), inset 0 0 38px 9px rgba(255,255,255,.5), inset 0 0 80px 11px rgba(255,255,255,.2); }
@@ -1549,7 +1549,7 @@ function applyTheme(t) {
   const b = document.getElementById('themeBtn');
   if (b) { b.innerHTML = t === 'dark' ? BULB_OFF : BULB_ON; b.setAttribute('aria-label', t === 'dark' ? 'Switch to day mode' : 'Switch to night mode'); }
   const m = document.querySelector('meta[name="theme-color"]');
-  if (m) m.content = t === 'dark' ? (document.documentElement.classList.contains('mist') ? '#2B2C30' : '#111214') : (document.documentElement.classList.contains('mist') ? '#9FA0A4' : '#D9DADD');
+  if (m) m.content = t === 'dark' ? (document.documentElement.classList.contains('mist') ? '#3B3C41' : '#111214') : (document.documentElement.classList.contains('mist') ? '#9FA0A4' : '#D9DADD');
 }
 (() => {
   let t = null;
