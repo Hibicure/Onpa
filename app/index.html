@@ -496,7 +496,7 @@
   .lyr-q:active { transform: scale(.94); }
   .lyr-q-ic { min-width: 1.6em; height: 1.4em; margin: 0 2px 0 0; font-size: 11px; opacity: .8; }
   .lyr-x svg { width: 20px; height: 20px; }
-  .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 19px; line-height: 1.6; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
+  .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 22px; line-height: 1.5; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
   /* スクロールした歌詞は、上と下でふわっと透けて消える（見えない壁でぶつっと切れないように） */
   .lyr-body { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 90px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 90px), transparent 100%); }
   .lyr-body .ll, .np .fulllyr .ll { display: block; transition: opacity .35s, transform .35s; }
@@ -1001,9 +1001,11 @@
   /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
   .np .fulllyr { display: none; }
   .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
-    font-size: 19px; line-height: 1.55; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-shadow: 0 1px 12px color-mix(in srgb, var(--paper) 45%, transparent); padding: 28px 0 22px; touch-action: pan-y;
+    font-size: 22px; line-height: 1.45; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-shadow: 0 1px 12px color-mix(in srgb, var(--paper) 45%, transparent); padding: 28px 0 22px; touch-action: pan-y;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 44px, #000 calc(100% - 36px), transparent 100%); }
   .np.full .titlebar { position: relative; }
+  /* 英語の歌詞は、同じ大きさでも日本語より小さく見えるので、少し大きく */
+  .lyr-body.latin, .np.full .fulllyr.latin:not([hidden]) { font-size: 25px; line-height: 1.38; letter-spacing: -0.015em; }
   .np .fulllyr .fl-src { display: block; margin-top: 22px; font-size: 12px; font-weight: 600; letter-spacing: 0; opacity: .7; }
   .np .fulllyr { scrollbar-width: none; } .np .fulllyr::-webkit-scrollbar { display: none; }
   .np.full #disc, .np.full #discPeek { visibility: hidden; }
@@ -5214,6 +5216,7 @@ function parseLrc(lrc) {
 }
 const lrcStamp = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `[${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}]`; };
 // 歌詞を1行ずつの <span> に（時間つきなら data-t）
+const lyrLatin = (t) => { const x = String(t || '').replace(/\s+/g, ''); if (!x) return false; const a = (x.match(/[A-Za-z]/g) || []).length; return a / x.length > 0.6; };
 function lyrLinesHTML(l) {
   const L = l.lines && l.lines.length ? l.lines : String(l.lyrics || '').split('\n').map((s) => ({ s }));
   let q = 0; // 何番目の穴か（押した時に、その場所から書き足せるように）
@@ -5301,7 +5304,7 @@ function paintFullLyr() {
   const el = $('fullLyr'); if (!el) return;
   const ok = !!(fullLyrOn && lyr && track && lyrFor === track.trackId && lyr.lyrics);
   if (!ok) { el.hidden = true; el.textContent = ''; return; }
-  if (el.hidden || el.dataset.for !== String(track.trackId) || el.dataset.ver !== String(lyr.lrc || lyr.lyrics).length + '') { el.innerHTML = lyrLinesHTML(lyr) + `<span class="fl-src">${esc(lyrSource(lyr))}</span>`; el.classList.toggle('synced', !!(lyr.lines && lyr.lines.length)); el.scrollTop = 0; el.dataset.for = String(track.trackId); el.dataset.ver = String(lyr.lrc || lyr.lyrics).length + ''; lyrLastOn = -1; }
+  if (el.hidden || el.dataset.for !== String(track.trackId) || el.dataset.ver !== String(lyr.lrc || lyr.lyrics).length + '') { el.innerHTML = lyrLinesHTML(lyr) + `<span class="fl-src">${esc(lyrSource(lyr))}</span>`; el.classList.toggle('synced', !!(lyr.lines && lyr.lines.length)); el.classList.toggle('latin', lyrLatin(lyr.lyrics)); el.scrollTop = 0; el.dataset.for = String(track.trackId); el.dataset.ver = String(lyr.lrc || lyr.lyrics).length + ''; lyrLastOn = -1; }
   el.hidden = false;
   if (gl.on) closeGlobe(); // 歌詞を出す時は、地球儀はしまう
   // 上のボタン（ロゴ・Lyrics・地球など）にかからない高さまで
@@ -5317,7 +5320,7 @@ function openLyrics() {
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
   const src = lyrSource(lyr);
-  $('lyrBody').classList.toggle('synced', !!(lyr.lines && lyr.lines.length)); lyrLastOn = -1; setTimeout(lyrFollow, 30);
+  $('lyrBody').classList.toggle('synced', !!(lyr.lines && lyr.lines.length)); $('lyrBody').classList.toggle('latin', lyrLatin(lyr.lyrics)); lyrLastOn = -1; setTimeout(lyrFollow, 30);
   $('lyrBody').innerHTML = lyrLinesHTML(lyr) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
   // 歌詞があるときは Genius のリンクは出さない（歌詞が無い曲だけ「Lyrics ↗」で Genius へ）
