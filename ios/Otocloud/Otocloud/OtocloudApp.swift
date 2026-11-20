@@ -1005,7 +1005,10 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         }
     }
     func enqueue(_ uris: [String]) async -> Int {
-        guard !uris.isEmpty, remote.isConnected || (await warm()), let api = remote.playerAPI else { return 0 }
+        guard !uris.isEmpty else { return 0 }
+        var connected = remote.isConnected
+        if !connected { connected = await warm() }
+        guard connected, let api = remote.playerAPI else { return 0 }
         var n = 0
         for u in uris.prefix(6) {
             let ok = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
