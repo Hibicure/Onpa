@@ -805,7 +805,10 @@
   .np .globe-btn svg { width: 24px; height: 24px; }
   .np .globe-btn[aria-pressed="true"] { color: var(--ink); opacity: 1; }
   .np .globe { position: absolute; left: 50%; top: 0; transform: translateX(-50%); border-radius: 50%; touch-action: none; z-index: 3; }
-  .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+  .np .globe canvas { width: 100%; height: 100%; display: block; border-radius: 50%;
+    -webkit-mask-image: radial-gradient(circle closest-side, #000 86%, rgba(0,0,0,.55) 94%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 86%, rgba(0,0,0,.55) 94%, transparent 100%); }
+  .np .globe::before { content: ""; position: absolute; inset: -6%; border-radius: 50%; pointer-events: none; z-index: -1;
+    background: radial-gradient(circle closest-side, transparent 80%, rgba(255,255,255,.28) 90%, rgba(255,255,255,.1) 95%, transparent 100%); }
   .np.globe-on #disc, .np.globe-on #discPeek, .np.globe-on #discPick, .np.globe-on #pickName { visibility: hidden !important; }
   .gpins { position: absolute; inset: 0; pointer-events: none; }
   .gpin { position: absolute; left: 0; top: 0; will-change: transform; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: auto; transition: opacity .2s;
@@ -2898,9 +2901,12 @@ function loopGlobe() {
       const front = v.z > 0.08;
       if (!front) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
       v.project(gl.cam);
+      const px = v.x * half, py = v.y * half, out = Math.hypot(px, py) - half; // 円の縁からどれだけ外か（マイナス＝内側）
+      if (out > 4) { if (q.shown !== false) { q.el.style.opacity = q.lb.style.opacity = '0'; q.el.style.pointerEvents = 'none'; q.shown = false; } continue; }
+      const fade = out > -12 ? String(Math.max(0, Math.min(1, (4 - out) / 16)).toFixed(2)) : '1';
       const tr = `translate3d(${(half + v.x * half).toFixed(1)}px,${(half - v.y * half).toFixed(1)}px,0)`;
       q.el.style.transform = tr; if (gl.near) q.lb.style.transform = tr + ' translate(-50%, 16px)';
-      q.el.style.opacity = q.lb.style.opacity = '1';
+      q.el.style.opacity = q.lb.style.opacity = fade;
       if (q.shown !== true) { q.el.style.pointerEvents = 'auto'; q.shown = true; }
     }
     gl.raf = requestAnimationFrame(step);
