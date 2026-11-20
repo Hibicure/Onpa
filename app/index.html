@@ -4830,15 +4830,26 @@ function lyrBad() { try { return new Set(JSON.parse(localStorage.getItem('oto_ly
 // ---- みんなで直せる歌詞（ウィキのように）。同じ曲ならサービスが違っても共通（ISRC か、曲名＋アーティスト）
 const lyrIds = (m) => { const out = [], isrc = String(m.isrc || ((m.alts || []).find((x) => x && x.isrc) || {}).isrc || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (isrc.length >= 10) out.push('i_' + isrc); const k = lyrKey(m); if (k) out.push('k_' + String(k).replace(/[.#$\[\]\/%]/g, '_').slice(0, 300)); return out; };
-async function lyrShared(meta) {
-  for (const id of lyrIds(meta)) { try { const v = (await db.ref('lyrics/' + id).get()).val(); if (v && (v.text || v.lrc)) return v; } catch {} }
+// 一度読んだ歌詞は iPhone に覚えておく（同じ曲で何度もサーバーに読みに行かない。6時間たったら裏で確かめ直す）
+function lyrCache() { try { return JSON.parse(localStorage.getItem('oto_lyr_shared') || '{}') || {}; } catch { return {}; } }
+function lyrCacheSet(key, v) { const c = lyrCache(); c[key] = { v, at: Date.now() }; const ks = Object.keys(c); if (ks.length > 400) ks.sort((a, b) => c[a].at - c[b].at).slice(0, ks.length - 400).forEach((k) => delete c[k]); try { localStorage.setItem('oto_lyr_shared', JSON.stringify(c)); } catch {} }
+async function lyrSharedFetch(ids) {
+  for (const id of ids) { try { const v = (await db.ref('lyrics/' + id).get()).val(); if (v && (v.text || v.lrc)) return v; } catch {} }
   return null;
+}
+async function lyrShared(meta) {
+  const ids = lyrIds(meta); if (!ids.length) return null;
+  const key = ids.join('|'), hit = lyrCache()[key];
+  if (hit && Date.now() - hit.at < 6 * 3600e3) return hit.v;
+  if (hit) { lyrSharedFetch(ids).then((v) => lyrCacheSet(key, v)).catch(() => {}); return hit.v; }
+  const v = await lyrSharedFetch(ids); lyrCacheSet(key, v); return v;
 }
 async function lyrShare(meta, text, lrc) {
   if (!me || !me.uid) throw new Error('no user');
   const v = { text: text || '', lrc: lrc || '', by: me.uid, byName: me.name || me.handle || '', at: TS, title: meta.title || '', artist: meta.artist || '' };
   const ids = lyrIds(meta); if (!ids.length) throw new Error('no id');
   await Promise.all(ids.map((id) => db.ref('lyrics/' + id).set(v)));
+  lyrCacheSet(ids.join('|'), { ...v, at: Date.now() });
   try { db.ref('lyricsLog/' + ids[0]).push({ text: v.text, lrc: v.lrc, by: v.by, at: TS }); } catch {}
 }
 // [mm:ss.xx] 形式の歌詞 → [{t 秒, s 行}]
