@@ -2364,9 +2364,45 @@ async function spSearch(q) {
   } catch (e) { spWhy = 'failed ' + (e && e.message); return []; }
 }
 // Spotify の曲の形を、Otocloud の曲の形に
+// 海外のアーティストが日本語（カタカナ）で出ないように：Spotify は日本の端末にはカタカナの名前を返すので、元の英語の名前に直す。
+// 日本のアーティスト（漢字・ひらがなを含む名前）はそのまま。英語名は一度調べたら端末に覚えておく
+let spEn = {}; try { spEn = JSON.parse(localStorage.getItem('oto_sp_en') || '{}') || {}; } catch {}
+const spKana = (n) => /^[\u30A0-\u30FF\u31F0-\u31FF・･ー\s&＆.,'-]+$/.test(String(n || '')) && /[\u30A0-\u30FF]/.test(n);
+const spNeedEn = new Set(); let spEnT = null;
+function spName(a) {
+  if (!a || !a.name) return '';
+  if (!spKana(a.name)) return a.name;
+  if (spEn[a.id]) return spEn[a.id];
+  if (a.id) { spNeedEn.add(a.id); clearTimeout(spEnT); spEnT = setTimeout(spFetchEn, 300); }
+  return a.name;
+}
+async function spFetchEn() {
+  const ids = [...spNeedEn].filter((x) => !spEn[x]); spNeedEn.clear(); if (!ids.length) return;
+  try {
+    const tok = await spToken(); if (!tok) return;
+    for (let i = 0; i < ids.length; i += 20) {
+      const part = ids.slice(i, i + 20);
+      // 英語の名前で聞く（1人ずつより、まとめて）
+      let d = await fetch('https://api.spotify.com/v1/artists?ids=' + part.join(','), { headers: { Authorization: 'Bearer ' + tok, 'Accept-Language': 'en' } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      let arts = (d && d.artists) || [];
+      if (!arts.length) arts = (await Promise.all(part.map((id) => fetch('https://api.spotify.com/v1/artists/' + id, { headers: { Authorization: 'Bearer ' + tok, 'Accept-Language': 'en' } }).then((r) => (r.ok ? r.json() : null)).catch(() => null)))).filter(Boolean);
+      for (const a of arts) if (a && a.id && a.name) spEn[a.id] = a.name;
+    }
+    try { localStorage.setItem('oto_sp_en', JSON.stringify(spEn)); } catch {}
+    spApplyEn();
+  } catch {}
+}
+// 覚えた英語名を、今見えている一覧・再生中の曲に反映
+function spApplyEn() {
+  const fix = (t) => { if (!t || !t.spArtists) return false; const n = t.spArtists.map((a) => spEn[a.id] || a.name).join(', '); if (n !== t.artist) { t.artist = n; return true; } return false; };
+  let changed = false; for (const t of lastResults || []) { if (fix(t)) changed = true; for (const x of t.alts || []) fix(x); }
+  for (const t of queue || []) fix(t);
+  if (changed && (mode === 'search' || mode === 'likes' || mode === 'playlist' || mode === 'artist')) { const y = window.scrollY, head = $('results').querySelector('#albums, #spAlbums, .alb-head, .pl-import'); const keep = head ? head.outerHTML : ''; $('results').innerHTML = (lastResults || []).map(rowHTML).join(''); if (keep) $('results').insertAdjacentHTML('afterbegin', keep); markNow(); window.scrollTo(0, y); }
+  if (track && String(track.trackId).startsWith('sp:')) { const q = (queue || []).find((x) => String(x.id) === String(track.trackId)); if (q && q.artist !== track.artist) { track.artist = q.artist; $('npS').textContent = q.artist; } }
+}
 function spMap(t) {
   return {
-      id: 'sp:' + t.id, spArtistId: ((t.artists || [])[0] || {}).id || '', spAlbumId: (t.album && t.album.id) || '', album: (t.album && t.album.name) || '', title: t.name, artist: (t.artists || []).map((a) => a.name).join(', '),
+      id: 'sp:' + t.id, spArtistId: ((t.artists || [])[0] || {}).id || '', spAlbumId: (t.album && t.album.id) || '', album: (t.album && t.album.name) || '', title: t.name, artist: (t.artists || []).map(spName).join(', '), spArtists: (t.artists || []).map((a) => ({ id: a.id, name: a.name })),
       artwork: ((t.album && t.album.images) || [])[1] ? t.album.images[1].url : (((t.album && t.album.images) || [])[0] || {}).url || '',
       duration: t.duration_ms || 0, permalink_url: (t.external_urls && t.external_urls.spotify) || '', isrc: (t.external_ids && t.external_ids.isrc) || '', provider: 'spotify', pop: t.popularity || 0,
   };
