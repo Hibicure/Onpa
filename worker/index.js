@@ -824,17 +824,35 @@ export default {
         return json(l || { lyrics: '' }, 200, cors);
       }
 
-      // Genius の歌詞ページ（本文は取らない。ページへのリンクだけ）。GENIUS_TOKEN があれば公式の検索で曲のページへ、なければ検索ページへ
+      // Genius の歌詞ページ（本文は取らない。曲のページへのリンクだけ）。
+      // 曲名とアーティストがちゃんと合っていて、歌詞が載っているページだけ返す（無ければ url なし＝ボタンを出さない）
       if (p === '/genius') {
-        const q = String(url.searchParams.get('q') || '').slice(0, 200);
-        const fallback = 'https://genius.com/search?q=' + encodeURIComponent(q);
-        if (!q || !env.GENIUS_TOKEN) return json({ url: fallback, exact: false }, 200, cors);
+        const title = String(url.searchParams.get('title') || '').slice(0, 200), artist = String(url.searchParams.get('artist') || '').slice(0, 120);
+        if (!title) return json({ url: '' }, 200, cors);
+        const ck = new Request('https://cache.otocloud/genius2/' + encodeURIComponent((artist + '|' + title).toLowerCase()));
+        const hit0 = await caches.default.match(ck);
+        if (hit0) return json(await hit0.json(), 200, cors);
+        const norm = (x) => String(x || '').toLowerCase().normalize('NFKC').replace(/[([{【].*?[)\]}】]/g, ' ').replace(/\s(feat|ft)\.?\s.*$/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+        const first = (x) => String(x || '').split(/\s*(?:,|&|×|\bx\b|\bfeat\b\.?|\bft\b\.?|\bwith\b)\s*/i)[0];
+        const wantT = norm(title), wantA = norm(first(artist));
+        let out = { url: '' };
         try {
-          const r = await fetch('https://api.genius.com/search?q=' + encodeURIComponent(q), { headers: { Authorization: 'Bearer ' + env.GENIUS_TOKEN } });
-          const d = await r.json();
-          const hit = ((d.response && d.response.hits) || []).find((h) => h.type === 'song' && h.result && h.result.url);
-          return json(hit ? { url: hit.result.url, exact: true, title: hit.result.full_title } : { url: fallback, exact: false }, 200, cors);
-        } catch { return json({ url: fallback, exact: false }, 200, cors); }
+          let hits = [];
+          if (env.GENIUS_TOKEN) {
+            const r = await fetch('https://api.genius.com/search?q=' + encodeURIComponent(first(artist) + ' ' + title), { headers: { Authorization: 'Bearer ' + env.GENIUS_TOKEN } });
+            const d = await r.json(); hits = ((d.response && d.response.hits) || []).map((h) => h.result).filter(Boolean);
+          } else {
+            const r = await fetch('https://genius.com/api/search/song?per_page=5&q=' + encodeURIComponent(first(artist) + ' ' + title), { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', 'Accept': 'application/json' } });
+            const d = await r.json(); const secs = (d.response && d.response.sections) || [];
+            hits = secs.flatMap((sct) => (sct.hits || []).map((h) => h.result)).filter(Boolean);
+          }
+          const ok = hits.find((h) => h.url && /^https:\/\/genius\.com\//.test(h.url) && norm(h.title) === wantT
+            && (norm(first(h.primary_artist && h.primary_artist.name)) === wantA || norm(h.artist_names || '').includes(wantA))
+            && (!h.lyrics_state || h.lyrics_state === 'complete') && !h.instrumental);
+          if (ok) out = { url: ok.url, title: ok.full_title || ok.title };
+        } catch {}
+        await caches.default.put(ck, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=' + (out.url ? 604800 : 86400) } }));
+        return json(out, 200, cors);
       }
 
       // 出どころのロゴ（各サービスが自分のサイトで配っている公式アイコン）。1週間キャッシュ

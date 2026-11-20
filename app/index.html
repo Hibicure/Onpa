@@ -413,7 +413,7 @@
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   .artistPlace { display: flex; align-items: center; gap: 6px; padding: 2px 4px 12px; font-size: 13px; color: var(--mute, #8a8d93); }
   .artistPlace svg { width: 15px; height: 15px; flex: none; }
-  .np .lyrbtn { position: absolute; left: 58px; top: calc(12.5px + env(safe-area-inset-top)); border-width: 1.5px !important; border-color: var(--ink) !important; line-height: 15px; /* 左上：ロゴのすぐ右。ロゴと真ん中の高さ・線の太さをそろえる */ padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
+  .np .lyrbtn { position: absolute; left: 56px; top: calc(15px + env(safe-area-inset-top)); height: 22px; display: inline-flex; align-items: center; padding: 0 9px !important; font-size: 11.5px !important; border-width: 1.5px !important; border-color: var(--ink) !important; line-height: 1; /* 左上：ロゴのすぐ右。ロゴと真ん中の高さ・線の太さをそろえる */ padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
   .np.ringing .lyrbtn, .np .lyrbtn[hidden] { display: none; }
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
   /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
@@ -984,7 +984,8 @@
   .lyr-x[hidden] { display: none; }
   .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
   .lyr-back:active { transform: scale(.94); }
-  .lyrbtn svg, .lyr-genius svg { width: 12px; height: 12px; margin-left: 2px; vertical-align: -1.5px; display: inline-block; }
+  .lyrbtn svg, .lyr-genius svg { width: 11px; height: 11px; margin-left: 2px; vertical-align: -1px; display: inline-block; }
+  .lyr-genius[hidden] { display: none; }
   .lyr-genius { display: block; margin: 10px 0 40px; font-size: 12px; font-weight: 700; color: var(--mute); text-decoration: underline; padding: 6px 0; }
   /* 下のミニプレーヤーとタブ：透けない（ジャケットなどが後ろに見えないように） */
   :root.mist .nav, :root.mist[data-theme="dark"] .nav { background: var(--paper) !important; }
@@ -4179,10 +4180,15 @@ let waveBars = null, waveFor = null;
 // 歌詞：説明欄（なければコメント）に載っていたら、下の真ん中に「Lyrics」を出す
 var lyr = null, lyrFor = null; // var：上の renderTrack から先に使われても大丈夫なように
 async function loadLyrics(meta) {
-  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true;
+  lyr = null; lyrFor = meta.trackId; $('lyrBtn').hidden = true; geniusUrl = '';
   if (!$('lyrSheet').hidden) $('lyrSheet').hidden = true; // 開いていた歌詞（前の曲）は閉じる $('lyrBtn').textContent = 'Lyrics'; delete $('lyrBtn').dataset.genius;
   // 歌詞が見つからない曲は「Lyrics ↗」＝ Genius の歌詞ページを開く
-  const toGenius = () => { if (lyrFor !== meta.trackId || lyr) return; $('lyrBtn').innerHTML = 'Lyrics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg>'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
+  // 歌詞が見つからない曲：Genius にその曲のページ（歌詞あり）が本当にある時だけ「Lyrics ↗」を出す
+  const toGenius = async () => {
+    if (lyrFor !== meta.trackId || lyr) return;
+    let g = null; try { g = await fetch(`${WORKER}/genius?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '' })).then((r) => r.json()); } catch {}
+    if (!g || !g.url || lyrFor !== meta.trackId || lyr) return;
+    geniusUrl = g.url; $('lyrBtn').innerHTML = 'Lyrics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg>'; $('lyrBtn').dataset.genius = '1'; $('lyrBtn').hidden = false; };
   if (!/^\d+$/.test(String(meta.trackId))) {
     try {
       const d = await fetch(`${WORKER}/lyrics/by?` + new URLSearchParams({ title: meta.title || '', artist: meta.artist || '', dur: String(Math.round((meta.duration || 0) / 1000)) })).then((r) => r.json());
@@ -4199,11 +4205,12 @@ async function loadLyrics(meta) {
     lyr = d; $('lyrBtn').hidden = false;
   } catch { toGenius(); }
 }
+var geniusUrl = '';
 async function openGenius() {
   if (!track) return;
-  const q = `${String(track.artist || '').split(/,| feat\.? | ft\.? /i)[0]} ${String(track.title || '').replace(/\s*[([【].*?[)\]】]/g, '')}`.trim();
-  let url = 'https://genius.com/search?q=' + encodeURIComponent(q);
-  try { const d = await fetch(`${WORKER}/genius?q=${encodeURIComponent(q)}`).then((r) => r.json()); if (d && d.url) url = d.url; } catch {}
+  let url = geniusUrl;
+  if (!url) { try { const d = await fetch(`${WORKER}/genius?` + new URLSearchParams({ title: track.title || '', artist: track.artist || '' })).then((r) => r.json()); url = d && d.url; } catch {} }
+  if (!url) { toast("Genius doesn't have this song"); return; }
   if (NATIVE_CALL) nat('open', { url }).catch(() => {}); else window.open(url, '_blank');
 }
 function openLyrics() {
@@ -4211,8 +4218,9 @@ function openLyrics() {
   $('lyrTitle').textContent = track.title || '';
   $('lyrArtist').textContent = track.artist || '';
   const src = lyr.from === 'lrclib' ? 'From LRCLIB (matched by title and artist)' : lyr.from === 'description' ? 'From the description on SoundCloud' : lyr.from === 'artist comment' ? 'From the artist\'s comment on SoundCloud' : `From a comment by ${lyr.by || 'a listener'} on SoundCloud`;
-  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius">See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
+  $('lyrBody').innerHTML = esc(lyr.lyrics) + `<span class="src">${esc(src)}</span><button class="lyr-genius" id="lyrGenius" hidden>See on Genius <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 16 16 8M9 8h7v7"/></svg></button>`;
   $('lyrGenius').onclick = () => { hap('light'); openGenius(); };
+  { const id0 = track.trackId; fetch(`${WORKER}/genius?` + new URLSearchParams({ title: track.title || '', artist: track.artist || '' })).then((r) => r.json()).then((g) => { if (g && g.url && track && track.trackId === id0 && $('lyrGenius')) { geniusUrl = g.url; $('lyrGenius').hidden = false; } }).catch(() => {}); }
   $('lyrBody').scrollTop = 0;
   $('lyrSheet').hidden = false;
   // 「Lyrics」ボタンとぴったり同じ場所に、閉じるボタンを置く
