@@ -376,6 +376,13 @@
   .np .np-src { position: absolute; left: -7px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; color: var(--ink); }
   .np.ringing .np-src { display: none; }
   .np .np-src .glyph { width: 24px; height: 24px; }
+  /* ★：右上のボタンの下（2段目）。右に寄せて、付けた数だけ並ぶ */
+  .np .top .np-stars { position: absolute; right: -3px; top: 40px; height: 22px; display: flex; gap: 2px; align-items: center; padding: 0 8px; z-index: 6; color: var(--ink); background: none; }
+  .np .top .np-stars[hidden] { display: none; }
+  .np .np-stars svg { width: 15px; height: 15px; }
+  .np .np-stars.none svg { opacity: .28; }
+  .np .np-stars.pop svg:last-child { animation: starpop .35s cubic-bezier(.2,1.8,.4,1); }
+  @keyframes starpop { from { transform: scale(.4); } to { transform: scale(1); } }
   .np .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
   /* 「Listening with 〜」などの文字は、再生ボタンの下（ジャケットの上には出さない） */
@@ -1375,6 +1382,7 @@
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
       <button class="recbtn glass" id="recBtn" hidden></button>
       <button class="np-src" id="npSrc" hidden aria-label="Open in SoundCloud"><i class="glyph"></i></button>
+      <button class="np-stars none" id="npStars" hidden aria-label="Rate"></button>
       <button class="heart ambt globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
       <button class="theme" id="themeBtn" aria-label="Switch to night mode"></button>
       <button class="heart ambt" id="ambBtn" aria-label="Background colors" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><defs><clipPath id="ambA"><circle cx="12" cy="8.6" r="5.6"/></clipPath><clipPath id="ambB"><circle cx="8.8" cy="14.2" r="5.6"/></clipPath><clipPath id="ambC"><circle cx="15.2" cy="14.2" r="5.6"/></clipPath></defs><g class="f"><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g><g class="f o2"><circle cx="8.8" cy="14.2" r="5.6" clip-path="url(#ambA)"/><circle cx="15.2" cy="14.2" r="5.6" clip-path="url(#ambB)"/><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambC)"/></g><g class="f o3" clip-path="url(#ambC)"><circle cx="12" cy="8.6" r="5.6" clip-path="url(#ambB)"/></g><g><circle cx="12" cy="8.6" r="5.6"/><circle cx="8.8" cy="14.2" r="5.6"/><circle cx="15.2" cy="14.2" r="5.6"/></g></svg></button>
@@ -3416,6 +3424,25 @@ function maybeAskReview() {
 }
 function paintHeart() {
   $('heart').setAttribute('aria-pressed', String(!!track && likedIds.has(String(track.trackId))));
+  paintStars();
+}
+// ★：♡した曲にだけ、自分だけの「どれくらい好きか」（1〜5）。人には見せない・平均も出さない・嫌いはない。
+// 付けた数だけ★が並ぶ（カードゲームみたいに、空の★は出さない）。まだ付けていない時は、うすい★が1つ。タップで1つずつ増えて、5の次は0に戻る
+const STAR_KEY = 'oto_stars';
+const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l2.75 6.08 6.63.66-4.98 4.43 1.43 6.51L12 16.9l-5.83 3.38 1.43-6.51-4.98-4.43 6.63-.66z"/></svg>';
+function starsMap() { try { return JSON.parse(localStorage.getItem(STAR_KEY) || '{}') || {}; } catch { return {}; } }
+function setStars(id, n) {
+  const m = starsMap(); if (n > 0) m[id] = n; else delete m[id];
+  try { localStorage.setItem(STAR_KEY, JSON.stringify(m)); } catch {}
+}
+function paintStars() {
+  const el = $('npStars'); if (!el) return;
+  const id = track && String(track.trackId), on = !!id && likedIds.has(id);
+  el.hidden = !on; if (!on) return;
+  const n = starsMap()[id] || 0;
+  el.innerHTML = n ? STAR_SVG.repeat(n) : STAR_SVG;
+  el.classList.toggle('none', !n);
+  el.setAttribute('aria-label', n ? `${n} star${n > 1 ? 's' : ''} · tap to change` : 'How much do you love it? Tap to add a star');
 }
 async function toggleRowLike(btn) {
   const t = lastResults[Number(btn.dataset.like)]; if (!t) return;
@@ -3429,6 +3456,7 @@ async function toggleRowLike(btn) {
   const id = String(t.id), like = !likedIds.has(id);
   if (like) likedIds.add(id); else likedIds.delete(id);
   btn.setAttribute('aria-pressed', String(like)); paintHeart();
+  if (!like) setStars(id, 0);
   try { if (await sendLike(id, like) === 'queued') toast('Saved · it reaches SoundCloud a little later'); }
   catch { if (like) likedIds.delete(id); else likedIds.add(id); btn.setAttribute('aria-pressed', String(!like)); paintHeart(); toast("Couldn't update your like"); }
 }
@@ -3441,6 +3469,7 @@ $('heart').addEventListener('click', async () => {
   paintHeart();
   const own = !sc || !/^\d+$/.test(id); // SoundCloudなし（または Bandcamp の曲）：Otocloudの中のいいねとして貯める
   if (own) toggleOwnLike(track, like);
+  if (!like) setStars(id, 0); // ♡を外したら★も消す
   if (id.startsWith('sp:')) spSaveLike(id, like);
   if (like) {
     const hb = $('heart');
@@ -5269,6 +5298,12 @@ async function openInSC() {
 }
 $('scSrc').addEventListener('click', openInSC);
 $('npSrc').addEventListener('click', () => { hap('light'); openInSC(); });
+$('npStars').addEventListener('click', () => {
+  if (!track) return;
+  const id = String(track.trackId), n = ((starsMap()[id] || 0) + 1) % 6;
+  setStars(id, n); hap(n ? 'rigid' : 'light'); paintStars();
+  const el = $('npStars'); el.classList.remove('pop'); void el.offsetWidth; if (n) el.classList.add('pop');
+});
 $('asSC').addEventListener('click', () => { $('moreSheet').hidden = true; openInSC(); });
 
 // ---- 「…」メニューと、着信の時に流す範囲を選ぶ画面
