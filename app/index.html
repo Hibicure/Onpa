@@ -2307,9 +2307,14 @@ let spLikesErr = 0;
 // Otocloud で♡したら、Spotify のお気に入りにも入れる／外す
 async function spSaveLike(id, like) {
   try {
-    const tok = await spToken(); if (!tok) return;
-    const r = await fetch('https://api.spotify.com/v1/me/tracks?ids=' + encodeURIComponent(String(id).replace(/^sp:/, '')), { method: like ? 'PUT' : 'DELETE', headers: { Authorization: 'Bearer ' + tok } });
-    if (r.status === 401 || r.status === 403) toast('Reconnect Spotify in Settings to sync likes');
+    const go = async () => { const tok = await spToken(); if (!tok) return null; return fetch('https://api.spotify.com/v1/me/tracks?ids=' + encodeURIComponent(String(id).replace(/^sp:/, '')), { method: like ? 'PUT' : 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); };
+    let r = await go(); if (!r) return;
+    if (r.status === 401) { spTok = ''; spTokAt = 0; r = await go(); if (!r) return; } // 合鍵の期限切れ：黙って取り直してもう一度
+    // それでもだめな時だけ、知らせは3日に1回まで（何度も出さない）
+    if (r.status === 401 || r.status === 403) {
+      let last = 0; try { last = +localStorage.getItem('oto_sp_like_warn') || 0; } catch {}
+      if (Date.now() - last > 3 * 864e5) { try { localStorage.setItem('oto_sp_like_warn', String(Date.now())); } catch {} toast("Likes didn't reach Spotify · reconnect in Settings if this keeps happening"); }
+    }
   } catch {}
 }
 // 今の曲が Spotify の「お気に入り」に入っているか聞いて、入っていれば♡を付けておく（一覧で取れなかった古い曲も）
