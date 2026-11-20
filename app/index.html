@@ -3766,6 +3766,14 @@ async function openArtist(userId, name, opt = {}) {
     const hero = () => { if (mode === 'artist' && artistNow.name === name && sp.image && !$('artistHead').classList.contains('banner')) { $('ahBg').style.backgroundImage = `url("${sp.image}")`; $('artistHead').classList.add('hero'); measureAH(); } };
     if (userId) { await artistPlace(userId); hero(); await artistAlbums(userId, name); } else hero();
     spArtistAlbums(sp.id || opt.spArtistId);
+    // 全部の曲（アルバム・シングル）を後から足す。人気の曲はそのまま上に
+    if (sp.id || opt.spArtistId) spArtistAll(sp.id || opt.spArtistId).then((all) => {
+      if (mode !== 'artist' || artistNow.name !== name || !all.length) return;
+      const merged = mergeSame([...d, ...all.map((t, i) => ({ ...t, _r: 100 + i }))]);
+      if (merged.length <= d.length) return;
+      const keepY = window.scrollY, head = $('results').querySelector('#albums, #spAlbums');
+      d = merged; renderTracks(d, msg('No tracks yet')); if (head) $('results').prepend(head); window.scrollTo(0, keepY);
+    });
   } catch (e) { if (mode === 'artist') $('results').innerHTML = msg("Couldn't load these tracks"); }
 }
 let artistNow = { userId: null, name: '', spArtistId: '' };
@@ -3787,6 +3795,30 @@ async function spArtistTracks(name, spArtistId) {
     if (info) out.image = ((info.images || [])[0] || {}).url || '';
     const all = [...(top.tracks || []), ...more.flatMap((m) => (m.tracks && m.tracks.items) || [])].filter((t) => t && t.id && (t.artists || []).some((a) => a.id === id));
     const seen = new Set(); out.list = all.filter((t) => !seen.has(t.id) && seen.add(t.id)).map((t, i) => ({ _r: i, ...spMap(t) }));
+  } catch {}
+  return out;
+}
+// Spotify のアーティストの全部の曲：アルバムとシングルを全部たどって、その人の曲を集める（新しい順）。1回に少ししか返さないので、少しずつ
+async function spArtistAll(id) {
+  const out = [];
+  try {
+    const tok = await spToken(); if (!tok || !id) return out;
+    const H = { Authorization: 'Bearer ' + tok }, albums = [];
+    for (let off = 0, lim = 10; off < 120; off += lim) {
+      const r = await fetch(`https://api.spotify.com/v1/artists/${id}/albums?include_groups=album,single&limit=${lim}&offset=${off}`, { headers: H });
+      if (!r.ok) break; const d = await r.json(); const items = (d.items || []).filter((a) => a && a.id); albums.push(...items);
+      if (!d.next || !items.length) break;
+    }
+    albums.sort((a, b) => String(b.release_date || '').localeCompare(String(a.release_date || '')));
+    for (let i = 0; i < albums.length; i += 5) {
+      const part = await Promise.all(albums.slice(i, i + 5).map(async (a) => {
+        const r = await fetch(`https://api.spotify.com/v1/albums/${a.id}/tracks?limit=50`, { headers: H }).catch(() => null);
+        if (!r || !r.ok) return [];
+        const d = await r.json();
+        return (d.items || []).filter((t) => t && t.id && (t.artists || []).some((x) => x.id === id)).map((t) => spMap({ ...t, album: { id: a.id, name: a.name, images: a.images } }));
+      }));
+      out.push(...part.flat());
+    }
   } catch {}
   return out;
 }
