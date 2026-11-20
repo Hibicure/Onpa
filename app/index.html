@@ -370,7 +370,7 @@
   @keyframes heartspark { 0% { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; } 100% { transform: rotate(var(--a)) translateY(-26px) scale(.2); opacity: 0; } }
   /* 三原色（背景の色）ボタンは、画面の右上に */
   .np .top #ambBtn { position: absolute; right: -3px; top: 2px; height: 36px; width: 40px; display: grid; place-items: center; z-index: 6; }
-  .np .recbtn { right: auto; left: 14px; } /* 録音ボタンは左上へ（右上は三原色） */
+  .np .recbtn { right: auto; left: 50%; transform: translateX(-50%); } /* 録音ボタンは上の真ん中 */
   /* 左上：今の曲がどこのサービスの曲か（公式ロゴ）。押すとそのサービスで開く。右の3つのボタンと同じ高さ */
   /* 左上：今の曲のサービスのロゴ（右上のボタンと同じ高さ。左端は曲名にそろえる）。歌詞があればその右に「Lyrics」 */
   .np .np-src { position: absolute; left: -7px; top: 1px; width: 38px; height: 38px; display: grid; place-items: center; z-index: 6; padding: 0; background: none; color: var(--ink); }
@@ -378,8 +378,9 @@
   .np .np-src .glyph { width: 24px; height: 24px; }
   .np .np-src:active .glyph { transform: scale(.9); }
   .np .scsrc { display: none !important; } /* 「on SoundCloud」の文字は、左上のロゴに置きかえた */
-  .np .top:has(#npSrc:not([hidden])) #recBtn { left: 35px; } /* 録音ボタンはロゴの右 */
-  .np:has(#lyrBtn:not([hidden])) .top #recBtn { left: 106px; } /* 歌詞ボタンもある時は、さらにその右 */
+  /* 「Listening with 〜」などの文字は、再生ボタンの下（ジャケットの上には出さない） */
+  .np .in > .together { text-align: center; margin: 2px 0 6px; font-size: 13px; font-weight: 700; color: var(--ink); }
+  .np .in > .together[hidden] { display: none; }
   .np .top #themeBtn { position: absolute; right: 29px; top: 1px; z-index: 6; } /* 電球：三原色の左どなり */
   .heart.ambt { color: var(--mute); } /* オフ：薄いグレーの線。オン：黒い線＋中は全体に薄いグレー */
   .heart.ambt[aria-pressed="true"] { color: var(--ink); }
@@ -1361,7 +1362,6 @@
   <div class="in">
     <div class="top">
       <button class="grab" id="npClose" aria-label="Close"><i></i></button>
-      <div class="together" id="npTogether" hidden></div>
       <button class="recbtn glass" id="recBtn" hidden></button>
       <button class="np-src" id="npSrc" hidden aria-label="Open in SoundCloud"><i class="glyph"></i></button>
       <button class="heart ambt globe-btn" id="globeBtn" aria-label="Globe" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.8" ry="8.6"/><path d="M3.6 9.2h16.8M3.6 14.8h16.8"/></svg></button>
@@ -1390,6 +1390,7 @@
       <div class="rb"><button class="ringbtn glass" id="ringNo" aria-label="Decline"></button><span id="ringNoLbl">Decline</span></div>
       <div class="rb" id="ringYesWrap"><button class="ringbtn yes" id="ringYes" aria-label="Accept"></button><span id="ringYesLbl">Accept</span></div>
     </div>
+    <div class="together" id="npTogether" hidden></div>
     <div class="upnext">
       <div class="uphead"><span>Up next</span><span class="who" id="upWho"></span></div>
       <div id="upList"></div>
