@@ -431,7 +431,7 @@
   /* ジャケットをタップ：CDが四角いジャケットになる（もう一回タップでCDに戻る） */
   .artistPlace { display: flex; align-items: center; gap: 6px; padding: 2px 4px 12px; font-size: 13px; color: var(--mute, #8a8d93); }
   .artistPlace svg { width: 15px; height: 15px; flex: none; }
-  .np .lyrbtn { position: absolute; left: 56px; top: calc(5px + env(safe-area-inset-top)); height: 22px; display: inline-flex; align-items: center; padding: 0 9px !important; font-size: 11.5px !important; border-width: 1.5px !important; border-color: var(--ink) !important; line-height: 1; /* 左上：ロゴのすぐ右。ロゴと真ん中の高さ・線の太さをそろえる */ padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
+  .np .lyrbtn { position: absolute; left: 56px; top: calc(5px + env(safe-area-inset-top)); height: 22px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; padding: 0 9px !important; white-space: nowrap; font-size: 11.5px !important; border-width: 1.5px !important; border-color: var(--ink) !important; line-height: 1; /* 左上：ロゴのすぐ右。ロゴと真ん中の高さ・線の太さをそろえる */ padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); z-index: 5; }
   .np.ringing .lyrbtn, .np .lyrbtn[hidden] { display: none; }
   .lyr { position: fixed; inset: 0; z-index: 72; display: flex; flex-direction: column; background: color-mix(in srgb, var(--paper) 78%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.2); backdrop-filter: blur(28px) saturate(1.2); animation: egfade .22s ease; }
   /* 新しい見た目：歌詞の時も、後ろの色はそのまま。白い厚みの縁だけ */
@@ -1007,7 +1007,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,.35); }
   /* 歌詞を閉じるボタン：開いた時の「Lyrics」と同じ場所に、押された状態で出す（×はやめ） */
   .lyr-x[hidden] { display: none; }
-  .lyr-back { position: fixed; z-index: 3; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+  .lyr-back { position: fixed; z-index: 3; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; line-height: 1; white-space: nowrap; background: var(--ink); color: var(--paper); border: 1.5px solid var(--ink); }
   .lyr-back:active { transform: scale(.94); }
   .lyrbtn svg, .lyr-genius svg { width: 11px; height: 11px; margin-left: 2px; vertical-align: -1px; display: inline-block; }
   .lyr-genius[hidden] { display: none; }
@@ -1365,6 +1365,7 @@
       <div class="set-row"><span>Logo mark</span><button class="btn ghost" id="setMark">Left</button></div>
       <div class="set-row"><span>Show friends what I'm playing</span><button class="btn ghost" id="setShareNow">On</button></div>
       <div class="set-row"><span>Test friends</span><button class="btn ghost" id="setDummy">Off</button></div>
+      <div class="set-row set-labs" id="setVoiceRow" hidden><span>AirPods · voice first<small>Talk through your AirPods mic so friends hear you clearly. While you talk, music sounds like a phone call. Recommended.</small></span><button class="btn ghost" id="setVoiceFirst">On</button></div>
       <div class="set-row set-labs" id="setSpLabs" hidden><span>Spotify · Labs<small id="spLabsNote">Use your own Spotify key. One-time setup, about two minutes.</small></span><button class="btn ghost" id="spGuideOpen">Set up</button></div>
     </div>
 
@@ -2268,6 +2269,9 @@ async function mergeSpotifyLikes() {
 function mixRank(list, q) {
   const words = String(q || '').toLowerCase().normalize('NFKC').split(/\s+/).filter(Boolean);
   const qk = artKey(q), taste = loadTaste(), liked = new Set((likesList || []).map((t) => String(t.id)));
+  // フォローしているアーティスト（SoundCloud のフォロー・地球儀で集めた人）
+  const followed = new Set((gl.artists || []).map((a) => a.key));
+  try { const c = JSON.parse(localStorage.getItem('oto_artpins') || 'null'); for (const a of (c && c.d && c.d.artists) || []) followed.add(artKey(a.name)); } catch {}
   const scoreOf = (t) => {
     const all = [t, ...(t.alts || [])], ids = all.map((x) => String(x.id || ''));
     const hasSp = ids.some((x) => x.startsWith('sp:')), hasBc = ids.some((x) => x.startsWith('bc:')), sc = all.find((x) => /^\d+$/.test(String(x.id)));
@@ -2277,6 +2281,7 @@ function mixRank(list, q) {
     const ak = artKey(t.artist); if (qk && ak && (ak === qk || ak.startsWith(qk) || qk.includes(ak))) s += 12; // 探したアーティスト本人の曲
     else if (qk && artKey(t.title).startsWith(qk)) s += 4;
     const tv = taste[tasteKey(t.artist)]; if (tv) s += Math.min(20, Math.log2((tv.n || 1) + 1) * 6);
+    if (followed.has(artKey(String(t.artist || '').split(',')[0]))) s += 14; // フォローしているアーティスト
     if (ids.some((x) => liked.has(x))) s += 40;
     if (hasSp) s += 14 + (Math.max(0, ...all.map((x) => x.pop || 0)) / 8);
     if (hasBc) s += 5;
@@ -4936,6 +4941,14 @@ $('picFile').addEventListener('change', async (e) => {
 // ===================== CDの真ん中：自分と友達 =====================
 // まず自分の顔。上下にスライドすると友達（オンラインの人が先）。ぐるっと一周する
 const PICK_BG_JACKET = false;
+// 通話：AirPods などの時は「声を優先」（おすすめ・最初からオン）。話せないのが一番困るので
+function voiceFirstOn() { try { return localStorage.getItem('oto_voice_first') !== '0'; } catch { return true; } }
+if (IN_APP) setTimeout(() => {
+  $('setVoiceRow').hidden = false;
+  const paint = () => { $('setVoiceFirst').textContent = voiceFirstOn() ? 'On' : 'Off'; };
+  paint();
+  $('setVoiceFirst').addEventListener('click', () => { try { localStorage.setItem('oto_voice_first', voiceFirstOn() ? '0' : '1'); } catch {} hap('light'); paint(); toast(voiceFirstOn() ? 'Voice first · from your next call' : 'Music first · from your next call'); });
+}, 0);
 // Spotify（試験用・Labs）：自分の開発者の Client ID を使う。手順を1画面で案内する。アプリの中だけ
 if (IN_APP) setTimeout(() => {
   $('setSpLabs').hidden = false;
@@ -5740,7 +5753,7 @@ class NativeRoom {
     this.remoteParticipants = { forEach(fn) { fn({ setVolume: (v) => nat('vol', { v: Number(v) }).catch(() => {}) }); } };
   }
   on(t, f) { (natH[t] = natH[t] || []).push(f); }
-  connect(url, token) { return nat('connect', { url, token }); }
+  connect(url, token) { return nat('connect', { url, token, voiceFirst: voiceFirstOn() }); }
   startAudio() { return Promise.resolve(); }
   disconnect() { nat('disconnect').catch(() => {}); }
 }

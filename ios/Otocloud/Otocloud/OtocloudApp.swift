@@ -333,6 +333,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 var result: [String: Any] = ["ok": true]
                 switch op {
                 case "connect":
+                    voiceFirst = body["voiceFirst"] as? Bool ?? true
                     try await connect(url: body["url"] as? String ?? "", token: body["token"] as? String ?? "")
                 case "mic":
                     let on = body["on"] as? Bool ?? true
@@ -461,8 +462,37 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
     private var capture = AudioCaptureOptions(echoCancellation: true, autoGainControl: true, noiseSuppression: true)
     static let publish = AudioPublishOptions(encoding: AudioEncoding(maxBitrate: 64000), dtx: false, red: true)
 
+    /// AirPods などの Bluetooth の時、声を優先するか（AirPods のマイクを使う。その間、音楽は電話の音質になる）
+    private var voiceFirst = true
+    private func bluetoothOut() -> Bool {
+        AVAudioSession.sharedInstance().currentRoute.outputs.contains { [.bluetoothA2DP, .bluetoothHFP, .bluetoothLE].contains($0.portType) }
+    }
+
     private func connect(url: String, token: String) async throws {
         await hangUp()
+        // 声を優先：Bluetooth のイヤホンのマイクで話す（口の近くで拾うので、はっきり・大きく届く）
+        if voiceFirst && bluetoothOut() {
+            log("connect voice-first (bluetooth mic)")
+            do { try AudioManager.shared.setPlatformVoiceProcessingAllowed(true) } catch { log("vp allow failed: \(error)") }
+            capture = AudioCaptureOptions(echoCancellation: true, autoGainControl: true, noiseSuppression: true)
+            AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = false
+            let s = AVAudioSession.sharedInstance()
+            try? s.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothHFP, .mixWithOthers])
+            try? s.setActive(true)
+            if let bt = s.availableInputs?.first(where: { [.bluetoothHFP, .bluetoothLE].contains($0.portType) }) { try? s.setPreferredInput(bt) }
+            wantHeadphones = true; usingHFP = true
+            AudioManager.shared.duckingLevel = .min
+            AudioManager.shared.isAdvancedDuckingEnabled = false
+            let room = Room(); self.room = room; hadPeer = false; wasConnected = false
+            do {
+                try await room.connect(url: url, token: token)
+                wasConnected = true
+                try await room.localParticipant.setMicrophone(enabled: true, captureOptions: capture, publishOptions: Self.publish)
+            } catch { log("connect error \(error)"); await hangUp(); throw error }
+            timer?.invalidate()
+            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in Task { @MainActor in self?.tick() } }
+            return
+        }
         // AirPodsなどがつながっている時は、iPhoneの「通話用の音の処理」を使わない。
         // それを使うと、iPhoneが音をAirPodsから本体のスピーカーに勝手に切り替えてしまうため。
         // （イヤホンなら音が相手に返らないので、その処理はいらない）
