@@ -499,11 +499,12 @@
   .lyr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 18px 26px calc(60px + env(safe-area-inset-bottom)); font-size: 22px; line-height: 1.5; font-weight: 700; letter-spacing: -0.01em; white-space: pre-wrap; color: var(--ink); }
   /* スクロールした歌詞は、上と下でふわっと透けて消える（見えない壁でぶつっと切れないように） */
   .lyr-body { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 90px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 40px, #000 calc(100% - 90px), transparent 100%); }
-  .lyr-body .ll, .np .fulllyr .ll { display: block; transition: opacity .35s, transform .35s; }
-  .lyr-body.synced .ll, .np .fulllyr.synced .ll { opacity: .32; }
-  .lyr-body.synced .ll.on, .np .fulllyr.synced .ll.on { opacity: 1; }
-  .lyr-body.synced .ll.past, .np .fulllyr.synced .ll.past { opacity: .5; }
-  .lyr-body.syncing .ll { opacity: .35; } .lyr-body.syncing .ll.next { opacity: 1; } .lyr-body.syncing .ll.done { opacity: .6; }
+  /* 行の明るさは「文字の色の濃さ」で変える（透明度で変えると、切り替わる瞬間に行のふちで隣の行の文字が細い線のように光って見えるため） */
+  .lyr-body .ll, .np .fulllyr .ll { display: block; transition: color .35s ease; }
+  .lyr-body.synced .ll, .np .fulllyr.synced .ll { color: color-mix(in srgb, currentColor 32%, transparent); }
+  .lyr-body.synced .ll.on, .np .fulllyr.synced .ll.on { color: inherit; }
+  .lyr-body.synced .ll.past, .np .fulllyr.synced .ll.past { color: color-mix(in srgb, currentColor 50%, transparent); }
+  .lyr-body.syncing .ll { color: color-mix(in srgb, currentColor 35%, transparent); } .lyr-body.syncing .ll.next { color: inherit; } .lyr-body.syncing .ll.done { color: color-mix(in srgb, currentColor 60%, transparent); }
   .lyr-syncbar { position: absolute; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; align-items: center; z-index: 3; padding: 10px 10px 10px 16px; border-radius: 22px; background: color-mix(in srgb, var(--paper) 80%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.5), 0 10px 30px rgba(0,0,0,.25); }
   .lyr-syncbar span { flex: 1; font-size: 13px; font-weight: 600; color: var(--mute); }
   .lyr-syncbar button { height: 44px; padding: 0 16px; border-radius: 99px; font-weight: 700; color: var(--ink); background: var(--chip); }
