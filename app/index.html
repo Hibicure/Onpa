@@ -3840,7 +3840,7 @@ async function openArtist(userId, name, opt = {}) {
       if (mode === 'artist') renderTracks(d, msg('No tracks yet'));
     }
     // Spotify をつないでいる人：同じアーティストの公式の曲（Spotify）も足して、同じ曲は1つに
-    const sp = await spArtistTracks(name, opt.spArtistId);
+    const sp = await spArtistTracks(name, opt.spArtistId, d.map((t) => String(t.title || '').replace(/^.*?\s[-–—]\s/, '')));
     if (mode !== 'artist' || artistNow.name !== name) return;
     if (sp.list.length) { d = mergeSame([...sp.list, ...d]); if (!userId && sp.image) { $('ahPic').innerHTML = `<img src="${esc(sp.image)}" alt="">`; } }
     renderTracks(d, msg('No tracks yet'));
@@ -3867,13 +3867,30 @@ async function openArtist(userId, name, opt = {}) {
 }
 let artistNow = { userId: null, name: '', spArtistId: '' };
 // Spotify のアーティストの曲（つないでいる人だけ）：人気の曲＋名前で探した曲。開発中のアプリは数が少ないので10件ずつ
-async function spArtistTracks(name, spArtistId) {
+async function spArtistTracks(name, spArtistId, scTitles = []) {
   const out = { list: [], image: '' };
   try {
     const tok = await spToken(); if (!tok) return out;
     const H = { Authorization: 'Bearer ' + tok };
     let id = spArtistId;
-    if (!id) { const a = await fetch('https://api.spotify.com/v1/search?type=artist&limit=5&q=' + encodeURIComponent(name), { headers: H }).then((r) => r.json()); const hit = ((a.artists && a.artists.items) || []).find((x) => artKey(x.name) === artKey(name)); if (hit) { id = hit.id; out.image = ((hit.images || [])[0] || {}).url || ''; } }
+    if (!id) {
+      // 同じ名前のアーティストが Spotify に何人もいることがある（「lili」など）。名前だけで決めると、別人の写真や曲が出てしまう。
+      // SoundCloud のその人の曲名と、Spotify の候補の人気曲が重なる人を選ぶ。重なる人がいなければ、Spotify は使わない
+      const a = await fetch('https://api.spotify.com/v1/search?type=artist&limit=10&q=' + encodeURIComponent(name), { headers: H }).then((r) => r.json());
+      const cands = ((a.artists && a.artists.items) || []).filter((x) => artKey(x.name) === artKey(name)).slice(0, 5);
+      const mine = new Set(scTitles.map(normT).filter((k) => k.length >= 2));
+      let hit = null;
+      if (mine.size && cands.length) {
+        let best = 0;
+        await Promise.all(cands.map(async (c) => {
+          const t = await fetch(`https://api.spotify.com/v1/artists/${c.id}/top-tracks`, { headers: H }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+          const n = (t.tracks || []).filter((x) => mine.has(normT(x.name))).length;
+          if (n > best) { best = n; hit = c; }
+        }));
+        if (!hit && mine.size < 2 && cands.length === 1) hit = cands[0];
+      } else if (!mine.size) hit = cands[0] || null; // 比べる曲がない時（Spotify から開いた時など）は、いちばん人気の人
+      if (hit) { id = hit.id; out.image = ((hit.images || [])[0] || {}).url || ''; }
+    }
     if (!id) return out;
     out.id = id;
     const [top, more, info] = await Promise.all([
