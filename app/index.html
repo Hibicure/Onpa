@@ -4180,7 +4180,14 @@ function flingToPlaylist(from) {
   document.body.appendChild(f);
   from.classList.add('flung');
   // 大きさはそのまま。くるくる回りながら上へ抜けていく
-  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translateY(${-(cy + h / 2) - 60}px) rotate(${a0 + (round ? 720 : 0)}deg)`; /* 四角はまっすぐ上へ */ }));
+  // 離した瞬間からギュンと勢いよく回り始めて、回りながら上へ抜けていく（回転は最初が速く、上へは後から速く）
+  const dist = cy + h / 2 + 60, spin = round ? 1080 : 0; // 四角はまっすぐ上へ
+  f.style.transition = 'none';
+  f.animate([
+    { transform: `translateY(0) rotate(${a0}deg)` },
+    { offset: 0.3, transform: `translateY(${-dist * 0.12}px) rotate(${a0 + spin * 0.45}deg)` },
+    { transform: `translateY(${-dist}px) rotate(${a0 + spin}deg)` },
+  ], { duration: 560, easing: 'cubic-bezier(.3,.1,.6,1)', fill: 'forwards' });
   setTimeout(() => { f.remove(); from.classList.remove('flung'); }, 700);
   const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret };
   setTimeout(() => oplPage(t), 230);
