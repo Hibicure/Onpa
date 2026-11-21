@@ -500,7 +500,27 @@
   .alb-meta { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--mute); }
   .alb-play { margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 22px; }
   .alb-play svg { width: 18px; height: 18px; }
-  .fling { position: fixed; z-index: 90; background: center / cover no-repeat; border-radius: 12px; pointer-events: none; transition: transform .5s cubic-bezier(.3,.0,.2,1), opacity .5s ease-in; box-shadow: 0 18px 40px rgba(0,0,0,.3); }
+  /* ジャケを上へ投げた時：大きさはそのまま、カードをめくるようにシュッと上へ抜けていく */
+  .fling { position: fixed; z-index: 290; background: center / cover no-repeat; border-radius: 6px; pointer-events: none; transition: transform .3s cubic-bezier(.55,0,.85,.35); box-shadow: 0 18px 40px rgba(0,0,0,.25); }
+  .disc.flung { opacity: 0 !important; transition: opacity .08s !important; }
+  /* プレイリストを選ぶページ（下から上がってくる、ふつうのページ） */
+  .plpage { position: fixed; inset: 0; z-index: 280; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; transform: translateY(100%); transition: transform .34s cubic-bezier(.2,.8,.2,1); }
+  .plpage.in { transform: none; }
+  .plpage-top { display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 14px) 20px 10px; }
+  .plpage-top .tt { flex: 1; min-width: 0; }
+  .plpage-top b { display: block; font-family: var(--display); font-size: 24px; letter-spacing: -0.02em; }
+  .plpage-top small { display: block; color: var(--mute); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .plpage-top .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--chip); color: var(--ink); flex: none; }
+  .plpage-list { flex: 1; overflow-y: auto; padding: 4px 0 calc(30px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+  /* プレイリスト1つ＝横一列：名前と曲数、その下に中の曲のジャケットが少しずつ重なって並ぶ */
+  .plrow { display: block; width: 100%; text-align: left; padding: 12px 20px 14px; border-bottom: 1px solid var(--line); }
+  .plrow-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+  .plrow-h b { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .plrow-h span { color: var(--mute); font-size: 13px; flex: none; }
+  .plstrip { display: flex; height: 68px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 78%, transparent); }
+  .plstrip img, .plstrip i { width: 68px; height: 68px; flex: none; object-fit: cover; margin-right: -14px; border-radius: 3px; background: var(--chip); box-shadow: 4px 0 10px rgba(0,0,0,.22); position: relative; }
+  .plrow.new .plstrip i { display: grid; place-items: center; font-style: normal; font-size: 30px; color: var(--mute); box-shadow: none; }
+  .plrow.done { opacity: .45; }
   /* プレイリスト */
   .pl-head { margin: 18px 20px 6px; font: 700 13px/1 inherit; color: var(--mute); }
   .pl-head:first-child { margin-top: 6px; }
@@ -3907,9 +3927,17 @@ async function showPlaylists() {
   $('libTitle').textContent = 'Playlists';
   $('shuffle').hidden = true;
   $('results').innerHTML = msg('Loading your playlists…');
-  const mine = await oplList().catch(() => []);
-  const [scl, spl] = await Promise.all([sc ? scApi('/sc/playlists').catch(() => []) : [], spPlaylists().catch(() => [])]);
+  let mine = await oplList().catch(() => []);
   if (mode !== 'playlists') return;
+  const paint = () => {
+    lastResults = [];
+    $('results').innerHTML = `<button class="plrow new" data-plnew="1"><div class="plrow-h"><b>New playlist</b><span>Mix Spotify, SoundCloud and Bandcamp</span></div><div class="plstrip"><i>+</i></div></button>` + mine.map((p) => plRowHTML(p, `data-opl="${esc(p.id)}"`)).join('');
+  };
+  paint();
+  // Spotify・SoundCloud のプレイリストは、最初にまるごと取り込んで、ここに1つにまとめる
+  oplAutoImport().then(async (n) => { if (n && mode === 'playlists') { mine = await oplList().catch(() => mine); paint(); } });
+  return;
+  const [scl, spl] = [[], []];
   lastResults = [];
   const row = (attrs, art, title, sub) => `<button class="row" ${attrs}><img class="art sq" src="${esc(art || '')}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><div class="txt"><div class="t">${esc(title)}</div><div class="s">${sub}</div></div></button>`;
   const head = (t) => `<div class="pl-head">${t}</div>`;
@@ -3929,7 +3957,7 @@ const oplRef = (id) => db.ref(`users/${me.uid}/pls` + (id ? '/' + id : ''));
 async function oplList() {
   if (!me || !me.uid) return [];
   const v = (await oplRef().get()).val() || {};
-  return Object.entries(v).map(([id, p]) => { const tr = Object.values(p.tracks || {}).sort((a, b) => (a.at || 0) - (b.at || 0)); return { id, title: p.title || 'Playlist', at: p.at || 0, n: tr.length, art: (tr[0] && tr[0].artwork) || '' }; }).sort((a, b) => b.at - a.at);
+  return Object.entries(v).map(([id, p]) => { const tr = Object.values(p.tracks || {}).sort((a, b) => (a.at || 0) - (b.at || 0)); return { id, title: p.title || 'Playlist', at: p.at || 0, n: tr.length, src: p.src || '', art: (tr[0] && tr[0].artwork) || '', arts: tr.map((x) => x.artwork).filter(Boolean).slice(0, 10) }; }).sort((a, b) => b.at - a.at);
 }
 async function oplCreate(title) { const r = oplRef().push(); await r.set({ title: String(title).slice(0, 80), at: TS }); return r.key; }
 // アルバムごと（_many に曲の一覧）でも、1曲でも入れる
@@ -3996,20 +4024,77 @@ async function oplImport(title) {
   for (const t of list) { const k = songKey(t) || t.id; if (seen.has(k)) continue; seen.add(k); await ref.push({ ...oplTrack(t), at: t0 + n, by: me.uid }); n++; }
   toast(`Saved “${title}” · ${n} songs`);
 }
-// ジャケを上に投げる：ジャケの絵が上へ飛んでいって、プレイリストを選ぶシートが出る
+// プレイリスト1つ分の横一列（名前・曲数・中の曲のジャケットが重なって並ぶ）
+function plRowHTML(p, attrs) {
+  const arts = (p.arts && p.arts.length ? p.arts : p.art ? [p.art] : []).slice(0, 10);
+  return `<button class="plrow" ${attrs}><div class="plrow-h"><b>${esc(p.title)}</b><span>${p.n} song${p.n === 1 ? '' : 's'}</span></div><div class="plstrip">${arts.length ? arts.map((a, i) => `<img src="${esc(big(a))}" alt="" loading="lazy" style="z-index:${20 - i}" onerror="this.style.visibility='hidden'">`).join('') : '<i></i>'}</div></button>`;
+}
+// あなたの Spotify・SoundCloud のプレイリストを、最初にまるごと Otocloud のプレイリストに入れておく（ゼロから作らなくていいように）
+// 一度入れたものは二度入れない（元のプレイリストには書き込まない）
+let oplImporting = null;
+function oplAutoImport() {
+  if (oplImporting) return oplImporting;
+  oplImporting = (async () => {
+    if (!me || !me.uid) return 0;
+    const mine = await oplList().catch(() => []), have = new Set(mine.map((p) => p.src).filter(Boolean));
+    let done = new Set(); try { done = new Set(JSON.parse(localStorage.getItem('oto_pl_imported') || '[]')); } catch {}
+    const [scl, spl] = await Promise.all([sc ? scApi('/sc/playlists').catch(() => []) : [], spPlaylists().catch(() => [])]);
+    const todo = [...spl.map((p) => ({ src: 'sp:' + p.id, title: p.title, get: () => spPlaylistTracks(p.id) })), ...scl.map((p) => ({ src: 'sc:' + p.id, title: p.title, get: async () => (await scApi('/sc/playlist?id=' + p.id)).map(splitArtist) }))]
+      .filter((x) => !have.has(x.src) && !done.has(x.src));
+    let n = 0;
+    for (const x of todo) {
+      const list = await x.get().catch(() => null); if (!list) continue;
+      const r = oplRef().push(); await r.set({ title: String(x.title || 'Playlist').slice(0, 80), at: TS, src: x.src });
+      const ref = oplRef(r.key + '/tracks'), seen = new Set(), t0 = Date.now(); let k = 0;
+      for (const t of list) { const key = songKey(t) || t.id; if (seen.has(key)) continue; seen.add(key); await ref.push({ ...oplTrack(t), at: t0 + k, by: me.uid }); k++; }
+      done.add(x.src); n++;
+    }
+    try { localStorage.setItem('oto_pl_imported', JSON.stringify([...done])); } catch {}
+    if (n) toast(`Brought in ${n} playlist${n === 1 ? '' : 's'}`);
+    return n;
+  })().finally(() => { setTimeout(() => { oplImporting = null; }, 60000); });
+  return oplImporting;
+}
+// プレイリストを選ぶページ（ジャケを上へ投げた時・長押し）
+async function oplPage(t) {
+  if (!t) return; if (!me || !me.uid) { toast('Sign in to make playlists'); return; }
+  closePlSheet();
+  const el = document.createElement('section'); el.className = 'plpage'; el.id = 'plSheet';
+  el.innerHTML = `<div class="plpage-top"><div class="tt"><b>Add to playlist</b><small>${esc(t.title || '')}${t.artist ? ' · ' + esc(t.artist) : ''}</small></div><button class="x" data-plx="1" aria-label="Close">${X_ICON}</button></div><div class="plpage-list" id="plPageList">${msg('Loading…')}</div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
+  const close = () => { el.classList.remove('in'); setTimeout(() => el.remove(), 340); };
+  const paint = async () => {
+    const lists = await oplList().catch(() => []);
+    const rm = oplNow && t._plk ? `<button class="as-item" data-plrm="1" style="margin:8px 20px">Remove from this playlist</button>` : '';
+    $('plPageList').innerHTML = rm + `<button class="plrow new" data-plnew2="1"><div class="plrow-h"><b>New playlist</b></div><div class="plstrip"><i>+</i></div></button>` + lists.map((p) => plRowHTML(p, `data-pladd="${esc(p.id)}"`)).join('');
+  };
+  await paint();
+  oplAutoImport().then((n) => { if (n && document.body.contains(el)) paint(); });
+  el.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-plx]')) { close(); return; }
+    const a = e.target.closest('[data-pladd]'), nw = e.target.closest('[data-plnew2]'), rmb = e.target.closest('[data-plrm]');
+    if (a) { a.classList.add('done'); const ok = await oplAddAny(a.dataset.pladd, t).catch(() => null); hap(ok ? 'rigid' : 'light'); toast(ok ? `Added to “${a.querySelector('b').textContent}”` : ok === false ? 'Already in this playlist' : "Couldn't add"); close(); }
+    if (nw) { const name = await askName('New playlist', 'Name'); if (!name || !name.trim()) return; const id = await oplCreate(name.trim()); await oplAddAny(id, t); hap('rigid'); toast(`Added to “${name.trim()}”`); close(); }
+    if (rmb) { await oplRef(oplNow + '/tracks/' + t._plk).remove().catch(() => {}); hap('rigid'); toast('Removed'); close(); openOpl(oplNow); }
+  });
+}
+// ジャケを上に投げる：ジャケが大きさそのままシュッと上へ抜けて、プレイリストを選ぶページに変わる
 function flingToPlaylist(from) {
   if (!track) return; hap('rigid');
   const r = from.getBoundingClientRect(), img = track.artwork ? big(track.artwork) : '';
   const f = document.createElement('div'); f.className = 'fling';
   f.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background-image:url("${img}")`;
   document.body.appendChild(f);
-  requestAnimationFrame(() => { f.style.transform = `translateY(${-r.bottom - 40}px) scale(.35) rotate(-8deg)`; f.style.opacity = '0'; });
-  setTimeout(() => f.remove(), 520);
+  from.classList.add('flung');
+  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translateY(${-r.bottom - 60}px)`; }));
+  setTimeout(() => { f.remove(); from.classList.remove('flung'); }, 700);
   const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret };
-  setTimeout(() => oplSheet(t), 260);
+  setTimeout(() => oplPage(t), 230);
 }
 // 曲を長押し → プレイリストに追加（Otocloud のプレイリストを見ている時は「外す」も）
-async function oplSheet(t) {
+async function oplSheet(t) { return oplPage(t); }
+async function oplSheetOld(t) {
   if (!t) return; if (!me || !me.uid) { toast('Sign in to make playlists'); return; }
   closePlSheet(); hap('rigid');
   const lists = await oplList().catch(() => []);
