@@ -4004,9 +4004,13 @@ async function openOpl(id) {
 }
 // Spotify の自分のプレイリスト
 async function spPlaylists() {
-  if (!IN_APP || !spTok) return [];
-  const tok = await spToken(); if (!tok) return [];
-  const d = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: 'Bearer ' + tok } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // （前は「合鍵をまだ取っていない」だけで空にしていて、つないでいても取り込まれなかった。ちゃんと合鍵を取りに行く）
+  if (!IN_APP) return [];
+  const tok = await spToken().catch(() => ''); if (!tok) return [];
+  const r = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+  // プレイリストを読む許可がまだない（前につないだ時には、その許可を頼んでいなかった）：つなぎ直してもらう
+  if (r && (r.status === 403 || r.status === 401)) { if (!spPlaylists.warned) { spPlaylists.warned = 1; toast('Reconnect Spotify in Settings to bring in your Spotify playlists'); } return []; }
+  const d = r && r.ok ? await r.json().catch(() => null) : null;
   return ((d && d.items) || []).filter(Boolean).map((p) => ({ id: p.id, title: p.name, n: (p.tracks && p.tracks.total) || (p.items && p.items.total) || 0, art: ((p.images || [])[0] || {}).url || '' }));
 }
 async function spPlaylistTracks(id) {
