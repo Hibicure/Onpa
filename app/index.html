@@ -2491,6 +2491,17 @@ async function mergeSpotifyLikes() {
 // 検索結果を1つの順番に並べる（SoundCloud・Bandcamp・Spotify を混ぜて）。
 // 上に来るもの：言葉がちゃんと合っている曲・自分がよく聴くアーティスト・公式の曲（Spotify・Bandcamp・本人のアップ）・よく聴かれている曲。
 // 下に行くもの：他人のアップ・聴かれていない謎のアップ・nightcore などの加工版
+// 2つの言葉が、1文字ちがい（足りない・多い・ちがう）までか
+function near1(a, b) {
+  if (a === b) return true; if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, e = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++e > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return e + (a.length - i) + (b.length - j) <= 1;
+}
 function mixRank(list, q) {
   const words = String(q || '').toLowerCase().normalize('NFKC').split(/\s+/).filter(Boolean);
   const qk = artKey(q), taste = loadTaste(), liked = new Set((likesList || []).map((t) => String(t.id)));
@@ -2510,16 +2521,22 @@ function mixRank(list, q) {
   const scoreOf = (t) => {
     const all = [t, ...(t.alts || [])], ids = all.map((x) => String(x.id || ''));
     const hasSp = ids.some((x) => x.startsWith('sp:')), hasBc = ids.some((x) => x.startsWith('bc:')), sc = all.find((x) => /^\d+$/.test(String(x.id)));
-    const hay = (t.title + ' ' + t.artist).toLowerCase().normalize('NFKC');
+    const hay = all.map((x) => x.title + ' ' + x.artist + ' ' + (x.uploader || '')).join(' ').toLowerCase().normalize('NFKC');
     let s = 0;
-    // 言葉が入っていない曲は下へ。ただし Spotify（公式）は、日本語名と英語名・別名もわかった上で返しているので下げない（米津玄師 と Kenshi Yonezu など）
-    if (words.length && words.every((w) => hay.includes(w))) s += 10; else if (!hasSp) s -= 25; else if (Math.min(...all.map((x) => x._spr ?? 99)) < 3) s += 8;
+    // 打った言葉が、いくつ入っているか（いちばん大事）。1文字の打ち間違い（ximiya と Ximya）も入っているとみなす
+    const toks = hay.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    const hit = (w) => hay.includes(w) || (w.length >= 4 && toks.some((x) => x.length >= 3 && near1(x, w)));
+    const cov = words.length ? words.filter(hit).length / words.length : 1;
+    s += cov * 45;
+    if (!hasSp && cov < 1) s -= (1 - cov) * 20;
+    // 言葉が1つも入っていない Spotify の曲は、日本語名と英語名・別名（米津玄師 と Kenshi Yonezu など）で見つかったものかもしれない。Spotify 自身が上位に出した時だけ少し上げる
+    if (hasSp && cov === 0 && Math.min(...all.map((x) => x._spr ?? 99)) < 3) s += 30;
     const ak = artKey(t.artist); if (qk && ak && (ak === qk || ak.startsWith(qk) || qk.includes(ak))) s += 12; // 探したアーティスト本人の曲
     else if (qk && artKey(t.title).startsWith(qk)) s += 4;
     const tv = taste[tasteKey(t.artist)]; if (tv) s += Math.min(20, Math.log2((tv.n || 1) + 1) * 6);
     if (followed.has(artKey(String(t.artist || '').split(',')[0]))) s += 14; // フォローしているアーティスト
     if (ids.some((x) => liked.has(x))) s += 40;
-    if (hasSp) s += 14 + (Math.max(0, ...all.map((x) => x.pop || 0)) / 8);
+    if (hasSp) s += (14 + (Math.max(0, ...all.map((x) => x.pop || 0)) / 8)) * (cov === 1 || cov === 0 ? 1 : 0.4); // 一部の言葉しか入っていない公式の曲は、公式だからといって上げすぎない
     if (hasSp && qn && normT(t.title) === qn) s += 12; // 探した言葉がそのまま公式の曲名
     if (hasBc) s += 5;
     if (all.length > 1) s += 6;
