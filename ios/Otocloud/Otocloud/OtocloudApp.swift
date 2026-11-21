@@ -401,6 +401,10 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                 case "spWarm":
                     // 先につないでおく（Spotify は開かない）
                     result = ["ok": true, "connected": await SpotifyBridge.shared.warm()]
+                case "spPrewake":
+                    // Otocloud を開いた時に、眠っている Spotify を先に起こしておく（すぐ止める）。あとで曲を押した時に待たないように
+                    hookSP()
+                    result = ["ok": true, "woke": await SpotifyBridge.shared.prewake()]
                 case "spPause": SpotifyBridge.shared.pause()
                 case "spResume": SpotifyBridge.shared.resume()
                 case "spSeek": SpotifyBridge.shared.seek(body["t"] as? Double ?? 0)
@@ -1156,7 +1160,20 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     }
 
     // MARK: SPTAppRemoteDelegate
+    /// 先に起こしただけ（流したいわけではない）時は、つながったらすぐ止める
+    private var prewakeAt: Date?
+    func prewake() async -> Bool {
+        if remote.isConnected { return false }
+        if await waitConnect(2) { return false } // もう起きていた
+        guard sessionManager.session != nil else { return false }
+        prewakeAt = Date(); wokeAt = Date(); wakeURI = nil; wakeTries = 1
+        let opened: Bool = await withCheckedContinuation { c in
+            DispatchQueue.main.async { self.remote.authorizeAndPlayURI("") { ok in c.resume(returning: ok) } }
+        }
+        return opened
+    }
     func appRemoteDidEstablishConnection(_ appRemote: SPTAppRemote) {
+        if let p = prewakeAt, Date().timeIntervalSince(p) < 30 { prewakeAt = nil; appRemote.playerAPI?.pause(nil) }
         appRemote.playerAPI?.delegate = self
         appRemote.playerAPI?.subscribe(toPlayerState: nil)
         finishConnect(true)

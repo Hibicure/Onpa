@@ -691,6 +691,7 @@
   .uphead .who { font-family: var(--body); font-weight: 600; font-size: 12px; color: var(--mute); }
   .uprow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); touch-action: pan-y; will-change: transform; }
   .as-item[hidden] { display: none !important; }
+  .set-row .set-sub { display: block; color: var(--mute); font-size: 12px; font-weight: 500; margin-top: 2px; line-height: 1.35; }
   .uprow:last-child { border-bottom: none; }
   .uprow img { width: 38px; height: 38px; border-radius: 0; object-fit: cover; background: var(--holo); flex-shrink: 0; }
   .uprow .txt { flex: 1; min-width: 0; }
@@ -1584,6 +1585,11 @@
     </div>
 
     <div class="set-group">
+      <div class="set-label">Spotify</div>
+      <div class="set-row"><span>Get Spotify ready when Otocloud opens<small class="set-sub">Spotify opens for a moment, then songs start right away</small></span><button class="btn ghost" id="setPrewake">On</button></div>
+    </div>
+
+    <div class="set-group">
       <div class="set-label">On the map</div>
       <div class="set-row"><span id="setPlaceNow">Not set</span><button class="btn ghost" id="setPlaceBtn">Change</button></div>
       <div class="set-row"><span>Show me on the map</span><button class="btn ghost" id="setPlaceShow">On</button></div>
@@ -2128,6 +2134,7 @@ $('obGo').addEventListener('click', async () => {
 });
 
 function startApp() {
+  setTimeout(spPrewake, 1500);
   // SoundCloudで入っているのに、SoundCloudの合鍵が消えていたら、自動でつなぎ直す（検索などが動かなくなるため）
   if (isScUser(firebase.auth().currentUser) && !sc) {
     let tried = false;
@@ -2273,7 +2280,7 @@ function showTab(which) {
 $('tabHome').addEventListener('click', () => showTab('home'));
 // ===================== 設定（右上の @ID から） =====================
 function openSettings() {
-  paintPlaceSetting();
+  paintPlaceSetting(); paintPrewake();
   const user = firebase.auth().currentUser;
   const linked = isScUser(user);
   setFace($('setAvatar'), me); $('setName').textContent = me.name || me.handle; $('setHandle').textContent = '@' + me.handle;
@@ -2940,6 +2947,23 @@ $('npNext').addEventListener('click', () => { hap('rigid'); noteSkip(); unlockAu
 
 // ===================== 地球儀（Geo） =====================
 // 自分のだいたいの場所（市くらい）を、1日1回だけ自分のデータに置く。設定で切れる
+// ===================== Spotify を先に起こしておく =====================
+// 眠っている Spotify は、起こす時に一度だけ Spotify が前に出て、一瞬鳴る（iPhone の決まり。起こしてすぐ止める）。
+// 起きていれば、そのあとは Spotify を開かずに自由に流せるので、Otocloud を開いた時に先に済ませておく。
+// 条件：設定でオン・最近 Otocloud で Spotify の曲を流した・前に起こしてから3時間以上・Spotify が眠っている時だけ
+async function spPrewake() {
+  if (!IN_APP) return;
+  let on = true, used = 0, last = 0;
+  try { on = localStorage.getItem('oto_sp_prewake') !== '0'; used = +localStorage.getItem('oto_sp_used') || 0; last = +localStorage.getItem('oto_sp_prewoke') || 0; } catch {}
+  if (!on || Date.now() - used > 3 * 86400000 || Date.now() - last < 3 * 3600000) return;
+  if (call && call.state === 'live') return;
+  if (player && !player.paused) return; // 何か流している時はしない
+  const st = await nat('spNow').catch(() => null);
+  if (st && st.connected) return; // もう起きている
+  try { localStorage.setItem('oto_sp_prewoke', String(Date.now())); } catch {}
+  nat('spPrewake').catch(() => {});
+}
+function paintPrewake() { let on = true; try { on = localStorage.getItem('oto_sp_prewake') !== '0'; } catch {} $('setPrewake').textContent = on ? 'On' : 'Off'; }
 // ===================== 地図に出る場所（本人が決める） =====================
 // 国は必ず、都市は任意。都市を入れた人はその都市のあたり、国だけの人はその国の中に散らばって出る（同じ所に固まらないように）
 const JP_SPOTS = [[43.06,141.35],[38.27,140.87],[37.9,139.02],[36.56,136.66],[35.68,139.69],[35.44,139.64],[35.86,139.65],[35.61,140.12],[35.18,136.9],[34.97,138.38],[35.01,135.77],[34.69,135.5],[34.69,135.19],[34.39,132.46],[34.66,133.92],[33.84,132.77],[33.59,130.4],[32.8,130.71],[31.6,130.56],[26.21,127.68],[36.65,138.18],[36.39,139.06],[39.72,140.1],[40.82,140.74],[34.34,134.04],[33.24,131.61]];
@@ -3030,6 +3054,7 @@ $('paHide').addEventListener('click', () => {
 });
 $('placeAsk').addEventListener('click', (e) => { if (e.target === $('placeAsk')) $('placeAsk').hidden = true; });
 $('setPlaceBtn').addEventListener('click', () => openPlaceAsk());
+$('setPrewake').addEventListener('click', () => { let on = true; try { on = localStorage.getItem('oto_sp_prewake') !== '0'; localStorage.setItem('oto_sp_prewake', on ? '0' : '1'); } catch {} paintPrewake(); });
 $('setPlaceShow').addEventListener('click', () => {
   let on = true; try { on = localStorage.getItem('oto_place') !== '0'; } catch {}
   if (on) $('paHide').click(); else openPlaceAsk();
@@ -4181,11 +4206,11 @@ function flingToPlaylist(from) {
   from.classList.add('flung');
   // 大きさはそのまま。くるくる回りながら上へ抜けていく
   // 離した瞬間からギュンと勢いよく回り始めて、回りながら上へ抜けていく（回転は最初が速く、上へは後から速く）
-  const dist = cy + h / 2 + 60, spin = round ? 1080 : 0; // 四角はまっすぐ上へ
+  const dist = cy + h / 2 + 60, spin = round ? 1800 : 0; // 四角はまっすぐ上へ
   f.style.transition = 'none';
   f.animate([
     { transform: `translateY(0) rotate(${a0}deg)` },
-    { offset: 0.3, transform: `translateY(${-dist * 0.12}px) rotate(${a0 + spin * 0.45}deg)` },
+    { offset: 0.3, transform: `translateY(${-dist * 0.1}px) rotate(${a0 + spin * 0.55}deg)` },
     { transform: `translateY(${-dist}px) rotate(${a0 + spin}deg)` },
   ], { duration: 560, easing: 'cubic-bezier(.3,.1,.6,1)', fill: 'forwards' });
   setTimeout(() => { f.remove(); from.classList.remove('flung'); }, 700);
@@ -5347,6 +5372,7 @@ class SpotifyMedia extends EventTarget {
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
+    try { localStorage.setItem('oto_sp_used', String(Date.now())); } catch {}
     this._enq = []; this._loadAt = performance.now(); this._retried = false; this._silentN = 0; this._stuckSince = 0; this._lastPos = null; this._want = !!autoplay; this._meta = meta ? { title: meta.title, artist: meta.artist } : null;
     this._uri = 'spotify:track:' + String(trackId).replace(/^sp:/, ''); this._t = 0; this._dur = meta && meta.duration ? meta.duration / 1000 : 0; this._ended = false; this._paused = true;
     this.fire('timeupdate'); if (this._dur) { this.fire('durationchange'); this.fire('loadedmetadata'); }
