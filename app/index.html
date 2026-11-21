@@ -2877,10 +2877,15 @@ function globePeople() {
   const list = [];
   if (me && me.place) list.push({ uid: me.uid, f: me, self: true, lat: me.place.lat, lng: me.place.lng });
   for (const [uid, f] of friends) if (f && f.place && f.place.lat != null) { const [a, b] = jitter(uid); list.push({ uid, f, lat: f.place.lat + a, lng: f.place.lng + b }); }
-  for (const a of gl.artists || []) { const [x, y] = jitter('a' + a.key); list.push({ artist: true, id: a.sc || '', sp: a.sp || '', key: a.key, name: a.name, avatar: a.img || '', place: a.place, lat: a.lat + x * 0.6, lng: a.lng + y * 0.6 }); }
+  for (const a of gl.artists || []) { if (me && me.place && me.scId && String(a.sc || '') === String(me.scId)) continue; const [x, y] = jitter('a' + a.key); list.push({ artist: true, id: a.sc || '', sp: a.sp || '', key: a.key, name: a.name, avatar: a.img || '', place: a.place, lat: a.lat + x * 0.6, lng: a.lng + y * 0.6 }); }
   // 今の曲にコメント・いいねした SoundCloud の人（場所が分かる人だけ）
+  // 同じ人を2回出さない：自分・友達・アーティストとして出ている人は、コメント・いいねした人としては出さない
+  // （自分の SoundCloud でいいねしていると、自分が2人出てしまうため）
   const shown = new Set((gl.artists || []).map((a) => String(a.sc || '')));
-  for (const u of (gl.listeners && track && gl.listeners.for === String(track.trackId) ? gl.listeners.people : [])) { if (shown.has(u.id)) continue; const [x, y] = jitter('l' + u.id); list.push({ artist: true, listener: true, id: u.id, name: u.name, avatar: u.avatar, place: u.place, lat: u.lat + x * 0.6, lng: u.lng + y * 0.6 }); }
+  if (me && me.scId) shown.add(String(me.scId));
+  for (const [, f] of friends) if (f && f.scId) shown.add(String(f.scId));
+  const myNames = new Set([me && me.handle, me && me.name].filter(Boolean).map((x) => artKey(x)));
+  for (const u of (gl.listeners && track && gl.listeners.for === String(track.trackId) ? gl.listeners.people : [])) { if (shown.has(String(u.id)) || (u.name && myNames.has(artKey(u.name)) && me && me.place)) continue; shown.add(String(u.id)); const [x, y] = jitter('l' + u.id); list.push({ artist: true, listener: true, id: u.id, name: u.name, avatar: u.avatar, place: u.place, lat: u.lat + x * 0.6, lng: u.lng + y * 0.6 }); }
   dummyFriends().forEach((d, i) => { const [la, ln] = DUMMY_PLACES[i % DUMMY_PLACES.length]; const [a, b] = jitter(d.uid); list.push({ ...d, lat: la + a, lng: ln + b }); });
   return list;
 }
