@@ -82,7 +82,7 @@
   [hidden] { display: none !important; }
   .shell { max-width: 440px; margin: 0 auto; min-height: 100dvh; position: relative; padding-bottom: calc(150px + var(--safe-b)); }
   /* ホームは、いちばん下の段が下のプレーヤーとタブに隠れないよう、もっと下までスクロールできるように */
-  .shell:has(#viewHome:not([hidden])) { padding-bottom: calc(240px + var(--safe-b)); }
+  .shell:has(#viewHome:not([hidden])) { padding-bottom: calc(190px + var(--safe-b)); }
 
   /* ---------- ヘッダー ---------- */
   .head { display: flex; align-items: center; justify-content: space-between; padding: calc(20px + env(safe-area-inset-top)) 20px 8px; }
@@ -1415,6 +1415,11 @@
       <div class="hhead"><div class="htitle">Your likes</div><button class="btn ghost" id="hShuffle">Shuffle</button></div>
       <div class="jgrid" id="hLikes"></div>
     </section>
+    <section class="hsec" id="hMoreSec" hidden>
+      <div class="hhead"><div class="htitle">More for you</div></div>
+      <div class="jgrid" id="hMore"></div>
+    </section>
+    <div id="hTail" aria-hidden="true" style="height:1px"></div>
     <div class="hero" id="hHero" hidden>
       <b>Start with your music</b>
       <p>Connect SoundCloud to bring your likes and playlists here, or search for anything.</p>
@@ -6353,7 +6358,7 @@ function jkHTML(t, list, i, who) {
     <div class="cover"><img src="${esc(big(t.artwork))}" alt="" loading="lazy" onerror="this.removeAttribute('src')">${who ? `<span class="who">${face(who)}</span>` : ''}</div>
     <div class="t">${esc(t.title)}</div><div class="s">${esc(who ? who.name : t.artist)}</div></button>`;
 }
-let homeLists = { mine: [], friends: [], recent: [], likes: [], sent: [] };
+let homeLists = { mine: [], friends: [], recent: [], likes: [], sent: [], more: [] };
 let myTracks = null, myTracksLoading = false;
 function renderHome() {
   // 自分がSoundCloudに上げた曲
@@ -6378,14 +6383,61 @@ function renderHome() {
   $('hRecentSec').hidden = !homeLists.recent.length;
   $('hRecent').innerHTML = homeLists.recent.map((t, i) => jkHTML(t, 'recent', i)).join('');
   // いいね
-  homeLists.likes = likesList ? likesList.slice(0, 12) : [];
+  homeLists.likes = likesList ? likesList.slice(0, homeLikesN) : [];
   $('hLikesSec').hidden = !homeLists.likes.length;
   $('hLikes').innerHTML = homeLists.likes.map((t, i) => jkHTML(t, 'likes', i)).join('');
   if (sc && !likesList) loadLikes().then(() => { if (!$('viewHome').hidden) renderHome(); }).catch(() => {});
   // 何もない時は、つなぐか探すかを案内
   $('hHero').hidden = !!(homeLists.mine.length || homeLists.recent.length || homeLists.likes.length || homeLists.friends.length) && !!sc;
   $('hConnect').hidden = !!sc;
+  homeMore.list.length ? paintHomeMore() : ($('hMoreSec').hidden = true);
 }
+// ホームは下へスクロールするほど曲が出てくる：まず自分のいいねを全部、そのあとは聴いた曲・いいねに似た曲を次々と
+let homeLikesN = 12;
+const homeMore = { list: [], seen: new Set(), seeds: [], busy: false, done: false };
+function paintHomeMore() {
+  homeLists.more = homeMore.list;
+  $('hMoreSec').hidden = !homeMore.list.length;
+  const g = $('hMore'), have = g.children.length;
+  if (have > homeMore.list.length) g.innerHTML = '';
+  g.insertAdjacentHTML('beforeend', homeMore.list.slice(g.children.length).map((t, i) => jkHTML(t, 'more', g.children.length + i)).join(''));
+}
+async function homeGrow() {
+  if ($('viewHome').hidden) return;
+  // ①いいねの残り
+  if (likesList && homeLikesN < likesList.length) {
+    homeLikesN += 12;
+    const g = $('hLikes'); homeLists.likes = likesList.slice(0, homeLikesN);
+    g.insertAdjacentHTML('beforeend', homeLists.likes.slice(g.children.length).map((t, i) => jkHTML(t, 'likes', g.children.length + i)).join(''));
+    return;
+  }
+  // ②似た曲（SoundCloud の「関連する曲」。種は最近聴いた曲といいね）
+  if (homeMore.busy || homeMore.done) return;
+  homeMore.busy = true;
+  try {
+    if (!homeMore.seeds.length && !homeMore.used) {
+      homeMore.used = true;
+      const pool = [...recent.slice(0, 10), ...(likesList || []).slice(0, 30)].filter((t) => /^\d+$/.test(String(t.id || t.trackId || '')));
+      homeMore.seeds = shuffled(pool).map((t) => String(t.id || t.trackId));
+      for (const t of [...recent, ...(likesList || [])]) homeMore.seen.add(String(t.id || t.trackId));
+    }
+    let added = 0;
+    while (added < 8 && homeMore.seeds.length) {
+      const id = homeMore.seeds.shift();
+      const d = await fetch(`${WORKER}/related?id=${id}`, { headers: await scHeaders() }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+      for (const t of (d || []).map(splitArtist)) {
+        const k = String(t.id), sk = songKey(t);
+        if (homeMore.seen.has(k) || (sk && homeMore.seen.has(sk))) continue;
+        homeMore.seen.add(k); if (sk) homeMore.seen.add(sk);
+        homeMore.list.push(t); added++;
+      }
+    }
+    if (!homeMore.seeds.length && !added) homeMore.done = true;
+    paintHomeMore();
+  } finally { homeMore.busy = false; }
+}
+// いちばん下が見えそうになったら、次を読み込む
+if ('IntersectionObserver' in window) new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) homeGrow(); }, { rootMargin: '0px 0px 900px 0px' }).observe($('hTail'));
 $('viewHome').addEventListener('click', (e) => {
   if (e.target.closest('#hConnect')) { connectSC(); return; }
   if (e.target.closest('#hSearch')) { $('q').focus(); return; }
@@ -6396,7 +6448,7 @@ $('viewHome').addEventListener('click', (e) => {
   const b = e.target.closest('.jk');
   if (!b) return;
   const which = b.dataset.list, i = Number(b.dataset.i);
-  const list = which === 'likes' ? likesList : homeLists[which];
+  const list = which === 'likes' ? likesList : which === 'more' ? homeMore.list : homeLists[which];
   if (which === 'sent' && list && list[i]) { markSentSeen(list[i].key); playFrom([list[i]], 0); renderHome(); return; }
   if (list && list[i]) playFrom(list, i);
 });
