@@ -517,11 +517,12 @@
   .plrow-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px; }
   .plrow-h b { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .plrow-h span { color: var(--mute); font-size: 13px; flex: none; }
-  /* ジャケの列は、まわり四辺をふわっとぼかす（右は長めに消えていく） */
-  .plstrip { display: flex; height: 68px; overflow: hidden;
-    -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,.25) 0, #000 10px, #000 72%, transparent 100%), linear-gradient(180deg, rgba(0,0,0,.2) 0, #000 9px, #000 calc(100% - 9px), rgba(0,0,0,.2) 100%); -webkit-mask-composite: source-in;
-    mask-image: linear-gradient(90deg, rgba(0,0,0,.25) 0, #000 10px, #000 72%, transparent 100%), linear-gradient(180deg, rgba(0,0,0,.2) 0, #000 9px, #000 calc(100% - 9px), rgba(0,0,0,.2) 100%); mask-composite: intersect; }
-  .plstrip img, .plstrip i { width: 68px; height: 68px; flex: none; object-fit: cover; margin-right: -14px; border-radius: 3px; background: var(--chip); box-shadow: 4px 0 10px rgba(0,0,0,.22); position: relative; }
+  /* ジャケの列：横にスクロールできる。1枚ずつふちをふわっとぼかして、ぐっと重ねる */
+  .plstrip { display: flex; height: 70px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x pan-y; overscroll-behavior-x: contain; margin-right: -20px; padding-right: 30px;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .plstrip::-webkit-scrollbar { display: none; }
+  .plstrip img, .plstrip i { width: 70px; height: 70px; flex: none; object-fit: cover; margin-right: -30px; background: var(--chip); position: relative; }
+  .plstrip img { -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%); mask-composite: intersect; box-shadow: none !important; border-radius: 4px !important; }
   .plrow.new .plstrip i { display: grid; place-items: center; font-style: normal; font-size: 30px; color: var(--mute); box-shadow: none; }
   .plrow.done { opacity: .45; }
   /* プレイリスト */
@@ -3976,7 +3977,7 @@ const oplRef = (id) => db.ref(`users/${me.uid}/pls` + (id ? '/' + id : ''));
 async function oplList() {
   if (!me || !me.uid) return [];
   const v = (await oplRef().get()).val() || {};
-  return Object.entries(v).map(([id, p]) => { const tr = Object.values(p.tracks || {}).sort((a, b) => (a.at || 0) - (b.at || 0)); return { id, title: p.title || 'Playlist', at: p.at || 0, n: tr.length, src: p.src || '', art: (tr[0] && tr[0].artwork) || '', arts: tr.map((x) => x.artwork).filter(Boolean).slice(0, 10) }; }).sort((a, b) => b.at - a.at);
+  return Object.entries(v).map(([id, p]) => { const tr = Object.values(p.tracks || {}).sort((a, b) => (a.at || 0) - (b.at || 0)); return { id, title: p.title || 'Playlist', at: p.at || 0, n: tr.length, src: p.src || '', art: (tr[0] && tr[0].artwork) || '', arts: tr.map((x) => x.artwork).filter(Boolean).slice(0, 40) }; }).sort((a, b) => b.at - a.at);
 }
 async function oplCreate(title) { const r = oplRef().push(); await r.set({ title: String(title).slice(0, 80), at: TS }); return r.key; }
 // アルバムごと（_many に曲の一覧）でも、1曲でも入れる
@@ -4043,10 +4044,13 @@ async function oplImport(title) {
   for (const t of list) { const k = songKey(t) || t.id; if (seen.has(k)) continue; seen.add(k); await ref.push({ ...oplTrack(t), at: t0 + n, by: me.uid }); n++; }
   toast(`Saved “${title}” · ${n} songs`);
 }
+// ジャケの列を横にスクロールした直後の「押した」は、プレイリストを開かない・追加しない
+document.addEventListener('scroll', (e) => { if (e.target && e.target.classList && e.target.classList.contains('plstrip')) e.target._scrolledAt = Date.now(); }, true);
+document.addEventListener('click', (e) => { const st = e.target.closest && e.target.closest('.plrow'); const strip = st && st.querySelector('.plstrip'); if (strip && Date.now() - (strip._scrolledAt || 0) < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
 // プレイリスト1つ分の横一列（名前・曲数・中の曲のジャケットが重なって並ぶ）
 function plRowHTML(p, attrs) {
-  const arts = (p.arts && p.arts.length ? p.arts : p.art ? [p.art] : []).slice(0, 10);
-  return `<button class="plrow" ${attrs}><div class="plrow-h"><b>${esc(p.title)}</b><span>${p.n} song${p.n === 1 ? '' : 's'}</span></div><div class="plstrip">${arts.length ? arts.map((a, i) => `<img src="${esc(big(a))}" alt="" loading="lazy" style="z-index:${20 - i}" onerror="this.style.visibility='hidden'">`).join('') : '<i></i>'}</div></button>`;
+  const arts = (p.arts && p.arts.length ? p.arts : p.art ? [p.art] : []).slice(0, 40);
+  return `<button class="plrow" ${attrs}><div class="plrow-h"><b>${esc(p.title)}</b><span>${p.n} song${p.n === 1 ? '' : 's'}</span></div><div class="plstrip">${arts.length ? arts.map((a, i) => `<img src="${esc(big(a))}" alt="" loading="lazy" style="z-index:${60 - i}" onerror="this.style.visibility='hidden'">`).join('') : '<i></i>'}</div></button>`;
 }
 // あなたの Spotify・SoundCloud のプレイリストを、最初にまるごと Otocloud のプレイリストに入れておく（ゼロから作らなくていいように）
 // 一度入れたものは二度入れない（元のプレイリストには書き込まない）
