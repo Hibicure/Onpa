@@ -1116,6 +1116,7 @@
   .lyr-edit { flex: 1; margin: 8px 24px; padding: 14px; border-radius: 16px; border: 0; resize: none; font: 600 19px/1.6 inherit; color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; -webkit-user-select: text; user-select: text; }
   .lyr-edit[hidden] { display: none; }
   body:not(.artist-mode) #shuffleLikes { display: none !important; }
+  #shuffleLikes.on { background: var(--ink) !important; color: var(--paper) !important; }
   #ahPic { cursor: pointer; }
   .lyr-genius { display: block; margin: 10px 0 40px; font-size: 12px; font-weight: 700; color: var(--mute); text-decoration: underline; padding: 6px 0; }
   /* 下のミニプレーヤーとタブ：透けない（ジャケットなどが後ろに見えないように） */
@@ -1171,7 +1172,7 @@
   .artist-head .ah-sub { font-size: 12px; color: var(--mute); margin-top: 2px; }
   .ah-follow { margin-top: 10px; height: 32px; padding: 0 16px; border-radius: 999px; font-weight: 700; font-size: 13px; background: var(--ink); color: var(--paper); align-self: flex-start; }
   .ah-follow.on { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 35%, transparent); }
-  body.artist-mode #libbar { position: sticky; top: var(--ahH, 160px); z-index: 5; background: var(--ah-page, var(--paper)); margin: 0; padding: 4px 16px 6px; }
+  body.artist-mode #libbar { position: sticky; top: var(--ahH, 160px); z-index: 5; background: var(--ah-page, var(--paper)); margin: 0; padding: 4px 16px 6px; box-shadow: 0 -8px 0 var(--ah-page, var(--paper)); }
   body.artist-mode { --ah-page: color-mix(in srgb, var(--ah-tint, var(--paper)) 32%, var(--paper)); background: var(--ah-page) !important; transition: background .4s ease; }
   body.artist-mode .nav, body.artist-mode .mini { background: var(--ah-page) !important; }
   .head .right .mark-ic.far { width: 26px; height: 26px; flex: none; color: var(--ink); }
@@ -2267,6 +2268,7 @@ function rowHTML(t, i) {
     </div>`;
 }
 function renderTracks(list, emptyHTML) {
+  if (likesOnly && mode === 'artist' && list !== artistFull && !list._likes) { artistFull = list; list = Object.assign(artistLikes(artistNow.name), { _likes: 1 }); }
   lastResults = list;
   $('results').classList.remove('stack');
   $('results').innerHTML = list.length ? list.map(rowHTML).join('') : emptyHTML;
@@ -3580,9 +3582,19 @@ $('upList').addEventListener('click', (e) => {
   else { upNext = upNext.filter((n) => n.key !== b.dataset.rm); renderUpNext(); }
 });
 
+// 「My likes」：この人の曲のうち、自分がいいねした曲だけを並べる（いきなり流さない）。もう一度押すと全部の曲に戻る。流すなら Shuffle か曲を押す
+let likesOnly = false, artistFull = null;
 $('shuffleLikes').addEventListener('click', () => {
-  const list = shuffled(artistLikes(artistNow.name)); if (!list.length) return;
-  hap('light'); unlockAudio(); playFrom(list, 0); toast(`Your likes by ${artistNow.name}`);
+  const b = $('shuffleLikes'); hap('light');
+  if (!likesOnly) {
+    const list = artistLikes(artistNow.name); if (!list.length) return;
+    artistFull = lastResults.slice(); likesOnly = true; b.classList.add('on');
+    renderTracks(Object.assign(list, { _likes: 1 }), msg('No likes yet'));
+  } else {
+    likesOnly = false; b.classList.remove('on');
+    if (artistFull) renderTracks(artistFull, msg('No tracks yet'));
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 // アーティストの写真を押したら、その人の曲をシャッフルで流す
 $('ahPic').addEventListener('click', () => {
@@ -3815,7 +3827,7 @@ $('libBack').addEventListener('click', () => {
 // その人の曲のページ（アーティスト名・友だちの名前から）
 async function openArtist(userId, name, opt = {}) {
   if (!userId && !opt.spArtistId && !opt.byName) return;
-  artistNow = { userId, name, spArtistId: opt.spArtistId || '' }; $('shuffleLikes').hidden = true;
+  artistNow = { userId, name, spArtistId: opt.spArtistId || '' }; $('shuffleLikes').hidden = true; likesOnly = false; artistFull = null; $('shuffleLikes').classList.remove('on');
   closeNp();
   showTab('listen');
   libBackTo = mode === 'playlist' || mode === 'artist' ? 'search' : (mode || 'search');
@@ -4028,7 +4040,12 @@ async function spArtistAlbums(spId) {
     $('spAlbums').addEventListener('click', albRowClick);
   } catch {}
 }
-function measureAH() { requestAnimationFrame(() => document.body.style.setProperty('--ahH', $('artistHead').offsetHeight + 'px')); }
+// ヘッダーの高さ（曲の上のバーをその真下に止める）。中身が後から増えたり減ったりしても、すき間ができないように見張る
+function measureAH() {
+  const h = $('artistHead');
+  requestAnimationFrame(() => document.body.style.setProperty('--ahH', Math.floor(h.getBoundingClientRect().height) + 'px'));
+  if (!measureAH.ro && window.ResizeObserver) { measureAH.ro = new ResizeObserver(() => { if (!h.hidden) document.body.style.setProperty('--ahH', Math.floor(h.getBoundingClientRect().height) + 'px'); }); measureAH.ro.observe(h); }
+}
 // その人のヘッダー：プロフィール画像・名前・場所・フォロワー。背景は画像を大きくぼかしたもの、ページの色もその画像の色に
 // アーティストのフォロー：SoundCloudをつないでいれば、ここでそのままSoundCloudのフォロー。つないでいなければ、SoundCloudのページを開く
 async function artistFollow(userId, handle) {
