@@ -4668,7 +4668,7 @@ class SpotifyMedia extends EventTarget {
         if (this._uri !== uri || !this._want) return;
         this._stuckSince = 0; this._lastPos = null; const at = Math.max(0, this._t || 0);
         const ok = i === 0 && await this._webPlay(uri, at);
-        if (!ok) await Promise.race([nat('spPlay', { uri, at }).catch(() => null), new Promise((r) => setTimeout(r, 6000))]);
+        if (!ok) await Promise.race([this._natPlay(uri, at), new Promise((r) => setTimeout(r, 6000))]);
         if (await this._moving(uri, 8000)) return;
       }
       if (this._uri !== uri || !this._want) return;
@@ -4680,7 +4680,10 @@ class SpotifyMedia extends EventTarget {
   get paused() { return this._paused; }
   get duration() { return this._dur; }
   get currentTime() { return (this._paused || this._stuckSince) ? this._t : Math.min(this._dur || 1e9, this._t + (performance.now() - this._at) / 1000); }
-  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); nat('spSeek', { t: this._t }).catch(() => {}); this._web('PUT', '/seek?position_ms=' + Math.round(this._t * 1000)); this.fire('timeupdate'); }
+  set currentTime(v) { this._t = Math.max(0, v || 0); this._at = performance.now(); this._stuckSince = 0; this._lastPos = null;
+    // まだ Spotify でこの曲が流れていない時は、位置だけ覚えておく（▶ でこの位置から流す。Spotify の別の曲を動かさない）
+    if (this._pending) { this.fire('timeupdate'); return; }
+    nat('spSeek', { t: this._t }).catch(() => {}); this._web('PUT', '/seek?position_ms=' + Math.round(this._t * 1000)); this.fire('timeupdate'); }
   isPreloaded() { return false; }
   preload() {}
   async load(trackId, autoplay = false, meta) {
@@ -4699,7 +4702,7 @@ class SpotifyMedia extends EventTarget {
       // Spotify が寝ていて受け付けない時だけ、Spotify を一瞬開いて起こす
       const now = await Promise.race([nat('spNow').catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 700))]); // 返事が遅い時は待たない
       if (!(now && now.connected) && await this._webPlay(uri, 0)) return;
-      const r = await Promise.race([nat('spPlay', { uri, at: 0 }).catch(() => ({ ok: false })), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
+      const r = await Promise.race([this._natPlay(uri, 0).then((x) => x || { ok: false }), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
       if (r === 'slow') return; // 始まれば、知らせ・問い合わせで再生中になる
       if (!r || !r.ok) {
         // 「失敗」と返ってきても、実は流れていることがよくある。Web の仕組みでもう一度頼んで、しばらく確かめてから判断する
@@ -4722,7 +4725,7 @@ class SpotifyMedia extends EventTarget {
         if (st && st.uri && this._mine(st, uri)) { this._state({ ...st, uri }); if (st.paused !== false) { nat('spResume').catch(() => {}); this._web('PUT', '/play'); } return; }
         if (st && st.connected) { const r0 = await nat('spPlay', { uri, at }).catch(() => null); if (r0 && r0.ok) return; }
         if (await this._webPlay(uri, at)) return;
-        const r = await nat('spPlay', { uri, at }).catch(() => null);
+        const r = await this._natPlay(uri, at);
         if (r && r.ok) return;
       })();
     }
@@ -4737,8 +4740,18 @@ class SpotifyMedia extends EventTarget {
   }
   // Web の仕組みで、この曲をこの位置から流す（Spotify を開かない）。受け付けられたら true
   // この iPhone の Spotify（パソコンなど、ほかの端末では鳴らさない）。1分は覚えておく
+  // アプリ経由で流す。Spotify とつながっていない時は Spotify を一瞬開いて起こすことになるので、それは30秒に1回まで
+  // （何回も Spotify が開いては戻る、を起こさない。起こした後は Web の仕組みで流せる）
+  async _natPlay(uri, at) {
+    const st = await Promise.race([nat('spNow').catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 700))]);
+    if (!(st && st.connected)) {
+      if (Date.now() - (this._wokeAt || 0) < 30000) return null;
+      this._wokeAt = Date.now(); this._devAt = 0; // 起こした後は、iPhone の Spotify を探し直す
+    }
+    return nat('spPlay', { uri, at }).catch(() => null);
+  }
   async _phone() {
-    if (this._devAt && performance.now() - this._devAt < 60000) return this._dev || '';
+    if (this._dev && this._devAt && performance.now() - this._devAt < 60000) return this._dev; // 見つからなかった時は覚えない（起きた直後にすぐ探し直せるように）
     try {
       const tok = await spToken(); if (!tok) return '';
       const d = await fetch('https://api.spotify.com/v1/me/player/devices', { headers: { Authorization: 'Bearer ' + tok } }).then((r) => (r.ok ? r.json() : null));
