@@ -4828,7 +4828,8 @@ function heartBurst(btn, like) {
   btn.classList.remove('pop', 'unpop'); void btn.offsetWidth; btn.classList.add(like ? 'pop' : 'unpop');
   setTimeout(() => btn.classList.remove('pop', 'unpop'), 620);
   if (!like) { hap('unheart'); return; }
-  hap('medium'); setTimeout(() => hap('rigid'), 150); // ドクン、ドクン（前の気持ちいい方に戻した）
+  // ドクン、ドクン。もっと深く強く（iPhone アプリの Core Haptics の手ごたえ）
+  hap('heartDeep');
   btn.querySelector('.flash')?.remove();
   const k = document.createElement('span'); k.className = 'flash';
   k.innerHTML = Array.from({ length: 10 }, (_, i) => `<i style="--a:${i * 36 + (i % 2 ? 8 : 0)}deg;--l:${i % 2 ? 6 : 9}px"></i>`).join('')

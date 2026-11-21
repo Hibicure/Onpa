@@ -1183,6 +1183,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     static let light = UIImpactFeedbackGenerator(style: .light)
     static let rigid = UIImpactFeedbackGenerator(style: .rigid)
     static let medium = UIImpactFeedbackGenerator(style: .medium)
+    static let heavy = UIImpactFeedbackGenerator(style: .heavy)
     static let note = UINotificationFeedbackGenerator()
     static func play(_ k: String) {
         switch k {
@@ -1196,7 +1197,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         default:
             // 自分で作った手ごたえ（Core Haptics）。使えない端末では、近いふつうの手ごたえで代わりにする
             if let p = Custom.patterns[k], Custom.play(p) { return }
-            if k.hasPrefix("star") || k == "heart" { rigid.impactOccurred(intensity: 0.9); rigid.prepare() }
+            if k.hasPrefix("star") || k.hasPrefix("heart") && k != "heartOff" { heavy.impactOccurred(intensity: 1.0); heavy.prepare() }
             else if k == "unheart" { soft.impactOccurred(intensity: 0.5); soft.prepare() }
             else { sel.selectionChanged() }
         }
@@ -1209,6 +1210,8 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         static let patterns: [String: [Tap]] = [
             // ♡：ぷくっ（やわらかく膨らむ）→ ポンッ（はじける）→ ぷるっ（小さく戻る）
             "heart": [(0, 0.45, 0.15, 0.07), (0.09, 1.0, 0.55, 0), (0.2, 0.35, 0.35, 0)],
+            // ♡（いま使う方）：ドクン、ドクン。1回目は深く重く「グッ」と沈む（強さいっぱい・鋭さ低め＋短い震え）、2回目はそれより少し軽く締める
+            "heartDeep": [(0, 1.0, 0.08, 0.075), (0.03, 1.0, 0.3, 0), (0.17, 0.9, 0.42, 0), (0.17, 0.55, 0.06, 0.05)],
             // ♡を外す：しぼむ感じの、やわらかい1回
             "unheart": [(0, 0.4, 0.1, 0.09)],
             // ★：1つ増えるごとに、少しずつ強く・高く（コッ、コッ、コン）
