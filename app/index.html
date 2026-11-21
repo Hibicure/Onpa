@@ -2289,7 +2289,7 @@ $('q').addEventListener('input', (e) => {
 
 function rowHTML(t, i) {
   // 四角いジャケット・アーティスト名の横に小さく長さ・右に「＋」とハート（いいねの一覧とプレイリストではハートなし）
-  const heart = mode === 'search' || mode === 'artist';
+  const heart = mode === 'search' || mode === 'artist' || (mode === 'playlist' && albPage);
   const liked = likedIds.has(String(t.id));
   // どこの曲か（検索では全部の行に小さく）：SoundCloud / Bandcamp / Apple Music / Spotify
   const sid = String(t.id || '');
@@ -2299,7 +2299,7 @@ function rowHTML(t, i) {
   const LOGO = { SoundCloud: 'sc', Bandcamp: 'bc', 'Apple Music': 'am', Spotify: 'sp' };
   const srcOf = (x) => { const d = String(x.id || ''); return d.startsWith('bc:') ? 'Bandcamp' : d.startsWith('am:') ? 'Apple Music' : d.startsWith('sp:') || x.spuri ? 'Spotify' : 'SoundCloud'; };
   const seenSrc = new Set();
-  const logos = mode === 'search' ? `<span class="srcs">${[t, ...(t.alts || [])].map((x, k) => [x, k]).filter(([x]) => { const n = srcOf(x); if (seenSrc.has(n)) return false; seenSrc.add(n); return true; }).map(([x, k]) => { const n = srcOf(x); return `<button class="srclogo" data-src="${i}:${k}" aria-label="Play on ${n}"><i class="glyph g-${LOGO[n]}"></i></button>`; }).join('')}</span>` : '';
+  const logos = mode === 'search' || (mode === 'playlist' && albPage) ? `<span class="srcs">${[t, ...(t.alts || [])].map((x, k) => [x, k]).filter(([x]) => { const n = srcOf(x); if (seenSrc.has(n)) return false; seenSrc.add(n); return true; }).map(([x, k]) => { const n = srcOf(x); return `<button class="srclogo" data-src="${i}:${k}" aria-label="Play on ${n}"><i class="glyph g-${LOGO[n]}"></i></button>`; }).join('')}</span>` : '';
   return `
     <div class="row" role="button" tabindex="0" data-i="${i}" data-id="${t.id}">
       <span class="artw"><img class="art" src="${esc(t.artwork)}" alt="" loading="lazy" onerror="this.removeAttribute('src')"><i class="eq" aria-hidden="true"><b></b><b></b><b></b><b></b></i></span>
@@ -3769,7 +3769,7 @@ async function oplAdd(plId, t) {
 async function oplTracks(plId) { const v = (await oplRef(plId + '/tracks').get()).val() || {}; return Object.entries(v).map(([key, x]) => ({ ...x, _plk: key })).sort((a, b) => (a.at || 0) - (b.at || 0)); }
 let oplNow = null;
 async function openOpl(id) {
-  mode = 'playlist'; albumBack = null; oplNow = id; spplNow = null;
+  mode = 'playlist'; albPage = false; albumBack = null; oplNow = id; spplNow = null;
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('libBack').hidden = false; $('shuffle').hidden = false; $('results').innerHTML = msg('Loading…');
   const v = (await oplRef(id).get()).val() || {}; $('libTitle').textContent = v.title || 'Playlist';
@@ -3799,7 +3799,7 @@ async function spPlaylistTracks(id) {
 }
 let spplNow = null;
 async function openSpPlaylist(id, title) {
-  mode = 'playlist'; albumBack = null; oplNow = null; spplNow = { id, title };
+  mode = 'playlist'; albPage = false; albumBack = null; oplNow = null; spplNow = { id, title };
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('libTitle').textContent = title; $('libBack').hidden = false; $('shuffle').hidden = false; $('results').innerHTML = msg('Loading…');
   const list = await spPlaylistTracks(id);
@@ -3876,7 +3876,7 @@ function closePlSheet() { const x = $('plSheet'); if (x) x.remove(); }
 })();
 
 async function openPlaylist(id, title) {
-  mode = 'playlist'; albumBack = null;
+  mode = 'playlist'; albPage = false; albumBack = null;
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('libTitle').textContent = title;
   $('libBack').hidden = false;
@@ -4041,11 +4041,66 @@ async function artistAlbums(userId, name) {
     $('albums').addEventListener('click', albRowClick);
   } catch { /* アルバムが取れなくても、曲はそのまま */ }
 }
+// ジャケットとして出してよい画像（SoundCloud・Spotify・Bandcamp・Apple Music の画像だけ）
+const artOK = (u) => typeof u === 'string' && /^https:\/\/([a-z0-9-]+\.)*(sndcdn\.com|scdn\.co|spotifycdn\.com|bcbits\.com|mzstatic\.com)\//i.test(u);
+// アルバムのページかどうか（アルバムのページでは、検索と同じようにハートを出す）
+let albPage = false;
+// アルバムのページを、ほかの場所にある同じアルバムとまとめる（1つのアルバムとして見せる）
+// 流すのは Bandcamp を先に。Spotify にもあれば、ハート・Spotify のロゴ・歌詞の手がかり（ISRC）がつながる
+function albMerge(list, other) {
+  const key = (t) => normT(String(t.title || '').replace(/\s*[([](feat|ft|with)\.?[^)\]]*[)\]]/i, ''));
+  const m = new Map(); for (const x of other) { const k = key(x); if (k && !m.has(k)) m.set(k, x); }
+  let hit = 0;
+  const out = list.map((t) => {
+    const x = m.get(key(t)); if (!x) return t; hit++;
+    const bcFirst = String(x.id).startsWith('bc:') && !String(t.id).startsWith('bc:');
+    const [p, q] = bcFirst ? [x, t] : [t, x];
+    return { ...p, isrc: p.isrc || q.isrc || '', spArtistId: p.spArtistId || q.spArtistId || '', alts: [...(p.alts || []), { ...q, alts: undefined }, ...(t.alts || []).filter((a) => a.id !== p.id)] };
+  });
+  return hit ? out : null;
+}
+// まとめた一覧で描き直す（上の大きなジャケットはそのまま）
+function albRerender(list) {
+  if (mode !== 'playlist' || !albPage) return;
+  const y = window.scrollY, hero = $('results').querySelector('.alb-hero'), keep = hero ? hero.outerHTML : '';
+  renderTracks(list, ''); if (keep) $('results').insertAdjacentHTML('afterbegin', keep);
+  window.scrollTo(0, y);
+}
+// Bandcamp のアルバム → Spotify の同じアルバムを探してまとめる
+async function albWithSpotify(list, album, artist) {
+  try {
+    const tok = await spToken(); if (!tok || !album) return;
+    const H = { Authorization: 'Bearer ' + tok };
+    const r = await fetch('https://api.spotify.com/v1/search?type=album&limit=5&q=' + encodeURIComponent(`${album} ${artist}`), { headers: H }).then((x) => (x.ok ? x.json() : {}));
+    const a = (((r.albums || {}).items) || []).find((x) => normT(x.name) === normT(album) && (x.artists || []).some((y) => artKey(y.name) === artKey(artist)));
+    if (!a) return;
+    const d = await fetch('https://api.spotify.com/v1/albums/' + a.id, { headers: H }).then((x) => (x.ok ? x.json() : null)); if (!d) return;
+    const sp = ((d.tracks && d.tracks.items) || []).map((t) => spMap({ ...t, album: { id: d.id, name: d.name, images: d.images } }));
+    const m = albMerge(lastResults === list ? list : lastResults, sp); if (m) albRerender(m);
+  } catch {}
+}
+// Spotify のアルバム → Bandcamp に同じアルバムがあれば、Bandcamp で流せるようにまとめる
+async function albWithBandcamp(list, album, artist) {
+  try {
+    if (!album || !list.length) return;
+    const q = `${artist} ${list[0].title}`;
+    const hits = await fetch(`${WORKER}/bc/search?q=${encodeURIComponent(q)}`).then((x) => (x.ok ? x.json() : [])).catch(() => []);
+    const h = (hits || []).find((x) => artKey(x.artist || '') === artKey(artist) && x.permalink_url);
+    if (!h) return;
+    const origin = new URL(h.permalink_url).origin;
+    const slug = String(album).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    let d = await fetch(`${WORKER}/bc/album?url=${encodeURIComponent(origin + '/album/' + slug)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (!d || !(d.tracks || []).length) d = await fetch(`${WORKER}/bc/album?url=${encodeURIComponent(h.permalink_url)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    if (!d) return;
+    const bc = (d.tracks || []).map((t) => ({ ...t, provider: 'bandcamp', album: d.album || '' }));
+    const m = albMerge(lastResults, bc); if (m) albRerender(m);
+  } catch {}
+}
 // Apple Music のようなアルバムの頭（大きなジャケット・名前・アーティスト・ボタン）
 function albHeroHTML({ art, name, by, byId, meta, bcUrl }) {
   const sh = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2 0 3 1 4.2 2.8l2.6 4.4c1.1 1.8 2.2 2.8 4.2 2.8H21"/><path d="M18.5 4.5 21 7l-2.5 2.5"/><path d="M3 17h3.5c1.4 0 2.3-.5 3.1-1.4"/><path d="M13.4 8.4c.8-.9 1.7-1.4 3.1-1.4"/><path d="M18.5 14.5 21 17l-2.5 2.5"/></svg>';
   return `<div class="alb-hero"><button class="alb-float" data-albback="1" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
-    ${art && safeImg(art) ? `<img class="alb-hero-img" src="${esc(art)}" alt="">` : '<div class="alb-hero-img"></div>'}
+    ${artOK(art) ? `<img class="alb-hero-img" src="${esc(art)}" alt="">` : '<div class="alb-hero-img"></div>'}
     <div class="alb-hero-info"><div class="alb-name">${esc(name || '')}</div>
       ${by ? `<button class="alb-by" ${byId ? `data-albart="${esc(byId)}"` : ''} ${bcUrl ? `data-albbc="${esc(bcUrl)}"` : ''} data-albartn="${esc(by.split(',')[0])}">${esc(by)}</button>` : ''}
       ${meta ? `<div class="alb-meta">${esc(meta)}</div>` : ''}
@@ -4080,7 +4135,7 @@ new MutationObserver(() => {
   }
 }).observe($('results'), { childList: true });
 async function openAlbum(id, title, artistId, artistName) {
-  mode = 'playlist';
+  mode = 'playlist'; albPage = true;
   albumBack = { artistId, artistName };
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('libTitle').textContent = title;
@@ -4104,7 +4159,7 @@ async function openSpAlbum(id, title) {
   closeNp(); showTab('listen');
   if (mode !== 'artist') libBackTo = mode === 'playlist' ? libBackTo : (mode || 'search');
   if (mode === 'artist') albumBack = { artistId: artistNow.userId, artistName: artistNow.name, sp: artistNow.spArtistId };
-  mode = 'playlist';
+  mode = 'playlist'; albPage = true;
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('searchField').hidden = true; $('libbar').hidden = false;
   $('libTitle').textContent = title || ''; $('libBack').hidden = false; $('shuffle').hidden = false;
@@ -4122,6 +4177,7 @@ async function openSpAlbum(id, title) {
     $('libTitle').textContent = '';
     $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art: art0, name: a.name, by: who, byId: ((a.artists || [])[0] || {}).id || '', meta: `${kind}${yr ? ' · ' + yr : ''}${a.total_tracks > 1 ? ` · ${a.total_tracks} songs` : ''}` }));
     albTint(art0);
+    albWithBandcamp(list, a.name, ((a.artists || [])[0] || {}).name || '');
   } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
 // Bandcamp のアルバム（曲のページの URL でもよい：その曲が入っているアルバムを開く）
@@ -4130,7 +4186,7 @@ async function openBcAlbum(link, title) {
   closeNp(); showTab('listen');
   if (mode !== 'artist') libBackTo = mode === 'playlist' ? libBackTo : (mode || 'search');
   if (mode === 'artist') albumBack = { artistId: artistNow.userId, artistName: artistNow.name, sp: artistNow.spArtistId, bc: artistNow.bcUrl || '' };
-  mode = 'playlist';
+  mode = 'playlist'; albPage = true;
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
   $('searchField').hidden = true; $('libbar').hidden = false;
   $('libTitle').textContent = title || ''; $('libBack').hidden = false; $('shuffle').hidden = false;
@@ -4150,8 +4206,10 @@ async function openBcAlbum(link, title) {
     // 曲だけのページ（アルバムが分からなかった）を「シングル」と呼ばない
     const kind = d.type === 'track' ? 'Song' : list.length === 1 ? 'Single' : list.length <= 6 ? 'EP' : 'Album';
     $('libTitle').textContent = '';
-    $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art: d.artwork, name: d.album || (list[0] && list[0].title) || title || '', by: d.artist, bcUrl: d.artistUrl || '', meta: `${kind}${d.year ? ' · ' + d.year : ''}${list.length > 1 ? ` · ${list.length} songs` : ''} · Bandcamp` }));
-    albTint(d.artwork);
+    const bart = artOK(d.artwork) ? d.artwork : ((list.find((t) => artOK(t.artwork)) || {}).artwork || '');
+    $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art: bart, name: d.album || (list[0] && list[0].title) || title || '', by: d.artist, bcUrl: d.artistUrl || '', meta: `${kind}${d.year ? ' · ' + d.year : ''}${list.length > 1 ? ` · ${list.length} songs` : ''} · Bandcamp` }));
+    albTint(bart);
+    albWithSpotify(list, d.album || '', d.artist || '');
   } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
 // アーティストのページに、Bandcamp の作品も並べる（Bandcamp にしかない人は、曲と写真も Bandcamp から）
