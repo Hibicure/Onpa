@@ -1176,6 +1176,25 @@
   /* 大きな写真のヘッダー（Spotify のアーティスト写真）：正方形に近く大きく、下はページに溶ける。丸いプロフィールは出さない */
   .artist-head.hero .ah-bg { aspect-ratio: 1 / 0.92; filter: none; transform: none; opacity: 1; background-color: transparent; background-position: center 25%; -webkit-mask-image: linear-gradient(180deg, #000 58%, transparent 100%); mask-image: linear-gradient(180deg, #000 58%, transparent 100%); }
   .artist-head.hero .ah-pic { display: none; }
+  /* アーティストの写真がある時も、アルバムのページと同じ見た目（写真を上から横いっぱい・下はページの色に・名前は真ん中・Shuffle / Play / いいね） */
+  .ah-acts, .ah-float { display: none; }
+  .artist-head.hero .ah-acts { display: flex; }
+  .artist-head.hero .ah-float { display: grid; }
+  .ah-acts #ahLikes[hidden] { display: none; }
+  .ah-acts #ahLikes.on { background: var(--alb-ink, #fff); color: var(--alb-c, #000); }
+  .ah-acts #ahLikes.on svg path { fill: currentColor; }
+  body.artist-mode:has(.artist-head.hero) #libbar { display: none !important; }
+  body.artist-mode:has(.artist-head.hero) { background: var(--alb-c, var(--ah-page)) !important; }
+  body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { background: var(--alb-c, var(--ah-page)) !important; }
+  body.artist-mode:has(.artist-head.hero) #viewListen, body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); }
+  .artist-head.hero { position: relative; background: transparent; color: var(--alb-ink, #fff); }
+  .artist-head.hero .ah-bg { aspect-ratio: 1 / 1 !important; background-position: center 22%; -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; }
+  .artist-head.hero .ah-row { margin-top: -112px !important; align-items: center; text-align: center; padding: 0 24px 0; }
+  .artist-head.hero .ah-txt { display: flex; flex-direction: column; align-items: center; }
+  .artist-head.hero .ah-name { font-size: 34px; white-space: normal; text-wrap: balance; color: inherit; text-shadow: 0 1px 18px color-mix(in srgb, var(--alb-c, #000) 70%, transparent); }
+  .artist-head.hero .ah-handle, .artist-head.hero .ah-sub { color: inherit; opacity: .65; }
+  .artist-head.hero .ah-follow { align-self: center; background: color-mix(in srgb, var(--alb-ink, #fff) 13%, transparent); color: var(--alb-ink, #fff); }
+  .artist-head.hero .ah-follow.on { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--alb-ink, #fff) 35%, transparent); }
   .artist-head.hero .ah-row { margin-top: -64px; }
   .artist-head .ah-row { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 0 18px 6px; margin-top: -28px; z-index: 1; }
   .artist-head .ah-pic { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; flex: none; background: var(--chip); box-shadow: 0 0 0 2.5px rgba(70,72,78,.75), 0 8px 20px -8px rgba(0,0,0,.5); } /* 少し小さく。濃すぎないグレーの縁 */
@@ -1393,7 +1412,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       
     </div>
-    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-handle" id="ahHandle"></div><div class="ah-sub" id="ahSub"></div><button class="ah-follow" id="ahFollow" hidden></button></div></div></div>
+    <div class="artist-head" id="artistHead" hidden><div class="ah-bg" id="ahBg"></div><div class="ah-row"><div class="ah-pic" id="ahPic"></div><div class="ah-txt"><div class="ah-name" id="ahName"></div><div class="ah-handle" id="ahHandle"></div><div class="ah-sub" id="ahSub"></div><button class="ah-follow" id="ahFollow" hidden></button></div></div><div class="alb-acts ah-acts"><button class="alb-round" id="ahShuf" aria-label="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2 0 3 1 4.2 2.8l2.6 4.4c1.1 1.8 2.2 2.8 4.2 2.8H21"/><path d="M18.5 4.5 21 7l-2.5 2.5"/><path d="M3 17h3.5c1.4 0 2.3-.5 3.1-1.4"/><path d="M13.4 8.4c.8-.9 1.7-1.4 3.1-1.4"/><path d="M18.5 14.5 21 17l-2.5 2.5"/></svg></button><button class="alb-pill" id="ahPlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.8v14.4L19 12z"/></svg>Play</button><button class="alb-round" id="ahLikes" aria-label="My likes" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button></div><button class="alb-float ah-float" id="ahBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button></div>
     <div class="libbar" id="libbar" hidden>
       <button class="round" id="libBack" aria-label="Back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
       <div class="libtitle" id="libTitle"></div>
@@ -3620,6 +3639,10 @@ $('upList').addEventListener('click', (e) => {
   else { upNext = upNext.filter((n) => n.key !== b.dataset.rm); renderUpNext(); }
 });
 
+$('ahShuf').addEventListener('click', () => $('shuffle').click());
+$('ahPlay').addEventListener('click', () => { if (!lastResults.length) return; hap('light'); unlockAudio(); playFrom(lastResults, 0); });
+$('ahLikes').addEventListener('click', () => { $('shuffleLikes').click(); $('ahLikes').classList.toggle('on', $('shuffleLikes').classList.contains('on')); });
+$('ahBack').addEventListener('click', () => { hap('light'); $('libBack').click(); });
 // 「My likes」：この人の曲のうち、自分がいいねした曲だけを並べる（いきなり流さない）。もう一度押すと全部の曲に戻る。流すなら Shuffle か曲を押す
 let likesOnly = false, artistFull = null;
 $('shuffleLikes').addEventListener('click', () => {
@@ -3871,6 +3894,7 @@ $('libBack').addEventListener('click', () => {
 // その人の曲のページ（アーティスト名・友だちの名前から）
 async function openArtist(userId, name, opt = {}) {
   if (!userId && !opt.spArtistId && !opt.byName) return;
+  document.body.style.removeProperty('--alb-c'); document.body.style.removeProperty('--alb-ink'); $('ahLikes').hidden = true; $('ahLikes').classList.remove('on');
   artistNow = { userId, name, spArtistId: opt.spArtistId || '' }; $('shuffleLikes').hidden = true; likesOnly = false; artistFull = null; $('shuffleLikes').classList.remove('on');
   closeNp();
   showTab('listen');
@@ -3904,10 +3928,10 @@ async function openArtist(userId, name, opt = {}) {
     // SoundCloud のヘッダー写真がない人は、Spotify のアーティスト写真を大きく（Apple Music のように）
     // 大きな写真：Spotify の写真 → なければ SoundCloud のプロフィール写真（一番大きいサイズ）。SoundCloud のヘッダー写真がある人はそちら
     const hero = () => {
-      if (mode !== 'artist' || artistNow.name !== name || $('artistHead').classList.contains('banner')) return;
+      if (mode !== 'artist' || artistNow.name !== name) return; // SoundCloud の横長のヘッダー写真がある人も、大きな写真の見た目にそろえる
       const img = sp.image || artistNow.avatar || ''; if (!img) return;
       $('ahBg').style.backgroundImage = artistNow.avatar && !sp.image ? `url("${img}"), url("${String(img).replace('-original.', '-t500x500.')}")` : `url("${img}")`;
-      $('artistHead').classList.add('hero'); measureAH();
+      $('artistHead').classList.remove('banner'); $('artistHead').classList.add('hero'); measureAH(); albTint(img);
     };
     if (userId) { await artistPlace(userId); hero(); await artistAlbums(userId, name); } else hero();
     spArtistAlbums(sp.id || opt.spArtistId);
@@ -3989,7 +4013,7 @@ function artistLikes(name) {
   const k = artKey(String(name || '').split(',')[0]);
   return (likesList || []).filter((t) => { const a = artKey(String(t.artist || '').split(',')[0]), u = artKey(t.uploader || ''); return k && (a === k || u === k); });
 }
-function paintArtistLikes(name) { const b = $('shuffleLikes'); if (b) b.hidden = !(mode === 'artist' && artistLikes(name).length); }
+function paintArtistLikes(name) { const b = $('shuffleLikes'); const on = mode === 'artist' && artistLikes(name).length > 0; if (b) b.hidden = !on; $('ahLikes').hidden = !on; }
 // その人のアルバム・EPを、曲の上に横一列で（押すと中の曲）
 let albumBack = null;
 async function artistAlbums(userId, name) {
@@ -4035,7 +4059,7 @@ async function albTint(art) {
     const n = d.length / 4; r /= n; gg /= n; b /= n;
     const k = 0.72; r *= k; gg *= k; b *= k; // 少し落ち着かせる
     const lum = (0.2126 * r + 0.7152 * gg + 0.0722 * b) / 255;
-    if (mode !== 'playlist' || !document.body.classList.contains('album-mode')) return;
+    if (!(mode === 'artist' || (mode === 'playlist' && document.body.classList.contains('album-mode')))) return;
     document.body.style.setProperty('--alb-c', `rgb(${Math.round(r)},${Math.round(gg)},${Math.round(b)})`);
     document.body.style.setProperty('--alb-ink', lum > 0.6 ? '#141416' : '#fff');
   } catch { /* 色が取れなくても、そのまま */ }
