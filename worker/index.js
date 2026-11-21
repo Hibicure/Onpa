@@ -730,10 +730,44 @@ export default {
           duration: Math.round((Number(t.duration) || 0) * 1000), access: 'playable', provider: 'bandcamp',
           permalink_url: t.title_link ? u.origin + t.title_link : page, album: tr.current && tr.current.type === 'album' ? albumTitle : '', uploader: artist,
         }));
-        const out = { artist, album: albumTitle, type: (tr.current && tr.current.type) || '', artwork: art, url: page, tracks };
+        // 曲のページの時：その曲が入っているアルバムのページ（あれば）。アーティストのページ
+        const albumUrl = tr.album_url ? (String(tr.album_url).startsWith('http') ? String(tr.album_url) : u.origin + tr.album_url) : '';
+        const out = { artist, album: albumTitle, type: (tr.current && tr.current.type) || '', artwork: art, url: page, albumUrl, artistUrl: u.origin, year: String((tr.current && (tr.current.release_date || tr.current.publish_date)) || '').match(/\d{4}/)?.[0] || '', tracks };
         const res = json(out, 200, cors);
         await caches.default.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=86400' } }));
         return res;
+      }
+      // ---- Bandcamp のアーティストの作品（アルバム・EP・シングル）: /bc/artist?url=https://xxx.bandcamp.com
+      if (p === '/bc/artist') {
+        let u; try { u = new URL(url.searchParams.get('url') || ''); } catch { return json({ error: 'bad url' }, 400, cors); }
+        if (u.protocol !== 'https:' || !/^[a-z0-9-]+\.bandcamp\.com$/i.test(u.hostname)) return json({ error: 'bad url' }, 400, cors);
+        const key = new Request('https://cache.otocloud/bca1/' + encodeURIComponent(u.origin));
+        const hit = await caches.default.match(key); if (hit) return new Response(hit.body, { headers: { ...cors, 'Content-Type': 'application/json' } });
+        const r = await fetch(u.origin + '/music', { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' } });
+        if (!r.ok) return json({ error: 'bandcamp ' + r.status }, 502, cors);
+        const html = await r.text();
+        const dec = (x) => String(x || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+        const imgOf = (id) => (id ? `https://f4.bcbits.com/img/a${String(id).padStart(10, '0')}_10.jpg` : '');
+        const items = [], seen = new Set();
+        const add = (x) => { if (!x.url || seen.has(x.url)) return; seen.add(x.url); items.push(x); };
+        // 1作品しかない人は、作品のページにそのまま飛ばされる
+        const tm = html.match(/data-tralbum="([^"]*)"/);
+        if (tm) { try { const tr = JSON.parse(dec(tm[1])); add({ url: u.origin + (tr.url ? new URL(tr.url, u.origin).pathname : '/'), title: String((tr.current && tr.current.title) || ''), type: (tr.current && tr.current.type) || 'album', artwork: imgOf(tr.art_id) }); } catch {} }
+        // 並んでいる作品
+        for (const m of html.matchAll(/<li[^>]*data-item-id="(album|track)-\d+"[^>]*>([\s\S]*?)<\/li>/g)) {
+          const href = (m[2].match(/<a href="([^"]+)"/) || [])[1]; if (!href) continue;
+          const img = (m[2].match(/(?:data-original|src)="(https:\/\/f4\.bcbits\.com\/img\/[^"]+)"/) || [])[1] || '';
+          const title = dec(((m[2].match(/<p class="title">([\s\S]*?)<\/p>/) || [])[1] || '').replace(/<[^>]+>[\s\S]*$/, '').trim());
+          add({ url: new URL(href, u.origin).href.replace(/\?.*$/, ''), title, type: m[1], artwork: img.replace(/_\d+\.jpg$/, '_10.jpg') });
+        }
+        // 後から読み込まれる分（ページの中に JSON で入っている）
+        const cm = html.match(/data-client-items="([^"]*)"/);
+        if (cm) { try { for (const x of JSON.parse(dec(cm[1]))) add({ url: new URL(x.page_url, u.origin).href, title: String(x.title || ''), type: x.type || 'album', artwork: imgOf(x.art_id) }); } catch {} }
+        const name = dec((html.match(/<meta property="og:title" content="([^"]*)"/) || [])[1] || (html.match(/<meta property="og:site_name" content="([^"]*)"/) || [])[1] || '');
+        const photo = (html.match(/class="band-photo"[^>]*src="([^"]+)"/) || html.match(/<img[^>]*src="([^"]+)"[^>]*class="band-photo"/) || [])[1] || '';
+        const out = { name, url: u.origin, photo: photo.replace(/_\d+\.jpg$/, '_10.jpg'), items: items.slice(0, 120) };
+        await caches.default.put(key, new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=21600' } }));
+        return json(out, 200, cors);
       }
       // ---- だいたいの場所（地球儀用）: /where。ネットの接続元から、市くらいの粗さで（GPSは使わない）
       if (p === '/where') {

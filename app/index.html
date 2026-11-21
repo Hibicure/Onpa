@@ -459,7 +459,7 @@
   body.album-mode .head, body.album-mode #topSearch, body.album-mode #seg, body.album-mode #searchField, body.album-mode #libbar { display: none !important; }
   body.album-mode { background: var(--alb-c, var(--paper)) !important; transition: background .45s ease; }
   body.album-mode .nav, body.album-mode .mini { background: var(--alb-c, var(--paper)) !important; }
-  body.album-mode #viewListen, body.album-mode .nav, body.album-mode .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); }
+  body.album-mode #viewListen, body.album-mode .nav, body.album-mode .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); color: var(--alb-ink, #fff); }
   .alb-hero { position: relative; margin: 0 calc(50% - 50vw) 4px; color: var(--alb-ink, #fff); }
   .alb-hero-img { display: block; width: 100vw; aspect-ratio: 1; object-fit: cover; background: var(--alb-c, var(--chip)); -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%); mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%); }
   .alb-hero-info { position: relative; margin-top: -118px; padding: 0 28px; display: flex; flex-direction: column; align-items: center; text-align: center; }
@@ -1189,7 +1189,7 @@
   body.artist-mode:has(.artist-head.hero) #libbar { display: none !important; }
   body.artist-mode:has(.artist-head.hero) { background: var(--alb-c, var(--ah-page)) !important; }
   body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { background: var(--alb-c, var(--ah-page)) !important; }
-  body.artist-mode:has(.artist-head.hero) #viewListen, body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); }
+  body.artist-mode:has(.artist-head.hero) #viewListen, body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); color: var(--alb-ink, #fff); }
   .artist-head.hero { position: relative; background: transparent; color: var(--alb-ink, #fff); }
   .artist-head.hero .ah-bg { width: 100vw !important; margin-left: calc(50% - 50vw); aspect-ratio: 1 / 1 !important; background-position: center 22%; -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; }
   .artist-head.hero .ah-row { margin-top: -112px !important; align-items: center; text-align: center; padding: 0 24px 0; }
@@ -2740,7 +2740,7 @@ $('results').addEventListener('click', (e) => {
   if (e.target.closest('[data-albshuf]')) { if (lastResults && lastResults.length) { hap('light'); unlockAudio(); playFrom(shuffled(lastResults), 0); } return; }
   if (e.target.closest('[data-albback]')) { hap('light'); $('libBack').click(); return; }
   if (e.target.closest('[data-albadd]')) { const h = $('results').querySelector('.alb-hero'); if (lastResults && lastResults.length) oplSheet({ title: (h && h.querySelector('.alb-name').textContent) || 'This album', artist: (h && (h.querySelector('.alb-by') || {}).textContent) || '', _many: lastResults.slice() }); return; }
-  const aby = e.target.closest('[data-albart],[data-albartn]'); if (aby) { openArtist(null, aby.dataset.albartn, { spArtistId: aby.dataset.albart || '', byName: true }); return; }
+  const aby = e.target.closest('[data-albart],[data-albartn]'); if (aby) { openArtist(null, aby.dataset.albartn, { spArtistId: aby.dataset.albart || '', bcUrl: aby.dataset.albbc || '', byName: true }); return; }
   const lk = e.target.closest('[data-like]');
   if (lk) { toggleRowLike(lk); return; }
   const sl = e.target.closest('.srclogo');
@@ -3889,7 +3889,7 @@ async function openPlaylist(id, title) {
 let libBackTo = 'playlists';
 $('libBack').addEventListener('click', () => {
   // アルバムから戻るときは、そのアーティストのページへ
-  if (albumBack && mode === 'playlist') { const a = albumBack; albumBack = null; const keep = libBackTo; openArtist(a.artistId, a.artistName, { spArtistId: a.sp || '', byName: true }).then(() => { libBackTo = keep; }); libBackTo = keep; return; }
+  if (albumBack && mode === 'playlist') { const a = albumBack; albumBack = null; const keep = libBackTo; openArtist(a.artistId, a.artistName, { spArtistId: a.sp || '', bcUrl: a.bc || '', byName: true }).then(() => { libBackTo = keep; }); libBackTo = keep; return; }
   albumBack = null;
   setMode(libBackTo);
 });
@@ -3898,7 +3898,7 @@ $('libBack').addEventListener('click', () => {
 async function openArtist(userId, name, opt = {}) {
   if (!userId && !opt.spArtistId && !opt.byName) return;
   document.body.style.removeProperty('--alb-c'); document.body.style.removeProperty('--alb-ink'); $('ahLikes').hidden = true; $('ahLikes').classList.remove('on');
-  artistNow = { userId, name, spArtistId: opt.spArtistId || '' }; $('shuffleLikes').hidden = true; likesOnly = false; artistFull = null; $('shuffleLikes').classList.remove('on');
+  artistNow = { userId, name, spArtistId: opt.spArtistId || '', bcUrl: opt.bcUrl || '' }; $('shuffleLikes').hidden = true; likesOnly = false; artistFull = null; $('shuffleLikes').classList.remove('on');
   closeNp();
   showTab('listen');
   libBackTo = mode === 'playlist' || mode === 'artist' ? 'search' : (mode || 'search');
@@ -3938,6 +3938,7 @@ async function openArtist(userId, name, opt = {}) {
     };
     if (userId) { await artistPlace(userId); hero(); await artistAlbums(userId, name); } else hero();
     spArtistAlbums(sp.id || opt.spArtistId);
+    if (opt.bcUrl) bcArtistReleases(opt.bcUrl, name);
     // 全部の曲（アルバム・シングル）を後から足す。人気の曲はそのまま上に
     if (sp.id || opt.spArtistId) spArtistAll(sp.id || opt.spArtistId).then((all) => {
       if (mode !== 'artist' || artistNow.name !== name || !all.length) return;
@@ -4039,12 +4040,12 @@ async function artistAlbums(userId, name) {
   } catch { /* アルバムが取れなくても、曲はそのまま */ }
 }
 // Apple Music のようなアルバムの頭（大きなジャケット・名前・アーティスト・ボタン）
-function albHeroHTML({ art, name, by, byId, meta }) {
+function albHeroHTML({ art, name, by, byId, meta, bcUrl }) {
   const sh = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3.5c2 0 3 1 4.2 2.8l2.6 4.4c1.1 1.8 2.2 2.8 4.2 2.8H21"/><path d="M18.5 4.5 21 7l-2.5 2.5"/><path d="M3 17h3.5c1.4 0 2.3-.5 3.1-1.4"/><path d="M13.4 8.4c.8-.9 1.7-1.4 3.1-1.4"/><path d="M18.5 14.5 21 17l-2.5 2.5"/></svg>';
   return `<div class="alb-hero"><button class="alb-float" data-albback="1" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
     ${art && safeImg(art) ? `<img class="alb-hero-img" src="${esc(art)}" alt="">` : '<div class="alb-hero-img"></div>'}
     <div class="alb-hero-info"><div class="alb-name">${esc(name || '')}</div>
-      ${by ? `<button class="alb-by" ${byId ? `data-albart="${esc(byId)}"` : ''} data-albartn="${esc(by.split(',')[0])}">${esc(by)}</button>` : ''}
+      ${by ? `<button class="alb-by" ${byId ? `data-albart="${esc(byId)}"` : ''} ${bcUrl ? `data-albbc="${esc(bcUrl)}"` : ''} data-albartn="${esc(by.split(',')[0])}">${esc(by)}</button>` : ''}
       ${meta ? `<div class="alb-meta">${esc(meta)}</div>` : ''}
       <div class="alb-acts"><button class="alb-round" data-albshuf="1" aria-label="Shuffle">${sh}</button>
         <button class="alb-pill" data-albplay="1"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.8v14.4L19 12z"/></svg>Play</button>
@@ -4052,7 +4053,8 @@ function albHeroHTML({ art, name, by, byId, meta }) {
 }
 // ジャケットの色で、ページ全体の色と文字の色（明るいページなら黒い文字、暗いなら白い文字）を決める
 async function albTint(art) {
-  document.body.style.removeProperty('--alb-c'); document.body.style.removeProperty('--alb-ink');
+  // 色がわかるまで・わからなかった時は、落ち着いた暗い色に白い文字（白い文字が明るいページに乗って読めない、を起こさない）
+  document.body.style.setProperty('--alb-c', '#2a2a2f'); document.body.style.setProperty('--alb-ink', '#fff');
   if (!art) return;
   try {
     const im = await loadImg(`${WORKER}/img?u=${encodeURIComponent(art)}`);
@@ -4120,10 +4122,65 @@ async function openSpAlbum(id, title) {
     albTint(art0);
   } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
+// Bandcamp のアルバム（曲のページの URL でもよい：その曲が入っているアルバムを開く）
+async function openBcAlbum(link, title) {
+  if (!link) return;
+  closeNp(); showTab('listen');
+  if (mode !== 'artist') libBackTo = mode === 'playlist' ? libBackTo : (mode || 'search');
+  if (mode === 'artist') albumBack = { artistId: artistNow.userId, artistName: artistNow.name, sp: artistNow.spArtistId, bc: artistNow.bcUrl || '' };
+  mode = 'playlist';
+  document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
+  $('searchField').hidden = true; $('libbar').hidden = false;
+  $('libTitle').textContent = title || ''; $('libBack').hidden = false; $('shuffle').hidden = false;
+  $('results').innerHTML = msg('Loading…'); window.scrollTo(0, 0);
+  try {
+    const get = async (u) => { const r = await fetch(`${WORKER}/bc/album?url=${encodeURIComponent(u)}`); const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status); return d; };
+    let d = await get(link);
+    if (d.type === 'track' && d.albumUrl) d = await get(d.albumUrl).catch(() => d);
+    if (mode !== 'playlist') return;
+    const list = (d.tracks || []).map((t) => ({ ...t, provider: 'bandcamp', album: d.album || t.album || '' }));
+    renderTracks(list, msg('No playable tracks', 'Bandcamp doesn’t let this one play'));
+    const kind = d.type === 'track' || list.length === 1 ? 'Single' : list.length <= 6 ? 'EP' : 'Album';
+    $('libTitle').textContent = '';
+    $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art: d.artwork, name: d.album || (list[0] && list[0].title) || title || '', by: d.artist, bcUrl: d.artistUrl || '', meta: `${kind}${d.year ? ' · ' + d.year : ''}${list.length > 1 ? ` · ${list.length} songs` : ''} · Bandcamp` }));
+    albTint(d.artwork);
+  } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
+}
+// アーティストのページに、Bandcamp の作品も並べる（Bandcamp にしかない人は、曲と写真も Bandcamp から）
+async function bcArtistReleases(bcUrl, name) {
+  try {
+    const d = await fetch(`${WORKER}/bc/artist?url=${encodeURIComponent(bcUrl)}`).then((r) => (r.ok ? r.json() : null));
+    if (!d || mode !== 'artist' || artistNow.name !== name) return;
+    const items = d.items || [];
+    const tile = (a) => `<button class="alb" data-bcalb="${esc(a.url)}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork)}" alt="" loading="lazy">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${a.type === 'track' ? 'Single' : 'Album'} · Bandcamp</span></button>`;
+    const row = $('albums') || $('spAlbums');
+    if (row) {
+      const have = new Set([...row.querySelectorAll('.alb')].map((b) => normT(b.dataset.title)));
+      row.insertAdjacentHTML('beforeend', items.filter((a) => !have.has(normT(a.title))).map(tile).join(''));
+    } else if (items.length) {
+      $('results').insertAdjacentHTML('afterbegin', `<div class="albums" id="albums">${items.map(tile).join('')}</div>`);
+      $('albums').addEventListener('click', albRowClick);
+    }
+    // 曲がまだ1つもない（Bandcamp にしかない人）：新しい作品から曲を並べ、写真もそこから
+    if (!lastResults.length && items.length) {
+      const all = [];
+      for (const a of items.slice(0, 4)) {
+        const x = await fetch(`${WORKER}/bc/album?url=${encodeURIComponent(a.url)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        if (x) all.push(...(x.tracks || []).map((t) => ({ ...t, provider: 'bandcamp', album: x.album || '' })));
+      }
+      if (mode === 'artist' && artistNow.name === name && !lastResults.length && all.length) renderTracks(all, msg('No tracks yet'));
+    }
+    const img = d.photo || (items[0] && items[0].artwork) || '';
+    if (img && !$('artistHead').classList.contains('hero') && mode === 'artist' && artistNow.name === name) {
+      $('ahBg').style.backgroundImage = `url("${img}")`; $('artistHead').classList.remove('banner'); $('artistHead').classList.add('hero'); measureAH(); albTint(img);
+    }
+  } catch { /* Bandcamp が取れなくても、ほかはそのまま */ }
+}
 // アルバムの列を押した時（SoundCloud のアルバムも Spotify の作品も、同じ列に混ざっていることがある）
 function albRowClick(e) {
-  const row = e.currentTarget, b = e.target.closest('[data-alb],[data-spalb]'); if (!b) return;
-  if (b.dataset.spalb) openSpAlbum(b.dataset.spalb, b.dataset.title);
+  const row = e.currentTarget, b = e.target.closest('[data-alb],[data-spalb],[data-bcalb]'); if (!b) return;
+  if (b.dataset.bcalb) openBcAlbum(b.dataset.bcalb, b.dataset.title);
+  else if (b.dataset.spalb) openSpAlbum(b.dataset.spalb, b.dataset.title);
   else openAlbum(b.dataset.alb, b.dataset.title, row.dataset.uid, row.dataset.uname);
 }
 async function spArtistAlbums(spId) {
@@ -4230,7 +4287,8 @@ async function openTrackArtist() {
     let scId = null;
     try { const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(name)}`, { headers: await scHeaders() }).then((x) => x.json()); const hit = (r || []).find((x) => artKey(x.uploader || '') === k); if (hit) scId = hit.userId; } catch {}
     const spId = String(track.trackId).startsWith('sp:') ? (await spInfoNow()).artist || '' : '';
-    openArtist(scId, name, { spArtistId: spId, byName: true });
+    let bcUrl = ''; if (String(track.trackId).startsWith('bc:')) { try { bcUrl = new URL(track.permalink || '').origin; } catch {} }
+    openArtist(scId, name, { spArtistId: spId, bcUrl, byName: true });
     return;
   }
   let id = track.userId, name = track.uploader || track.artist;
@@ -4241,6 +4299,7 @@ async function openTrackArtist() {
 }
 $('npS').addEventListener('click', openTrackArtist);
 $('npT').addEventListener('click', async () => {
+  if (track && String(track.trackId).startsWith('bc:')) { if (track.permalink) openBcAlbum(track.permalink, track.album || ''); else toast("Couldn't open this album"); return; }
   if (!track || !String(track.trackId).startsWith('sp:')) return;
   const i = await spInfoNow(); if (i.album) openSpAlbum(i.album, i.albumName || ''); else toast("Couldn't open this album");
 });
