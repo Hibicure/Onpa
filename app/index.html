@@ -2612,7 +2612,8 @@ function mergeSame(list) {
     else { const ng = [t]; groups.set(k, ng); order.push(ng); if (ir) byIsrc.set(ir, ng); }
   }
   const lim = bcLimited();
-  const prio = (x) => { const c = srcCode(x); if (c === 'sp') return 0; if (c === 'bc') return lim.has(String(x.id)) ? 4 : 2; const a = normT(x.artist), u = normT(x.uploader); return a && u && (a === u || u.includes(a) || a.includes(u)) ? 1 : 3; };
+  // 同じ曲がいくつもある時に流す方：Bandcamp（全部聴ける時）→ Spotify → 本人の SoundCloud → ほかの SoundCloud → 試聴しか流れない Bandcamp
+  const prio = (x) => { const c = srcCode(x); if (c === 'bc') return lim.has(String(x.id)) ? 4 : 0; if (c === 'sp') return 1; const a = normT(x.artist), u = normT(x.uploader); return a && u && (a === u || u.includes(a) || a.includes(u)) ? 2 : 3; };
   return order.map((g) => {
     if (g.length === 1) return g[0];
     g.sort((a, b) => prio(a) - prio(b));
