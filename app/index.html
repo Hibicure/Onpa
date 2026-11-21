@@ -429,6 +429,11 @@
   .heart:active svg { transform: scale(.85); }
   .np h2 { font-family: var(--display); font-weight: 700; font-size: 22px; line-height: 1.16; letter-spacing: -0.02em; overflow-wrap: anywhere; }
   .np .artist { color: color-mix(in srgb, var(--ink) 72%, var(--mute)); font-weight: 600; font-size: 16px; line-height: 1.3; margin-top: 2px; cursor: pointer; }
+  /* 曲名は2行まで。曲名の欄はいつも2行分の高さを取り、下にそろえる（1行の曲は上が空くだけ）。
+     だから曲名が長くても短くても、シークバーや再生ボタンの位置は動かない。2行に入りきらない時だけ、字を少しずつ小さくする */
+  .np:not(.full) .titlebar .tt { min-height: calc(22px * 1.16 * 2 + 16px * 1.3 + 2px); display: flex; flex-direction: column; justify-content: flex-end; }
+  .np:not(.full) #npT { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .np:not(.full) #npS { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .seek { position: relative; height: 28px; margin-top: 18px; cursor: pointer; touch-action: none; }
   .seek .track { position: absolute; left: 0; right: 0; top: 11px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
   .seek .fill { height: 100%; width: 0; background: var(--ink); }
@@ -4079,6 +4084,17 @@ async function oplImport(title) {
 // ジャケの列を横にスクロールした直後の「押した」は、プレイリストを開かない・追加しない
 document.addEventListener('scroll', (e) => { if (e.target && e.target.classList && e.target.classList.contains('plstrip')) e.target._scrolledAt = Date.now(); }, true);
 document.addEventListener('click', (e) => { const st = e.target.closest && e.target.closest('.plrow'); const strip = st && st.querySelector('.plstrip'); if (strip && Date.now() - (strip._scrolledAt || 0) < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+// 曲名が2行に入りきらない時だけ、22pt から少しずつ（最小 16pt まで）小さくする
+function fitTitle() {
+  const el = $('npT'); if (!el) return;
+  el.style.fontSize = '';
+  if ($('np').classList.contains('full')) return;
+  let fs = 22;
+  while (fs > 16 && el.scrollHeight > el.clientHeight + 1) { fs -= 1; el.style.fontSize = fs + 'px'; }
+}
+new MutationObserver(() => requestAnimationFrame(fitTitle)).observe($('npT'), { childList: true, characterData: true, subtree: true });
+new MutationObserver(() => requestAnimationFrame(fitTitle)).observe($('np'), { attributes: true, attributeFilter: ['class'] });
+window.addEventListener('resize', () => requestAnimationFrame(fitTitle));
 // プレイリスト1つ分の横一列（名前・曲数・中の曲のジャケットが重なって並ぶ）
 function plRowHTML(p, attrs) {
   const arts = (p.arts && p.arts.length ? p.arts : p.art ? [p.art] : []).slice(0, 40);
