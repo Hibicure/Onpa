@@ -3616,7 +3616,7 @@ function neighborMeta(dir) {
   };
   const reset = () => { cancelAnimationFrame(tw); clearTimeout(timer); timer = null; side = 0; anim(false); pk.classList.remove('show'); pk.style.transform = ''; el.style.transform = ''; el.style.opacity = ''; requestAnimationFrame(() => { el.style.transition = ''; pk.style.transition = ''; }); };
   // 四角いジャケット：指で押したまま動かすと、押したところが沈むようにカードが傾く（光沢なし）。離すとポインと戻る
-  let tilting = false, tiltTimer = 0;
+  let tilting = false, tiltTimer = 0, charging = false, chargeArmed = false;
   const tiltTo = (cx, cy) => {
     const r = el.getBoundingClientRect();
     const px = Math.min(1, Math.max(0, (cx - r.left) / r.width)), py = Math.min(1, Math.max(0, (cy - r.top) / r.height));
@@ -3633,7 +3633,7 @@ function neighborMeta(dir) {
   el.addEventListener('pointerdown', (e) => {
     if (busy || loading) { id = null; return; } // 曲が切り替わる途中は次のスライドを受け付けない（ジャケットがダブらないように）
     if (timer) reset(); // 戻る途中なら、すぐ元の位置にしてから
-    id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; hist = [[performance.now(), 0]];
+    id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; horizontal = null; pulling = false; charging = false; chargeArmed = false; hist = [[performance.now(), 0]];
     clearTimeout(tiltTimer);
     if ($('np').classList.contains('square')) {
       // 押したまま少し止めたら「傾けるモード」。すぐ横に払えば今まで通り次の曲へ
@@ -3653,8 +3653,16 @@ function neighborMeta(dir) {
       horizontal = Math.abs(mx) > Math.abs(my);
       if (horizontal) { el.setPointerCapture(id); anim(false); }
       else if (my > 0 && !$('discPick').hidden) { try { el.setPointerCapture(id); } catch {} } // ディスクの中（顔の列）が出ている時は、下へ払っても画面を動かさない（離した時に顔の列を閉じる）
+      // ジャケ（CD・四角）を下へ引く＝パチンコのように力をためる。離すと上へ飛んで、プレイリストに入れるページへ（画面を閉じるのは、ジャケの外を下へ）
+      else if (my > 0 && track) { el.setPointerCapture(id); charging = true; chargeArmed = false; el.style.transition = 'none'; }
       else if (my > 0) { el.setPointerCapture(id); pulling = true; t0 = performance.now(); $('np').classList.add('dragging'); }
       else { try { el.setPointerCapture(id); } catch {} } // 上へ：離した所で判定（穴から上へ＝自分を出す）
+    }
+    if (charging) {
+      dy = Math.max(0, my); const c = 120 * (1 - Math.exp(-dy / 130)); // 引くほど重くなる
+      el.style.transform = `translateY(${c.toFixed(1)}px) scale(${(1 - c / 1400).toFixed(4)})`;
+      const armed = c > 52; if (armed !== chargeArmed) { chargeArmed = armed; hap(armed ? 'rigid' : 'light'); }
+      return;
     }
     if (pulling) { dy = Math.max(0, my); $('np').style.transform = `translateY(${dy}px)`; return; }
     if (!horizontal) return;
@@ -3674,6 +3682,13 @@ function neighborMeta(dir) {
     id = null;
     if (tilting) { endTilt(); return; }
     clearTimeout(tiltTimer);
+    if (charging) {
+      charging = false;
+      if (chargeArmed) { el.style.transition = 'transform .12s ease-out'; el.style.transform = ''; flingToPlaylist(el); }
+      else { el.style.transition = 'transform .45s cubic-bezier(.34,1.6,.64,1)'; el.style.transform = ''; }
+      setTimeout(() => { el.style.transition = ''; }, 460);
+      return;
+    }
     if (pulling) {
       pulling = false;
       const np = $('np'); np.classList.remove('dragging');
