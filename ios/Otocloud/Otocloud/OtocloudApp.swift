@@ -374,7 +374,7 @@ final class NativeCall: NSObject, WKScriptMessageHandler {
                     result = SpotifyBridge.shared.status().merging(["ok": ok]) { $1 }
                 case "spPlay":
                     hookSP()
-                    let ok = await SpotifyBridge.shared.play(uri: body["uri"] as? String ?? "", at: body["at"] as? Double ?? 0)
+                    let ok = await SpotifyBridge.shared.play(uri: body["uri"] as? String ?? "", at: body["at"] as? Double ?? 0, force: body["force"] as? Bool ?? false)
                     result = ["ok": ok]
                 case "spToken":
                     // 検索用の合鍵。期限が近ければ、Spotify を開かずに裏で更新してから返す
@@ -920,8 +920,8 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
         config.playURI = ""
         super.init()
         NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            guard let self, self.sessionManager.session != nil, !self.remote.isConnected else { return }
-            Task { _ = await self.warm() }
+            guard let self, self.sessionManager.session != nil else { return }
+            Task { await self.afterReturn() }
         }
         if let d = UserDefaults.standard.data(forKey: "spSession"),
            let s = try? NSKeyedUnarchiver.unarchivedObject(ofClass: SPTSession.self, from: d) {
@@ -999,11 +999,41 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             }
         }
     }
-    private func ensureConnected(playURI: String) async -> Bool {
+    /// 起こした曲と位置。Otocloud に戻ってきた時に、本当に鳴っているかを確かめるため
+    private var wakeURI: String?
+    private var wakePos: Double = 0
+    private var wakeTries = 0
+    /// Otocloud に戻ってきた時：Spotify とつなぎ、起こした曲が鳴っていなければ鳴らす。
+    /// つながらない（Spotify が鳴り始める前に眠ってしまった）時だけ、もう1回だけ起こす（全部で2回まで）
+    func afterReturn() async {
+        let ok = remote.isConnected ? true : await warm()
+        guard let u = wakeURI, let w = wokeAt, Date().timeIntervalSince(w) < 45 else { return }
+        if ok {
+            wakeURI = nil
+            await ensurePlaying(u, at: wakePos)
+        } else if wakeTries < 2 {
+            wakeTries += 1; wokeAt = Date(); wokeWith = u
+            DispatchQueue.main.async { self.remote.authorizeAndPlayURI(u) { _ in } }
+        } else { wakeURI = nil }
+    }
+    /// つながっている時に、その曲が鳴っているか確かめて、止まっていたり別の曲なら流し直す
+    private func ensurePlaying(_ uri: String, at: Double) async {
+        guard let api = remote.playerAPI else { return }
+        let st: SPTAppRemotePlayerState? = await withCheckedContinuation { c in
+            var done = false
+            api.getPlayerState { r, _ in DispatchQueue.main.async { if !done { done = true; c.resume(returning: r as? SPTAppRemotePlayerState) } } }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { if !done { done = true; c.resume(returning: nil) } }
+        }
+        if let st, st.track.uri == uri, !st.isPaused { return }
+        api.play(uri, callback: { _, err in
+            if err == nil, at > 0.5 { self.remote.playerAPI?.seek(toPosition: Int(at * 1000), callback: nil) }
+        })
+    }
+    private func ensureConnected(playURI: String, at: Double = 0, force: Bool = false) async -> Bool {
         wokeWith = nil
         if remote.isConnected { asleepAt = nil; return true }
-        // ついさっき起こしたばかり：開き直さずに、つながるのを待つだけ
-        if wokeRecently { return await waitConnect(6) }
+        // ついさっき起こしたばかり：開き直さずに、つながるのを待つだけ（▶ を押し直した時は、もう一度起こしてよい）
+        if wokeRecently && !force { return await waitConnect(6) }
         guard let s = sessionManager.session else { return false }
         if s.isExpired {
             sessionManager.renewSession()
@@ -1028,14 +1058,15 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { if !done { done = true; c.resume(returning: false) } }
         }
         guard opened else { return false }
-        wokeWith = playURI; asleepAt = nil; wokeAt = Date()
+        wakeTries = wokeRecently ? wakeTries + 1 : 1
+        wokeWith = playURI; asleepAt = nil; wokeAt = Date(); wakeURI = playURI; wakePos = at
         // 曲はもう流れ始めているので、つながるのを待たずに「流せた」と返す（つなぐのは裏で）
         DispatchQueue.main.async { self.remote.connect() }
         return true
     }
 
-    func play(uri: String, at: Double) async -> Bool {
-        guard !uri.isEmpty, await ensureConnected(playURI: uri) else { return false }
+    func play(uri: String, at: Double, force: Bool = false) async -> Bool {
+        guard !uri.isEmpty, await ensureConnected(playURI: uri, at: at, force: force) else { return false }
         if wokeWith == uri { // 起こした時にもう流れ始めている：途中からの時だけ、つながったら位置を合わせる（待たずに返す）
             wokeWith = nil
             if at > 0.5 { Task { for _ in 0..<40 { if let api = self.remote.playerAPI, self.remote.isConnected { api.seek(toPosition: Int(at * 1000), callback: nil); return }; try? await Task.sleep(nanoseconds: 250_000_000) } } }

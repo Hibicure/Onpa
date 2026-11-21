@@ -4872,7 +4872,7 @@ class SpotifyMedia extends EventTarget {
       // Spotify が寝ていて受け付けない時だけ、Spotify を一瞬開いて起こす
       const now = await Promise.race([nat('spNow').catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 700))]); // 返事が遅い時は待たない
       if (!(now && now.connected) && await this._webPlay(uri, 0)) return;
-      const r = await Promise.race([this._natPlay(uri, 0).then((x) => x || { ok: false }), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
+      const r = await Promise.race([this._natPlay(uri, 0, true).then((x) => x || { ok: false }), new Promise((ok) => setTimeout(() => ok('slow'), 6000))]);
       if (r === 'slow') return; // 始まれば、知らせ・問い合わせで再生中になる
       if (!r || !r.ok) {
         // 「失敗」と返ってきても、実は流れていることがよくある。Web の仕組みでもう一度頼んで、しばらく確かめてから判断する
@@ -4895,7 +4895,7 @@ class SpotifyMedia extends EventTarget {
         if (st && st.uri && this._mine(st, uri)) { this._state({ ...st, uri }); if (st.paused !== false) { nat('spResume').catch(() => {}); this._web('PUT', '/play'); } return; }
         if (st && st.connected) { const r0 = await nat('spPlay', { uri, at }).catch(() => null); if (r0 && r0.ok) return; }
         if (await this._webPlay(uri, at)) return;
-        const r = await this._natPlay(uri, at);
+        const r = await this._natPlay(uri, at, true);
         if (r && r.ok) return;
       })();
     }
@@ -4912,13 +4912,14 @@ class SpotifyMedia extends EventTarget {
   // この iPhone の Spotify（パソコンなど、ほかの端末では鳴らさない）。1分は覚えておく
   // アプリ経由で流す。Spotify とつながっていない時は Spotify を一瞬開いて起こすことになるので、それは30秒に1回まで
   // （何回も Spotify が開いては戻る、を起こさない。起こした後は Web の仕組みで流せる）
-  async _natPlay(uri, at) {
+  // force：▶ を押した時など、本人が流したい時は、さっき起こしたばかりでももう一度起こしてよい
+  async _natPlay(uri, at, force = false) {
     const st = await Promise.race([nat('spNow').catch(() => null), new Promise((ok) => setTimeout(() => ok(null), 700))]);
     if (!(st && st.connected)) {
-      if (Date.now() - (this._wokeAt || 0) < 30000) return null;
+      if (!force && Date.now() - (this._wokeAt || 0) < 30000) return null;
       this._wokeAt = Date.now(); this._devAt = 0; // 起こした後は、iPhone の Spotify を探し直す
     }
-    return nat('spPlay', { uri, at }).catch(() => null);
+    return nat('spPlay', { uri, at, force }).catch(() => null);
   }
   async _phone() {
     if (this._dev && this._devAt && performance.now() - this._devAt < 60000) return this._dev; // 見つからなかった時は覚えない（起きた直後にすぐ探し直せるように）
