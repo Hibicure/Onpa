@@ -2278,7 +2278,7 @@ function showSearchRecent() {
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 const searchMemo = new Map();
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '', spArtistId: t.spArtistId || '', spAlbumId: t.spAlbumId || '', album: t.album || '' });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '', spArtistId: t.spArtistId || '', spAlbumId: t.spAlbumId || '', album: t.album || '', isrc: t.isrc || '', alts: (t.alts || []).slice(0, 4).map((x) => ({ id: x.id, title: x.title, artist: x.artist, artwork: x.artwork, duration: x.duration || 0, permalink_url: x.permalink_url || x.permalink || '', isrc: x.isrc || '', secret: x.secret || '', userId: x.userId || null, uploader: x.uploader || '' })) });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -5299,7 +5299,11 @@ async function loadTrack(meta, autoplay = false) {
         const late = () => { player.removeEventListener('playing', late); if (track && track.trackId === meta.trackId && !loadedId) { loadedId = meta.trackId; rememberPlayed(meta); addCue(); } };
         player.addEventListener('playing', late); setTimeout(() => player.removeEventListener('playing', late), 60000);
       }
-      toast("This track can't be played"); setPP('play');
+      setPP('play');
+      // 流せなかった：同じ曲を別の場所で（なければ「流せません」）
+      // （Spotify は後から鳴り始めることがあるので、ここでは切り替えない。止まった時の立て直しは Spotify 側でやる）
+      if (String(meta.trackId).startsWith('sp:')) toast("This track can't be played");
+      else playElsewhere(meta, 0, "Couldn't play here").then((ok) => { if (!ok && track === meta) toast("This track can't be played"); });
     }
     return false;
   } finally {
@@ -5480,6 +5484,30 @@ player.addEventListener('spadopt', async (e) => {
     if (art && track === meta) { meta.artwork = art; queue[qi].artwork = art; renderTrack(); publishNow(true); }
   } catch {}
 });
+// その曲が流せなかった時（読み込めない・Bandcamp の無料回数切れ・試聴しか流れない など）：
+// 同じ曲を、この人が聴ける別の場所で、同じ位置から流す。順番は ①一緒にまとまっている別の場所 ②Spotify（つないでいる時だけ）③SoundCloud
+// （Apple Music を入れたら、Apple Music に入っている人は Apple Music も）
+async function playElsewhere(me0, at = 0, why = '') {
+  if (!me0 || me0._elsewhere) return false;
+  const bad = String(me0.trackId || me0.id || '');
+  const lim = bcLimited();
+  const spOK = !!(await spToken().catch(() => ''));
+  const can = (x) => { const id = String(x && x.id || ''); if (!id || id === bad) return false; if (id.startsWith('sp:')) return spOK; if (id.startsWith('bc:')) return IN_APP && !lim.has(id); if (id.startsWith('am:')) return false; return true; };
+  let alt = (me0.alts || []).find(can) || null;
+  if (!alt) {
+    const q = `${String(me0.artist || '').split(',')[0]} ${me0.title}`;
+    try { if (spOK) alt = (await spSearch(q)).find((x) => songKey(x) === songKey(me0) && can(x)) || null; } catch {}
+    if (!alt) { try { const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() }).then((x) => x.json()); alt = (r || []).map(splitArtist).find((x) => songKey(x) === songKey(me0) && can(x)) || null; } catch {} }
+  }
+  if (!alt || (track && track !== me0 && String(track.trackId) !== bad)) return false;
+  const m = { ...toMeta(alt), _elsewhere: true };
+  const where = String(alt.id).startsWith('sp:') ? 'Spotify' : String(alt.id).startsWith('bc:') ? 'Bandcamp' : 'SoundCloud';
+  toast(`${why ? why + ' · ' : ''}Playing on ${where} instead`);
+  if (queue[qi] && String(queue[qi].id) === bad) queue[qi] = { ...alt };
+  await pick(m, true);
+  if (at > 5) setTimeout(() => { if (track && track.trackId === m.trackId) player.currentTime = at; }, 1500);
+  return true;
+}
 // Bandcamp の無料回数を使い切った曲：分かるように知らせて、同じ曲を Spotify（つないでいれば）か SoundCloud で続きから流す。
 // 次からその曲は Bandcamp 以外を先に使う
 const BCLIMIT_KEY = 'oto_bclimit';
@@ -5488,16 +5516,10 @@ player.addEventListener('bclimit', async (e) => {
   if (!track) return;
   const at = player.currentTime || 0, me0 = track;
   try { const s0 = bcLimited(); s0.add('bc:' + (e.detail && e.detail.id)); localStorage.setItem(BCLIMIT_KEY, JSON.stringify([...s0].slice(-300))); } catch {}
-  toast('Free Bandcamp plays used up for this song · buy it on Bandcamp to keep playing there');
-  let alt = null;
-  try {
-    const q = `${String(track.artist || '').split(',')[0]} ${track.title}`;
-    const sp = await spSearch(q); alt = sp.find((x) => songKey(x) === songKey(me0));
-    if (!alt) { const r = await fetch(`${WORKER}/search?q=${encodeURIComponent(q)}`, { headers: await scHeaders() }).then((x) => x.json()); alt = (r || []).map(splitArtist).find((x) => songKey(x) === songKey(me0)); }
-  } catch {}
+  if (await playElsewhere(me0, at, 'Free Bandcamp plays used up')) return;
   if (track !== me0) return;
-  if (alt) { await pick(toMeta(alt), true); if (at > 5) setTimeout(() => { if (track && track.trackId === toMeta(alt).trackId) player.currentTime = at; }, 1500); }
-  else if (!playNext()) playRelated(true);
+  toast('Free Bandcamp plays used up for this song · buy it on Bandcamp to keep playing there');
+  if (!playNext()) playRelated(true);
 });
 // Spotify の曲を流している間に、Otocloud の次の曲たちの「Spotify 版」を探しておく。
 // アプリを閉じた・画面を消した瞬間に、それを Spotify の「次に再生」に入れる（Otocloud が眠っても順番どおりに続く）
