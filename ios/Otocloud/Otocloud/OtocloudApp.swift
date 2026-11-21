@@ -983,9 +983,27 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
     private var wokeWith: String?
     /// さっき「つながらなかった」＝ Spotify が眠っている。その時は、つながるのを待たずにすぐ起こす（久しぶりに開いた時に速く）
     private var asleepAt: Date?
+    /// 最後に Spotify を開いて起こした時。起こした直後は、つながるのに少し時間がかかるだけなので、もう一度開かない（何回も Spotify が開くのを防ぐ）
+    private var wokeAt: Date?
+    private var wokeRecently: Bool { wokeAt.map { Date().timeIntervalSince($0) < 25 } ?? false }
+    /// つながるのを待つ（Spotify は開かない）
+    private func waitConnect(_ sec: Double) async -> Bool {
+        if remote.isConnected { return true }
+        remote.connectionParameters.accessToken = sessionManager.session?.accessToken
+        return await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
+            connectWaiters.append(c)
+            DispatchQueue.main.async { self.remote.connect() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + sec) { [weak self] in
+                guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
+                self.finishConnect(false)
+            }
+        }
+    }
     private func ensureConnected(playURI: String) async -> Bool {
         wokeWith = nil
         if remote.isConnected { asleepAt = nil; return true }
+        // ついさっき起こしたばかり：開き直さずに、つながるのを待つだけ
+        if wokeRecently { return await waitConnect(6) }
         guard let s = sessionManager.session else { return false }
         if s.isExpired {
             sessionManager.renewSession()
@@ -1010,7 +1028,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { if !done { done = true; c.resume(returning: false) } }
         }
         guard opened else { return false }
-        wokeWith = playURI; asleepAt = nil
+        wokeWith = playURI; asleepAt = nil; wokeAt = Date()
         // 曲はもう流れ始めているので、つながるのを待たずに「流せた」と返す（つなぐのは裏で）
         DispatchQueue.main.async { self.remote.connect() }
         return true
@@ -1042,7 +1060,7 @@ final class SpotifyBridge: NSObject, SPTSessionManagerDelegate, SPTAppRemoteDele
             DispatchQueue.main.async { self.remote.connect() } // Spotify の部品は画面の係（メイン）で動かす
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
                 guard let self, !self.connectWaiters.isEmpty, !self.remote.isConnected else { return }
-                self.asleepAt = Date() // Spotify は眠っている：次に流す時はすぐ起こす
+                if !self.wokeRecently { self.asleepAt = Date() } // Spotify は眠っている：次に流す時はすぐ起こす（起こした直後は、つながるのが遅いだけなので数えない）
                 self.finishConnect(false)
             }
         }

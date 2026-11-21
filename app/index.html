@@ -4710,11 +4710,11 @@ class SpotifyMedia extends EventTarget {
   // 本当に音が進んでいるか（秒数が動いているか）を Spotify に聞く。鳴っていれば今の秒数、そうでなければ null
   async _probe(uri) {
     const st = await nat('spNow').catch(() => null);
-    if (st && st.uri) { if (!this._mine(st, uri)) return null; this._state({ ...st, uri }); return st.paused === false ? (st.pos || 0) : null; }
+    if (st && st.uri) { this._saw = true; if (!this._mine(st, uri)) return null; this._state({ ...st, uri }); return st.paused === false ? (st.pos || 0) : null; }
     try {
       const tok = await spToken(); if (!tok) return null;
       const r = await fetch('https://api.spotify.com/v1/me/player', { headers: { Authorization: 'Bearer ' + tok } });
-      if (r.status !== 200) return null; const d = await r.json(), it = d && d.item;
+      if (r.status !== 200) return null; const d = await r.json(), it = d && d.item; if (it) this._saw = true;
       if (!it || (d.device && !/smartphone/i.test(d.device.type || ''))) return null;
       const ar = (it.artists || []).map((a) => a.name).join(', ');
       if (!this._mine({ uri: it.uri, linked: it.linked_from && it.linked_from.uri, name: it.name, artist: ar }, uri)) return null;
@@ -4724,14 +4724,15 @@ class SpotifyMedia extends EventTarget {
   }
   // しばらくの間に、秒数が実際に進んだら true（「再生中」と言うだけで止まっているのは数えない）
   async _moving(uri, ms) {
-    const end = performance.now() + ms; let p0 = null;
+    const end = performance.now() + ms; let p0 = null; this._saw = false;
     while (performance.now() < end) {
       await new Promise((ok) => setTimeout(ok, 1500));
       if (this._uri !== uri || !this._want) return true;
       const p = await this._probe(uri);
       if (p != null) { if (p0 != null && p - p0 > 0.4) return true; if (p0 == null) p0 = p; }
     }
-    return false;
+    // Spotify の様子が一度も見えなかった時は「止まっている」と決めつけない（決めつけて流し直すと、Spotify が何回も開く）
+    return !this._saw;
   }
   // ▶ を押した後、ちゃんと鳴り始めたかを確かめて、だめなら立て直す
   async _check(uri, ms) { if (await this._moving(uri, ms)) return; if (this._want && this._uri === uri) this._kick(); }
