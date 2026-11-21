@@ -1015,8 +1015,11 @@
   .np.full .amb { display: none; }
   /* 全画面：電球をつけている（昼）時は黒い文字、消している（夜）時は白い文字。ジャケットの明るさはそのまま。
      黒い文字の時は、下の影を白っぽくして読みやすく */
-  :root:not([data-theme="dark"]) .np.full { --ink: #111214; --mute: rgba(0,0,0,.62); --line: rgba(0,0,0,.28); color: #111214; }
-  :root:not([data-theme="dark"]) .np.full .fullart .shade { background: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.12) 55%, rgba(255,255,255,.7) 100%); }
+  /* 全画面は、昼でも夜でも白い文字とボタン（黒い文字はジャケットによって読めなくなるため）。下を白くかすませるのはやめて、
+     うすい影を下にだけ敷き、文字のまわりにもほんのり影を落として、どんなジャケットでも読めるように */
+  .np.full .fullart .shade { background: linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,0) 48%, rgba(0,0,0,.28) 70%, rgba(0,0,0,.5) 100%); }
+  .np.full .in { text-shadow: 0 1px 14px rgba(0,0,0,.32); }
+  .np.full .in svg { filter: drop-shadow(0 1px 8px rgba(0,0,0,.28)); }
   /* 全画面：歌詞を曲名の上に。上下のはしは透けて消える。スクロールできる */
   .np .fulllyr { display: none; }
   .np.full .fulllyr:not([hidden]) { display: block; position: absolute; left: 0; right: 0; bottom: calc(100% + 4px); max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; white-space: pre-wrap;
