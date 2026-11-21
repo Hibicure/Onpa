@@ -456,10 +456,13 @@
   .lyr-x { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); } .lyr-x svg { width: 20px; height: 20px; }
   .lyr-x[hidden], .lyr-back[hidden] { display: none !important; }
   /* アルバムのページ（Apple Music のように）：ジャケットを画面のいちばん上から横いっぱいに。下はページの色にとけこませ、その上に名前とボタン。上のバーは出さない */
-  body.album-mode .head, body.album-mode #topSearch, body.album-mode #seg, body.album-mode #searchField, body.album-mode #libbar { display: none !important; }
-  body.album-mode { background: var(--alb-c, var(--paper)) !important; transition: background .45s ease; }
-  body.album-mode .nav, body.album-mode .mini { background: var(--alb-c, var(--paper)) !important; }
-  body.album-mode #viewListen, body.album-mode .nav, body.album-mode .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); color: var(--alb-ink, #fff); }
+  body.album-mode:not(.off-listen) .head, body.album-mode:not(.off-listen) #topSearch, body.album-mode:not(.off-listen) #seg, body.album-mode:not(.off-listen) #searchField, body.album-mode:not(.off-listen) #libbar { display: none !important; }
+  body.album-mode:not(.off-listen) { background: var(--alb-c, var(--paper)) !important; transition: background .45s ease; }
+  body.album-mode:not(.off-listen) .nav, body.album-mode:not(.off-listen) .mini { background: var(--alb-c, var(--paper)) !important; }
+  body.album-mode:not(.off-listen) #viewListen, body.album-mode:not(.off-listen) .nav, body.album-mode:not(.off-listen) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); color: var(--alb-ink, #fff); }
+  /* 一覧の枠は横にはみ出した所を切るので、アルバムのページでは切らずに画面全体で切る（大きなジャケットが画面の端まで届くように） */
+  body.album-mode:not(.off-listen) #results { overflow-x: visible; }
+  html:has(body.album-mode:not(.off-listen)), body.album-mode:not(.off-listen) { overflow-x: clip; }
   .alb-hero { position: relative; margin: 0 calc(50% - 50vw) 4px; color: var(--alb-ink, #fff); }
   .alb-hero-img { display: block; width: 100vw; aspect-ratio: 1; object-fit: cover; background: var(--alb-c, var(--chip)); -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%); mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%); }
   .alb-hero-info { position: relative; margin-top: -118px; padding: 0 28px; display: flex; flex-direction: column; align-items: center; text-align: center; }
@@ -1186,10 +1189,10 @@
   .ah-acts #ahLikes[hidden] { display: none; }
   .ah-acts #ahLikes.on { background: var(--alb-ink, #fff); color: var(--alb-c, #000); }
   .ah-acts #ahLikes.on svg path { fill: currentColor; }
-  body.artist-mode:has(.artist-head.hero) #libbar { display: none !important; }
-  body.artist-mode:has(.artist-head.hero) { background: var(--alb-c, var(--ah-page)) !important; }
-  body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { background: var(--alb-c, var(--ah-page)) !important; }
-  body.artist-mode:has(.artist-head.hero) #viewListen, body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); color: var(--alb-ink, #fff); }
+  body.artist-mode:not(.off-listen):has(.artist-head.hero) #libbar { display: none !important; }
+  body.artist-mode:not(.off-listen):has(.artist-head.hero) { background: var(--alb-c, var(--ah-page)) !important; }
+  body.artist-mode:not(.off-listen):has(.artist-head.hero) .nav, body.artist-mode:not(.off-listen):has(.artist-head.hero) .mini { background: var(--alb-c, var(--ah-page)) !important; }
+  body.artist-mode:not(.off-listen):has(.artist-head.hero) #viewListen, body.artist-mode:not(.off-listen):has(.artist-head.hero) .nav, body.artist-mode:not(.off-listen):has(.artist-head.hero) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); color: var(--alb-ink, #fff); }
   .artist-head.hero { position: relative; background: transparent; color: var(--alb-ink, #fff); }
   .artist-head.hero .ah-bg { width: 100vw !important; margin-left: calc(50% - 50vw); aspect-ratio: 1 / 1 !important; background-position: center 22%; -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; }
   .artist-head.hero .ah-row { margin-top: -112px !important; align-items: center; text-align: center; padding: 0 24px 0; }
@@ -2174,6 +2177,8 @@ $('shareMe').addEventListener('click', async () => {
 
 // ===================== タブ =====================
 function showTab(which) {
+  // アルバム・アーティストのページの見た目（ページの色・上のバーを隠す など）は、検索のタブにいる時だけ（ホームなどに持ち越さない）
+  document.body.classList.toggle('off-listen', which !== 'listen');
   $('viewHome').hidden = which !== 'home';
   $('viewListen').hidden = which !== 'listen';
   $('viewFriends').hidden = which !== 'friends';
@@ -4028,7 +4033,7 @@ async function artistAlbums(userId, name) {
     if (!r.ok) return;
     const list = (await r.json()).filter((a) => a.count > 0);
     if (mode !== 'artist' || !list.length) return;
-    const tile = (a) => `<button class="alb" data-alb="${a.id}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork.replace('-large.', '-t300x300.'))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${({ album: 'Album · ', ep: 'EP · ', single: 'Single · ', compilation: 'Compilation · ' })[a.type] || ''}${a.count} ${a.count === 1 ? 'track' : 'tracks'}</span></button>`;
+    const tile = (a) => `<button class="alb" data-alb="${a.id}" data-title="${esc(a.title)}" data-art="${esc(a.artwork || '')}" data-kind="${esc(({ album: 'Album', ep: 'EP', single: 'Single', compilation: 'Compilation' })[a.type] || 'Playlist')}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork.replace('-large.', '-t300x300.'))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${({ album: 'Album · ', ep: 'EP · ', single: 'Single · ', compilation: 'Compilation · ' })[a.type] || ''}${a.count} ${a.count === 1 ? 'track' : 'tracks'}</span></button>`;
     const row0 = $('spAlbums');
     if (row0) { // Spotify の作品がもう並んでいる：そこに無い SoundCloud のアルバムだけ前に足す
       const have = new Set([...row0.querySelectorAll('.alb')].map((b) => normT(b.dataset.title)));
@@ -4134,7 +4139,7 @@ new MutationObserver(() => {
     if (!on) { document.body.style.removeProperty('--alb-c'); document.body.style.removeProperty('--alb-ink'); }
   }
 }).observe($('results'), { childList: true });
-async function openAlbum(id, title, artistId, artistName) {
+async function openAlbum(id, title, artistId, artistName, info = {}) {
   mode = 'playlist'; albPage = true;
   albumBack = { artistId, artistName };
   document.body.classList.remove('artist-mode'); $('artistHead').hidden = true; document.body.style.removeProperty('--ah-tint');
@@ -4147,9 +4152,10 @@ async function openAlbum(id, title, artistId, artistName) {
     const d = (await r.json()).map(splitArtist);
     if (mode !== 'playlist') return;
     renderTracks(d, msg('This album is empty'));
-    const a0 = d.find((t) => t.artwork) || {}, art = a0.artwork ? String(a0.artwork).replace(/-(large|t\d+x\d+)\./, '-t500x500.') : '';
+    // 大きなジャケットは、アルバム（プレイリスト）自身の絵。なければ1曲目の絵
+    const a0 = d.find((t) => t.artwork) || {}, art0 = info.art || a0.artwork || '', art = art0 ? String(art0).replace(/-(large|t\d+x\d+)\./, '-t500x500.') : '';
     $('libTitle').textContent = '';
-    $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art, name: title, by: artistName || (d[0] && d[0].artist) || '', meta: d.length > 1 ? `${d.length} songs` : '' }));
+    $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art, name: title, by: artistName || (d[0] && d[0].artist) || '', meta: [info.kind || '', d.length > 1 ? `${d.length} songs` : ''].filter(Boolean).join(' · ') }));
     albTint(art);
   } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
@@ -4247,7 +4253,7 @@ function albRowClick(e) {
   const row = e.currentTarget, b = e.target.closest('[data-alb],[data-spalb],[data-bcalb]'); if (!b) return;
   if (b.dataset.bcalb) openBcAlbum(b.dataset.bcalb, b.dataset.title);
   else if (b.dataset.spalb) openSpAlbum(b.dataset.spalb, b.dataset.title);
-  else openAlbum(b.dataset.alb, b.dataset.title, row.dataset.uid, row.dataset.uname);
+  else openAlbum(b.dataset.alb, b.dataset.title, row.dataset.uid, row.dataset.uname, { art: b.dataset.art || '', kind: b.dataset.kind || '' });
 }
 async function spArtistAlbums(spId) {
   try {
