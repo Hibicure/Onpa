@@ -455,6 +455,19 @@
   .lyr-x { width: 34px; height: 34px; display: grid; place-items: center; color: var(--ink); }
   .lyr-x { width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 8%, transparent); } .lyr-x svg { width: 20px; height: 20px; }
   .lyr-x[hidden], .lyr-back[hidden] { display: none !important; }
+  /* 地図に出る場所を決める（登録の時・設定・一度だけの確認） */
+  .pl-sel { width: 100%; height: 44px; border-radius: 12px; border: 0; padding: 0 12px; font: inherit; font-size: 16px; background: var(--chip); color: var(--ink); -webkit-appearance: none; appearance: none; }
+  .f .opt { font-style: normal; opacity: .55; font-weight: 500; margin-left: 4px; }
+  .pl-ask { position: fixed; inset: 0; z-index: 400; display: grid; place-items: end center; background: rgba(0,0,0,.32); }
+  .pl-ask[hidden] { display: none; }
+  .pl-ask-in { width: 100%; max-width: 520px; background: var(--paper); color: var(--ink); border-radius: 22px 22px 0 0; padding: 22px 20px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; }
+  .pl-ask-in > b { font-family: var(--display); font-size: 21px; }
+  .pl-ask-in > p { margin: 0 0 4px; color: var(--mute); font-size: 14px; line-height: 1.45; }
+  .pl-ask-in .f { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--mute); }
+  .pl-ask-in .f input { width: 100%; height: 44px; border-radius: 12px; border: 0; padding: 0 12px; font: inherit; font-size: 16px; font-weight: 500; background: var(--chip); color: var(--ink); box-sizing: border-box; }
+  .pl-ask-in .go { margin-top: 6px; height: 50px; border-radius: 999px; border: 0; background: var(--ink); color: var(--paper); font: inherit; font-size: 17px; font-weight: 700; }
+  .pl-ask-in .ob-skip { background: none; border: 0; color: var(--mute); font: inherit; font-size: 14px; padding: 8px; }
+  .pl-ask-in .err { color: #d4453a; font-size: 13px; min-height: 0; }
   /* アルバムのページ（Apple Music のように）：ジャケットを画面のいちばん上から横いっぱいに。下はページの色にとけこませ、その上に名前とボタン。上のバーは出さない */
   body.album-mode:not(.off-listen) .head, body.album-mode:not(.off-listen) #topSearch, body.album-mode:not(.off-listen) #seg, body.album-mode:not(.off-listen) #searchField, body.album-mode:not(.off-listen) #libbar { display: none !important; }
   body.album-mode:not(.off-listen) { background: var(--alb-c, var(--paper)) !important; transition: background .45s ease; }
@@ -1332,6 +1345,9 @@
   <label class="f"><span>Name</span><input id="obName" maxlength="20" autocomplete="nickname" placeholder="Hibiki"></label>
   <label class="f"><span>Handle</span><div class="at"><input id="obHandle" maxlength="15" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="hibiki"></div></label>
   <p class="fine">Friends search this to add you. Letters, numbers and _ only.</p>
+  <label class="f"><span>Country</span><select id="obCountry" class="pl-sel"></select></label>
+  <label class="f"><span>City <i class="opt">optional</i></span><input id="obCity" maxlength="40" autocomplete="address-level2" placeholder="Osaka"></label>
+  <p class="fine">Where you show up on the map. You can change it or hide it in Settings.</p>
   <label class="f" id="obPassWrap"><span>Password</span><input id="obPass" type="password" autocomplete="new-password" placeholder="6+ characters"></label>
   <p class="fine" id="obPassHint">So you can sign in to @handle on another device.</p>
   <div class="err" id="obErr"></div>
@@ -1498,6 +1514,17 @@
     <button class="spg-reset" id="spgReset" hidden>Stop using my key</button>
   </div>
 </section>
+<div class="pl-ask" id="placeAsk" hidden>
+  <div class="pl-ask-in">
+    <b>Your place on the map</b>
+    <p>Friends see you here. Only the city (or just the country) is shown, never your exact spot.</p>
+    <label class="f"><span>Country</span><select id="paCountry" class="pl-sel"></select></label>
+    <label class="f"><span>City <i class="opt">optional</i></span><input id="paCity" maxlength="40" autocomplete="address-level2" placeholder="Osaka"></label>
+    <div class="err" id="paErr"></div>
+    <button class="go" id="paSave">Save</button>
+    <button class="ob-skip" id="paHide">Don't show me on the map</button>
+  </div>
+</div>
 <section class="sheet" id="settings" aria-hidden="true" aria-label="Settings">
   <div class="sheet-in">
     <div class="sheet-top"><b>Settings</b><button class="done" id="setDone">Done</button></div>
@@ -1506,6 +1533,12 @@
     <div class="set-group">
       <div class="set-label">SoundCloud</div>
       <div class="set-row"><span id="setScState"></span><button class="btn ghost sc-connect" id="setScBtn">Connect</button></div>
+    </div>
+
+    <div class="set-group">
+      <div class="set-label">On the map</div>
+      <div class="set-row"><span id="setPlaceNow">Not set</span><button class="btn ghost" id="setPlaceBtn">Change</button></div>
+      <div class="set-row"><span>Show me on the map</span><button class="btn ghost" id="setPlaceShow">On</button></div>
     </div>
 
     <div class="set-group">
@@ -2025,6 +2058,8 @@ $('obGo').addEventListener('click', async () => {
   const needPass = !isScUser(firebase.auth().currentUser);
   const pass = $('obPass').value;
   if (needPass && pass.length < 6) { $('obErr').textContent = 'Use a password with 6 or more characters'; return; }
+  const cc = $('obCountry').value;
+  if (!cc) { $('obErr').textContent = 'Choose your country'; return; }
   const uid = firebase.auth().currentUser.uid;
   $('obGo').disabled = true;
   try {
@@ -2034,6 +2069,7 @@ $('obGo').addEventListener('click', async () => {
     const cu = firebase.auth().currentUser;
     if (needPass && cu.isAnonymous) await cu.linkWithCredential(firebase.auth.EmailAuthProvider.credential(handleEmail(uid), pass));
     me = { uid, handle, name };
+    await savePlace(cc, $('obCity').value).catch(() => {});
     $('onboard').hidden = true;
     startApp();
   } catch (e) {
@@ -2189,6 +2225,7 @@ function showTab(which) {
 $('tabHome').addEventListener('click', () => showTab('home'));
 // ===================== 設定（右上の @ID から） =====================
 function openSettings() {
+  paintPlaceSetting();
   const user = firebase.auth().currentUser;
   const linked = isScUser(user);
   setFace($('setAvatar'), me); $('setName').textContent = me.name || me.handle; $('setHandle').textContent = '@' + me.handle;
@@ -2855,10 +2892,110 @@ $('npNext').addEventListener('click', () => { hap('rigid'); noteSkip(); unlockAu
 
 // ===================== 地球儀（Geo） =====================
 // 自分のだいたいの場所（市くらい）を、1日1回だけ自分のデータに置く。設定で切れる
+// ===================== 地図に出る場所（本人が決める） =====================
+// 国は必ず、都市は任意。都市を入れた人はその都市のあたり、国だけの人はその国の中に散らばって出る（同じ所に固まらないように）
+const JP_SPOTS = [[43.06,141.35],[38.27,140.87],[37.9,139.02],[36.56,136.66],[35.68,139.69],[35.44,139.64],[35.86,139.65],[35.61,140.12],[35.18,136.9],[34.97,138.38],[35.01,135.77],[34.69,135.5],[34.69,135.19],[34.39,132.46],[34.66,133.92],[33.84,132.77],[33.59,130.4],[32.8,130.71],[31.6,130.56],[26.21,127.68],[36.65,138.18],[36.39,139.06],[39.72,140.1],[40.82,140.74],[34.34,134.04],[33.24,131.61]];
+let placeCountries = null;
+function countryList() {
+  if (placeCountries) return placeCountries;
+  const dn = new Intl.DisplayNames(['en'], { type: 'region' }), out = [];
+  const skip = new Set(['EU', 'EZ', 'UN', 'QO', 'ZZ', 'XA', 'XB', 'AC', 'CP', 'DG', 'EA', 'IC', 'TA', 'XK']);
+  for (let a = 65; a <= 90; a++) for (let b = 65; b <= 90; b++) {
+    const c = String.fromCharCode(a, b); if (skip.has(c)) continue;
+    let n = ''; try { n = dn.of(c); } catch { continue; }
+    if (n && n !== c && !/Unknown/i.test(n)) out.push([c, n]);
+  }
+  out.sort((x, y) => x[1].localeCompare(y[1]));
+  return (placeCountries = out);
+}
+function fillCountries(sel, pick) {
+  if (!sel.options.length) sel.innerHTML = '<option value="">Choose…</option>' + countryList().map(([c, n]) => `<option value="${c}">${esc(n)}</option>`).join('');
+  if (pick) sel.value = pick;
+}
+// ネットのつながりから推測した国と都市（最初に入れておく。合っていればそのまま「保存」でよい）
+let placeGuess = null;
+async function guessPlace() {
+  if (placeGuess) return placeGuess;
+  try { const w = await (await fetch(WORKER + '/where')).json(); placeGuess = { cc: String(w.countryCode || w.country || '').toUpperCase().slice(0, 2), city: w.city || '', lat: w.lat, lng: w.lng }; } catch { placeGuess = {}; }
+  return placeGuess;
+}
+function seedOf(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
+// 国と都市から、地図に出す場所を決める
+async function placeFrom(cc, city, uid) {
+  cc = String(cc || '').toUpperCase(); city = String(city || '').trim();
+  const name = (() => { try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(cc); } catch { return cc; } })();
+  if (city) {
+    try {
+      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&countryCode=${cc}`).then((x) => x.json());
+      const g = (r.results || [])[0];
+      if (g) return { lat: +g.latitude.toFixed(2), lng: +g.longitude.toFixed(2), city: g.name || city, country: name, cc, manual: true };
+    } catch {}
+    const gs = await guessPlace();
+    if (gs.cc === cc && gs.lat != null) return { lat: gs.lat, lng: gs.lng, city, country: name, cc, manual: true };
+  }
+  // 国だけ：その国の中の、人ごとに決まった場所（日本は主な街のどれか）
+  const h = seedOf(uid || cc);
+  if (cc === 'JP') { const [la, ln] = JP_SPOTS[h % JP_SPOTS.length]; return { lat: la, lng: ln, city: '', country: name, cc, manual: true }; }
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?country=${cc}&format=json&limit=1`).then((x) => x.json());
+    const g = (r || [])[0];
+    if (g) {
+      const bb = (g.boundingbox || []).map(Number), la = +g.lat, ln = +g.lon;
+      const sla = bb.length === 4 ? (bb[1] - bb[0]) * 0.18 : 1, sln = bb.length === 4 ? (bb[3] - bb[2]) * 0.18 : 1;
+      const a = ((h % 1000) / 1000 - 0.5) * 2, b = (((h >>> 10) % 1000) / 1000 - 0.5) * 2;
+      return { lat: +(la + a * Math.min(sla, 4)).toFixed(2), lng: +(ln + b * Math.min(sln, 6)).toFixed(2), city: '', country: name, cc, manual: true };
+    }
+  } catch {}
+  return null;
+}
+async function savePlace(cc, city) {
+  const v = await placeFrom(cc, city, me && me.uid);
+  if (!v || !me) return false;
+  me.place = v; db.ref('users/' + me.uid + '/place').set(v).catch(() => {});
+  try { localStorage.setItem('oto_place', '1'); localStorage.setItem('oto_place_asked', '1'); } catch {}
+  paintPlaceSetting(); return true;
+}
+function paintPlaceSetting() {
+  const p = me && me.place; let on = true; try { on = localStorage.getItem('oto_place') !== '0'; } catch {}
+  $('setPlaceNow').textContent = !on ? 'Hidden' : p ? [p.city, p.country].filter(Boolean).join(', ') || 'Set' : 'Not set';
+  $('setPlaceShow').textContent = on ? 'On' : 'Off';
+}
+// 場所を決めるシート（設定から・一度だけの確認）
+async function openPlaceAsk() {
+  const g = await guessPlace(), p = (me && me.place && me.place.manual) ? me.place : null;
+  fillCountries($('paCountry'), (p && p.cc) || g.cc || '');
+  $('paCity').value = p ? (p.city || '') : (g.city || '');
+  $('paErr').textContent = ''; $('placeAsk').hidden = false;
+}
+$('paSave').addEventListener('click', async () => {
+  const cc = $('paCountry').value; if (!cc) { $('paErr').textContent = 'Choose your country'; return; }
+  $('paSave').disabled = true;
+  const ok = await savePlace(cc, $('paCity').value).catch(() => false);
+  $('paSave').disabled = false;
+  if (!ok) { $('paErr').textContent = "Couldn't find that place. Check the city, or leave it empty."; return; }
+  $('placeAsk').hidden = true; hap('light'); toast('Saved');
+});
+$('paHide').addEventListener('click', () => {
+  try { localStorage.setItem('oto_place', '0'); localStorage.setItem('oto_place_asked', '1'); } catch {}
+  if (me) { me.place = null; db.ref('users/' + me.uid + '/place').remove().catch(() => {}); }
+  $('placeAsk').hidden = true; paintPlaceSetting(); toast("You're hidden from the map");
+});
+$('placeAsk').addEventListener('click', (e) => { if (e.target === $('placeAsk')) $('placeAsk').hidden = true; });
+$('setPlaceBtn').addEventListener('click', () => openPlaceAsk());
+$('setPlaceShow').addEventListener('click', () => {
+  let on = true; try { on = localStorage.getItem('oto_place') !== '0'; } catch {}
+  if (on) $('paHide').click(); else openPlaceAsk();
+});
+// 登録の画面：最初から推測で入れておく
+(async () => { const g = await guessPlace(); fillCountries($('obCountry'), g.cc || ''); if (g.city && !$('obCity').value) $('obCity').value = g.city; })();
 async function updatePlace() {
   if (!me) return;
   let on = true; try { on = localStorage.getItem('oto_place') !== '0'; } catch {}
   if (!on) { db.ref('users/' + me.uid + '/place').remove().catch(() => {}); return; }
+  if (me.place && me.place.manual) return; // 本人が決めた場所は、推測で上書きしない
+  // まだ本人が場所を決めていない人には、一度だけ聞く（推測を入れておくので、合っていれば保存を押すだけ）
+  let asked = false; try { asked = localStorage.getItem('oto_place_asked') === '1'; } catch {}
+  if (!asked) { try { localStorage.setItem('oto_place_asked', '1'); } catch {} openPlaceAsk(); }
   try {
     const last = Number(localStorage.getItem('oto_place_at') || 0);
     if (Date.now() - last < 864e5 && me.place) return;
