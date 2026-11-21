@@ -506,7 +506,8 @@
   /* プレイリストを選ぶページ（下から上がってくる、ふつうのページ） */
   .plpage { position: fixed; inset: 0; z-index: 280; background: var(--paper); color: var(--ink); display: flex; flex-direction: column; transform: translateY(100%); transition: transform .34s cubic-bezier(.2,.8,.2,1); }
   .plpage.in { transform: none; }
-  .plpage-top { display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 14px) 20px 10px; }
+  .plpage-top { position: relative; display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 22px) 20px 12px; touch-action: none; }
+  .plpage-grab { position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 8px); width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--line); }
   .plpage-top .tt { flex: 1; min-width: 0; }
   .plpage-top b { display: block; font-family: var(--display); font-size: 24px; letter-spacing: -0.02em; }
   .plpage-top small { display: block; color: var(--mute); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
@@ -518,10 +519,12 @@
   .plrow-h b { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .plrow-h span { color: var(--mute); font-size: 13px; flex: none; }
   /* ジャケの列：横にスクロールできる。1枚ずつふちをふわっとぼかして、ぐっと重ねる */
-  .plstrip { display: flex; height: 70px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; touch-action: pan-x pan-y; overscroll-behavior-x: contain; margin-right: -20px; padding-right: 30px;
+  .plstrip { display: flex; align-items: flex-end; height: 92px; padding-top: 22px; box-sizing: border-box; overflow: hidden; scrollbar-width: none; touch-action: pan-y; margin-right: -20px; padding-right: 30px;
     -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
   .plstrip::-webkit-scrollbar { display: none; }
-  .plstrip img, .plstrip i { width: 70px; height: 70px; flex: none; object-fit: cover; margin-right: -30px; background: var(--chip); position: relative; }
+  .plstrip img, .plstrip i { width: 70px; height: 70px; flex: none; object-fit: cover; margin-right: -30px; background: var(--chip); position: relative; transform-origin: 50% 100%; transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+  .plstrip.scrub img { transition: transform .06s linear; }
+  .plstrip img { pointer-events: none; -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
   .plstrip img { -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%); mask-composite: intersect; box-shadow: none !important; border-radius: 4px !important; }
   .plrow.new .plstrip i { display: grid; place-items: center; font-style: normal; font-size: 30px; color: var(--mute); box-shadow: none; }
   .plrow.done { opacity: .45; }
@@ -3689,7 +3692,7 @@ function neighborMeta(dir) {
     clearTimeout(tiltTimer);
     if (charging) {
       charging = false;
-      if (chargeArmed) { el.style.transition = 'transform .12s ease-out'; el.style.transform = ''; flingToPlaylist(el); }
+      if (chargeArmed) { flingToPlaylist(el); el.style.transition = 'none'; el.style.transform = ''; }
       else { el.style.transition = 'transform .45s cubic-bezier(.34,1.6,.64,1)'; el.style.transform = ''; }
       setTimeout(() => { el.style.transition = ''; }, 460);
       return;
@@ -4048,6 +4051,31 @@ async function oplImport(title) {
   for (const t of list) { const k = songKey(t) || t.id; if (seen.has(k)) continue; seen.add(k); await ref.push({ ...oplTrack(t), at: t0 + n, by: me.uid }); n++; }
   toast(`Saved “${title}” · ${n} songs`);
 }
+// ジャケの列：指を置いて左右になぞると、指のあたりのジャケが山のように持ち上がり、なぞる方へ列が流れていく（Mac のドックのような拡大）
+(() => {
+  let strip = null, id = null, sx = 0, sy = 0, axis = '', last = 0;
+  const lift = (x) => {
+    const r = strip.getBoundingClientRect(), max = strip.scrollWidth - strip.clientWidth;
+    // 指の位置（列の左はし〜右はし）に合わせて、列ぜんたいを送る
+    if (max > 0) { const p = Math.min(1, Math.max(0, (x - r.left - 20) / (r.width - 60))); strip.scrollLeft = p * max; }
+    for (const im of strip.children) {
+      const b = im.getBoundingClientRect(), d = (b.left + b.width / 2 - x) / 46, k = Math.exp(-d * d);
+      im.style.transform = k > 0.02 ? `translateY(${(-16 * k).toFixed(1)}px) scale(${(1 + 0.32 * k).toFixed(3)})` : '';
+      im.style.zIndex = String(100 + Math.round(k * 50) - (k < 0.02 ? 50 : 0));
+    }
+    const near = [...strip.children].reduce((a, im, i) => { const b = im.getBoundingClientRect(); const dd = Math.abs(b.left + b.width / 2 - x); return dd < a[0] ? [dd, i] : a; }, [1e9, -1])[1];
+    if (near !== last) { last = near; hap('tick'); }
+  };
+  const drop = () => { if (!strip) return; strip.classList.remove('scrub'); for (const [i, im] of [...strip.children].entries()) { im.style.transform = ''; im.style.zIndex = String(60 - i); } };
+  document.addEventListener('pointerdown', (e) => { const s = e.target.closest && e.target.closest('.plstrip'); if (!s || !s.querySelector('img')) return; strip = s; id = e.pointerId; sx = e.clientX; sy = e.clientY; axis = ''; last = -1; });
+  document.addEventListener('pointermove', (e) => {
+    if (!strip || e.pointerId !== id) return;
+    if (!axis && Math.hypot(e.clientX - sx, e.clientY - sy) > 6) { axis = Math.abs(e.clientX - sx) > Math.abs(e.clientY - sy) ? 'x' : 'y'; if (axis === 'x') { strip.classList.add('scrub'); strip._scrolledAt = Date.now(); } else { strip = null; return; } }
+    if (axis === 'x') { strip._scrolledAt = Date.now(); lift(e.clientX); e.preventDefault(); }
+  }, { passive: false });
+  const end = (e) => { if (!strip || e.pointerId !== id) return; if (axis === 'x') strip._scrolledAt = Date.now(); drop(); strip = null; id = null; };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+})();
 // ジャケの列を横にスクロールした直後の「押した」は、プレイリストを開かない・追加しない
 document.addEventListener('scroll', (e) => { if (e.target && e.target.classList && e.target.classList.contains('plstrip')) e.target._scrolledAt = Date.now(); }, true);
 document.addEventListener('click', (e) => { const st = e.target.closest && e.target.closest('.plrow'); const strip = st && st.querySelector('.plstrip'); if (strip && Date.now() - (strip._scrolledAt || 0) < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
@@ -4087,10 +4115,18 @@ async function oplPage(t) {
   if (!t) return; if (!me || !me.uid) { toast('Sign in to make playlists'); return; }
   closePlSheet();
   const el = document.createElement('section'); el.className = 'plpage'; el.id = 'plSheet';
-  el.innerHTML = `<div class="plpage-top"><div class="tt"><b>Add to playlist</b><small>${esc(t.title || '')}${t.artist ? ' · ' + esc(t.artist) : ''}</small></div><button class="x" data-plx="1" aria-label="Close">${X_ICON}</button></div><div class="plpage-list" id="plPageList">${msg('Loading…')}</div>`;
+  el.innerHTML = `<div class="plpage-top"><i class="plpage-grab"></i><div class="tt"><b>Add to playlist</b><small>${esc(t.title || '')}${t.artist ? ' · ' + esc(t.artist) : ''}</small></div></div><div class="plpage-list" id="plPageList">${msg('Loading…')}</div>`;
   document.body.appendChild(el);
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
-  const close = () => { el.classList.remove('in'); setTimeout(() => el.remove(), 340); };
+  const close = () => { el.style.transform = ''; el.classList.remove('in'); setTimeout(() => el.remove(), 340); };
+  // 上の方をつかんで下へ引くと閉じる（× ボタンは置かない）
+  (() => {
+    const top = el.querySelector('.plpage-top'); let id = null, sy = 0, dy = 0;
+    top.addEventListener('pointerdown', (e) => { id = e.pointerId; sy = e.clientY; dy = 0; el.style.transition = 'none'; try { top.setPointerCapture(id); } catch {} });
+    top.addEventListener('pointermove', (e) => { if (e.pointerId !== id) return; dy = Math.max(0, e.clientY - sy); el.style.transform = `translateY(${dy}px)`; });
+    const end = (e) => { if (e.pointerId !== id) return; id = null; el.style.transition = ''; if (dy > 90) { hap('light'); close(); } else el.style.transform = ''; };
+    top.addEventListener('pointerup', end); top.addEventListener('pointercancel', end);
+  })();
   const paint = async () => {
     const lists = await oplList().catch(() => []);
     const rm = oplNow && t._plk ? `<button class="as-item" data-plrm="1" style="margin:8px 20px">Remove from this playlist</button>` : '';
@@ -4109,14 +4145,20 @@ async function oplPage(t) {
 // ジャケを上に投げる：ジャケが大きさそのままシュッと上へ抜けて、プレイリストを選ぶページに変わる
 function flingToPlaylist(from) {
   if (!track) return; hap('rigid');
-  const r = from.getBoundingClientRect(), img = track.artwork ? big(track.artwork) : '';
-  const f = document.createElement('div'); f.className = 'fling';
+  // 回して引いた時、外枠（傾いた四角を囲む箱）で測ると大きく見えてしまう。本当の大きさ（offset）と真ん中の位置で写し取る
+  const bb = from.getBoundingClientRect(), w = from.offsetWidth, h = from.offsetHeight;
+  const cx = bb.left + bb.width / 2, cy = bb.top + bb.height / 2;
+  const m = /rotate\((-?[\d.]+)deg\)/.exec(from.style.transform || ''), a0 = m ? parseFloat(m[1]) : 0;
   const round = !($('np').classList.contains('square') || $('np').classList.contains('full'));
-  f.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background-image:url("${img}");border-radius:${round ? '50%' : '6px'}`;
+  const img = track.artwork ? big(track.artwork) : '';
+  const f = document.createElement('div'); f.className = 'fling';
+  // CD は真ん中に穴をあけて、丸いまま。四角いジャケットはそのまま
+  const hole = round ? '-webkit-mask-image:radial-gradient(circle,transparent 9%,#000 9.6%);mask-image:radial-gradient(circle,transparent 9%,#000 9.6%);' : '';
+  f.style.cssText = `left:${cx - w / 2}px;top:${cy - h / 2}px;width:${w}px;height:${h}px;transform:rotate(${a0}deg);background-image:url("${img}");border-radius:${round ? '50%' : '6px'};${hole}`;
   document.body.appendChild(f);
   from.classList.add('flung');
   // 大きさはそのまま。くるくる回りながら上へ抜けていく
-  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translateY(${-r.bottom - 60}px) rotate(${round ? 540 : 200}deg)`; }));
+  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translateY(${-(cy + h / 2) - 60}px) rotate(${a0 + (round ? 540 : 200)}deg)`; }));
   setTimeout(() => { f.remove(); from.classList.remove('flung'); }, 700);
   const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret };
   setTimeout(() => oplPage(t), 230);
