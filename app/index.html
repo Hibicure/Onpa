@@ -81,6 +81,8 @@
   :focus-visible { outline: 2px solid var(--cobalt); outline-offset: 2px; }
   [hidden] { display: none !important; }
   .shell { max-width: 440px; margin: 0 auto; min-height: 100dvh; position: relative; padding-bottom: calc(150px + var(--safe-b)); }
+  /* ホームは、いちばん下の段が下のプレーヤーとタブに隠れないよう、もっと下までスクロールできるように */
+  .shell:has(#viewHome:not([hidden])) { padding-bottom: calc(240px + var(--safe-b)); }
 
   /* ---------- ヘッダー ---------- */
   .head { display: flex; align-items: center; justify-content: space-between; padding: calc(20px + env(safe-area-inset-top)) 20px 8px; }
