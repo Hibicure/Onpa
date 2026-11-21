@@ -550,6 +550,10 @@
   .disc .pick { position: absolute; inset: 35.2%; border-radius: 50%; overflow: hidden; z-index: 4; background: var(--holo); touch-action: none; cursor: pointer;
     box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); animation: pickin .26s cubic-bezier(.2,.9,.25,1); }
   .disc .pick[hidden], .np .pick-name[hidden] { display: none; }
+  /* 顔の名前の欄は、いつも同じ高さを取っておく（名前が出る・消える・2行になる時に、画面全体が上下にずれないように） */
+  :root .np .in > .pick-name { height: 44px !important; min-height: 44px; box-sizing: border-box; overflow: hidden; }
+  :root .np .in > .pick-name[hidden] { display: block !important; visibility: hidden; }
+  .np.square .in > .pick-name, .np.full .in > .pick-name { display: none !important; }
   .disc .pick-rail { position: absolute; inset: 0; will-change: transform; }
   .disc .pick-it { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
   .disc .pick-it .avatar { width: 100%; height: 100%; font-size: calc(min(80vw, 340px, 43dvh) * .15); }
@@ -940,7 +944,8 @@
   .gpin-l { position: absolute; left: 0; top: 0; will-change: transform; transform: translate(-50%, 18px); font: 700 10px/1.2 "Instrument Sans", sans-serif; color: #fff; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
   .amb { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; }
   .np.amb-on .amb.ready { opacity: 1; }
-  .amb .spin { position: absolute; left: 50%; top: 42%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; will-change: transform; animation: ambspin 48s linear infinite; }
+  /* 回る背景は、画面の大きさを取り違えても（しばらく閉じていた後など）必ず画面を覆う大きさに */
+  .amb .spin { --amb-s: max(160vmax, 1800px); position: absolute; left: 50%; top: 42%; width: var(--amb-s); height: var(--amb-s); margin: calc(var(--amb-s) / -2) 0 0 calc(var(--amb-s) / -2); will-change: transform; animation: ambspin 48s linear infinite; }
   .amb .s2 { animation-duration: 66s; animation-direction: reverse; }
   .amb .s2 .blob { transform: scale(.7) translate(12%, -8%); opacity: .75; mix-blend-mode: screen; -webkit-mask-image: radial-gradient(circle, #000 0 38%, transparent 66%); mask-image: radial-gradient(circle, #000 0 38%, transparent 66%); } /* ふちが回って線に見えないように */
   .amb .s3 { animation: ambpulse 14s ease-in-out infinite; }
@@ -4370,7 +4375,7 @@ async function bcArtistReleases(bcUrl, name) {
     const d = await fetch(`${WORKER}/bc/artist?url=${encodeURIComponent(bcUrl)}`).then((r) => (r.ok ? r.json() : null));
     if (!d || mode !== 'artist' || artistNow.name !== name) return;
     const items = d.items || [];
-    const tile = (a) => `<button class="alb" data-bcalb="${esc(a.url)}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork)}" alt="" loading="lazy">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${a.type === 'track' ? 'Single' : 'Album'} · Bandcamp</span></button>`;
+    const tile = (a) => `<button class="alb" data-bcalb="${esc(a.url)}" data-title="${esc(a.title)}"><span class="alb-art">${artOK(a.artwork) ? `<img src="${esc(a.artwork)}" alt="" loading="lazy">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${a.type === 'track' ? 'Single' : 'Album'} · Bandcamp</span></button>`;
     const row = $('albums') || $('spAlbums');
     if (row) {
       const have = new Set([...row.querySelectorAll('.alb')].map((b) => normT(b.dataset.title)));
@@ -4469,7 +4474,7 @@ async function artistPlace(userId) {
     const img = banner || u.avatar || ($('results').querySelector('img') || {}).src || '';
     if (u.avatar && safeImg(u.avatar)) $('ahPic').innerHTML = `<img src="${esc(u.avatar)}" alt="">`;
     artistNow.avatar = u.avatar ? String(u.avatar).replace(/-(large|t\d+x\d+)\./, '-original.') : ''; // 大きく出す時用：SoundCloud にある一番大きいプロフィール写真
-    if (img && safeImg(img)) {
+    if (img && (safeImg(img) || artOK(img))) {
       $('ahBg').style.backgroundImage = `url("${img}")`;
       $('artistHead').classList.toggle('banner', !!banner); measureAH();
       // 画像の平均の色を、ページ全体の色に
@@ -6729,7 +6734,7 @@ function setPeekMode(on) {
     $('npPP').innerHTML = ICON.play; $('npPP').setAttribute('aria-label', n ? `Play ${n.title}` : 'Nothing playing');
     $('npPP').classList.toggle('dim', !n);
     $('pickName').innerHTML = esc(cur.f.name || '@' + cur.f.handle) + (n
-      ? `<small class="pk-now">${n.artwork && safeImg(n.artwork) ? `<img src="${esc(n.artwork)}" alt="">` : ''}<span>${mood ? 'Mood · ' : live ? '' : 'Last · '}${esc(n.title)}</span></small>`
+      ? `<small class="pk-now">${artOK(n.artwork) ? `<img src="${esc(n.artwork)}" alt="">` : ''}<span>${mood ? 'Mood · ' : live ? '' : 'Last · '}${esc(n.title)}</span></small>`
       : '<small class="pk-now"><span>Not playing</span></small>');
     $('pickName').classList.remove('fade');
   } else {
@@ -6843,6 +6848,14 @@ function listenWith() {
   setJoinMode(false);
   startCall(cur.uid, false);
 }
+// しばらく（1分以上）閉じていて戻ってきた時：画面の描き直しを一度させる（iPhone が古い絵の一部を残したままにして、背景が途中で切れたり色が混ざったりするのを防ぐ）
+(() => { let away = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { away = Date.now(); return; }
+    if (!away || Date.now() - away < 60000) return;
+    requestAnimationFrame(() => { const r = document.documentElement; r.style.display = 'none'; void r.offsetHeight; r.style.display = ''; window.dispatchEvent(new Event('resize')); });
+  });
+})();
 // しばらく（2分以上）ほかのアプリにいて戻ってきた時は、いつもの CD（穴はふつう）に戻す。通話中はそのまま
 (() => { let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
