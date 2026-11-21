@@ -2652,7 +2652,8 @@ async function searchBandcamp(link) {
   } catch (e) { if (mode === 'search') $('results').innerHTML = msg("Couldn't open this Bandcamp link", esc(e.message)); }
 }
 async function search(q) {
-  if (/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/(album|track)\//i.test(q.trim())) return searchBandcamp(q.trim());
+  // Bandcamp のアルバム・曲のリンクを貼ったら、アルバムのページ（大きいジャケット）で開く
+  if (/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/(album|track)\//i.test(q.trim())) return openBcAlbum(q.trim().split('?')[0], '');
   $('results').innerHTML = msg('Searching…');
   try {
     // 同じ言葉は、この端末でも10分は覚えておく（打ち直し・戻った時にSoundCloudに聞き直さない）
