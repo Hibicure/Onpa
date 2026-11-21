@@ -3926,11 +3926,16 @@ async function artistAlbums(userId, name) {
     const list = (await r.json()).filter((a) => a.count > 0);
     if (mode !== 'artist' || !list.length) return;
     const tile = (a) => `<button class="alb" data-alb="${a.id}" data-title="${esc(a.title)}"><span class="alb-art">${a.artwork && safeImg(a.artwork) ? `<img src="${esc(a.artwork.replace('-large.', '-t300x300.'))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span><span class="alb-t">${esc(a.title)}</span><span class="alb-s">${({ album: 'Album · ', ep: 'EP · ', single: 'Single · ', compilation: 'Compilation · ' })[a.type] || ''}${a.count} ${a.count === 1 ? 'track' : 'tracks'}</span></button>`;
+    const row0 = $('spAlbums');
+    if (row0) { // Spotify の作品がもう並んでいる：そこに無い SoundCloud のアルバムだけ前に足す
+      const have = new Set([...row0.querySelectorAll('.alb')].map((b) => normT(b.dataset.title)));
+      row0.insertAdjacentHTML('afterbegin', list.filter((a) => !have.has(normT(a.title))).map(tile).join(''));
+      row0.dataset.uid = userId; row0.dataset.uname = name || '';
+      return;
+    }
     $('results').insertAdjacentHTML('afterbegin', `<div class="albums" id="albums">${list.map(tile).join('')}</div>`);
-    $('albums').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-alb]'); if (!b) return;
-      openAlbum(b.dataset.alb, b.dataset.title, userId, name);
-    });
+    $('albums').dataset.uid = userId; $('albums').dataset.uname = name || '';
+    $('albums').addEventListener('click', albRowClick);
   } catch { /* アルバムが取れなくても、曲はそのまま */ }
 }
 async function openAlbum(id, title, artistId, artistName) {
@@ -3975,17 +3980,35 @@ async function openSpAlbum(id, title) {
       <button class="btn primary alb-play" data-albplay="1"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z"/></svg>Play</button></div>`);
   } catch { if (mode === 'playlist') $('results').innerHTML = msg("Couldn't load this album"); }
 }
+// アルバムの列を押した時（SoundCloud のアルバムも Spotify の作品も、同じ列に混ざっていることがある）
+function albRowClick(e) {
+  const row = e.currentTarget, b = e.target.closest('[data-alb],[data-spalb]'); if (!b) return;
+  if (b.dataset.spalb) openSpAlbum(b.dataset.spalb, b.dataset.title);
+  else openAlbum(b.dataset.alb, b.dataset.title, row.dataset.uid, row.dataset.uname);
+}
 async function spArtistAlbums(spId) {
   try {
     const tok = await spToken(); if (!tok || !spId) return;
-    let r = await fetch(`https://api.spotify.com/v1/artists/${spId}/albums?include_groups=album,single&limit=20`, { headers: { Authorization: 'Bearer ' + tok } });
-    if (r.status === 400) r = await fetch(`https://api.spotify.com/v1/artists/${spId}/albums?include_groups=album,single&limit=10`, { headers: { Authorization: 'Bearer ' + tok } });
-    if (!r.ok) return;
-    const items = ((await r.json()).items || []).filter((a) => a && a.id);
-    if (mode !== 'artist' || !items.length || $('albums')) return; // SoundCloud のアルバムがある時はそちらを出す
-    const tile = (a) => `<button class="alb" data-spalb="${esc(a.id)}" data-title="${esc(a.name)}"><span class="alb-art">${((a.images || [])[1] || (a.images || [])[0]) ? `<img src="${esc(((a.images || [])[1] || a.images[0]).url)}" alt="" loading="lazy">` : ''}</span><span class="alb-t">${esc(a.name)}</span><span class="alb-s">${a.album_type === 'single' ? 'Single · ' : 'Album · '}${a.total_tracks} ${a.total_tracks === 1 ? 'track' : 'tracks'}</span></button>`;
+    // アルバム・EP・シングルを全部（Spotify は1回に10件までしか返さないので、ページをめくって集める）
+    const all = [];
+    for (let off = 0; off < 200; off += 10) {
+      const r = await fetch(`https://api.spotify.com/v1/artists/${spId}/albums?include_groups=album,single&limit=10&offset=${off}`, { headers: { Authorization: 'Bearer ' + tok } });
+      if (!r.ok) break; const d = await r.json(); const it = (d.items || []).filter((a) => a && a.id); all.push(...it);
+      if (!d.next || !it.length) break;
+    }
+    // 新しい順。国ごとの同じ作品（同じ名前・同じ種類）は1つに
+    all.sort((a, b) => String(b.release_date || '').localeCompare(String(a.release_date || '')));
+    const seen = new Set(), items = all.filter((a) => { const k = normT(a.name) + '|' + a.album_type + '|' + a.total_tracks; if (seen.has(k)) return false; seen.add(k); return true; });
+    if (mode !== 'artist' || !items.length || $('spAlbums')) return;
+    const tile = (a) => `<button class="alb" data-spalb="${esc(a.id)}" data-title="${esc(a.name)}"><span class="alb-art">${((a.images || [])[1] || (a.images || [])[0]) ? `<img src="${esc(((a.images || [])[1] || a.images[0]).url)}" alt="" loading="lazy">` : ''}</span><span class="alb-t">${esc(a.name)}</span><span class="alb-s">${a.album_type === 'single' ? (a.total_tracks > 1 ? 'EP' : 'Single') : a.album_type === 'compilation' ? 'Compilation' : 'Album'}${String(a.release_date || '').slice(0, 4) ? ' · ' + String(a.release_date).slice(0, 4) : ''}</span></button>`;
+    const sc0 = $('albums');
+    if (sc0) { // SoundCloud のアルバムがもう並んでいる：そこに無い Spotify の作品（EP・シングルも）を後ろに足す
+      const have = new Set([...sc0.querySelectorAll('.alb')].map((b) => normT(b.dataset.title)));
+      sc0.insertAdjacentHTML('beforeend', items.filter((a) => !have.has(normT(a.name))).map(tile).join(''));
+      return;
+    }
     $('results').insertAdjacentHTML('afterbegin', `<div class="albums" id="spAlbums">${items.map(tile).join('')}</div>`);
-    $('spAlbums').addEventListener('click', (e) => { const b = e.target.closest('[data-spalb]'); if (b) openSpAlbum(b.dataset.spalb, b.dataset.title); });
+    $('spAlbums').addEventListener('click', albRowClick);
   } catch {}
 }
 function measureAH() { requestAnimationFrame(() => document.body.style.setProperty('--ahH', $('artistHead').offsetHeight + 'px')); }
