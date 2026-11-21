@@ -2526,6 +2526,7 @@ function mixRank(list, q) {
       s += (own ? 6 : -8) - (edit ? 14 : 0) + Math.log10((sc.plays || 0) + 1) * (own ? 3 : 1.2); // 他人の上げた曲は、再生数で上がりすぎないように
       if (!hasSp && copyOfOfficial(t, sc)) s -= 45; // 公式にある曲の、ほかの人の上げ直し：公式より下へ（曲名だけの上げ方でも）
       if (!own && (sc.plays || 0) < 300 && !hasSp && !hasBc && !tv) s -= 10; // 誰のものか分からず、聴かれてもいない
+      if (sc.access && sc.access !== 'playable' && !hasSp && !hasBc) s -= 30; // SoundCloud で30秒の試聴しか流れない・流せない曲
     }
     return s - (t._r || 0) * 0.6;
   };
@@ -4751,10 +4752,27 @@ class SpotifyMedia extends EventTarget {
     try {
       const tok = await spToken(); if (!tok) return false;
       const dev = await this._phone(); if (!dev) return false;
-      const w = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + encodeURIComponent(dev), { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ uris: [uri], position_ms: Math.round((sec || 0) * 1000) }) });
+      // 曲だけを渡すと、Spotify が「受け付けた」と返して何も鳴らさないことがある（最近の Spotify アプリ）。
+      // その曲のアルバムの中の「この曲から」として渡すと、すぐ鳴る。アルバムが分からない・断られた時だけ曲だけで
+      const pos = Math.round((sec || 0) * 1000);
+      const go = (body) => fetch('https://api.spotify.com/v1/me/player/play?device_id=' + encodeURIComponent(dev), { method: 'PUT', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, position_ms: pos }) });
+      const alb = await this._album(uri, tok);
+      let w = alb ? await go({ context_uri: alb, offset: { uri } }) : null;
+      if (!w || !(w.status === 204 || w.status === 202 || w.status === 200)) w = await go({ uris: [uri] });
       if (w.status === 404) this._devAt = 0;
       return w.status === 204 || w.status === 202 || w.status === 200;
     } catch { return false; }
+  }
+  // 曲が入っているアルバム（spotify:album:…）。一度調べた曲は覚えておく
+  async _album(uri, tok) {
+    const id = (/^spotify:track:([A-Za-z0-9]+)$/.exec(uri || '') || [])[1]; if (!id) return null;
+    const c = (this._albums = this._albums || new Map());
+    if (c.has(id)) return c.get(id);
+    try {
+      const r = await fetch('https://api.spotify.com/v1/tracks/' + id, { headers: { Authorization: 'Bearer ' + tok } });
+      if (!r.ok) return null; const d = await r.json(); const a = d && d.album && d.album.id ? 'spotify:album:' + d.album.id : null;
+      c.set(id, a); if (c.size > 500) c.delete(c.keys().next().value); return a;
+    } catch { return null; }
   }
   // Spotify が流している曲が、Otocloud の今の曲と同じか。
   // Spotify は国によって同じ曲を別の番号で流すことがある（置き換え）ので、番号が違っても曲名と歌手が同じなら同じ曲とみなす
