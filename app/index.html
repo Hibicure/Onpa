@@ -2278,7 +2278,7 @@ function showSearchRecent() {
 let searchTimer = null, lastResults = [], searchList = null, mode = 'search';
 const searchMemo = new Map();
 let queue = [], qi = -1;
-const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '', spArtistId: t.spArtistId || '', spAlbumId: t.spAlbumId || '' });
+const toMeta = (t) => ({ trackId: t.id, title: t.title, artist: t.artist, artwork: t.artwork, duration: t.duration || 0, permalink: String(t.permalink_url || t.permalink || '').split('?')[0], secret: t.secret || '', userId: t.userId || null, uploader: t.uploader || '', spArtistId: t.spArtistId || '', spAlbumId: t.spAlbumId || '', album: t.album || '' });
 
 $('q').addEventListener('input', (e) => {
   clearTimeout(searchTimer);
@@ -4138,10 +4138,16 @@ async function openBcAlbum(link, title) {
     const get = async (u) => { const r = await fetch(`${WORKER}/bc/album?url=${encodeURIComponent(u)}`); const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status); return d; };
     let d = await get(link);
     if (d.type === 'track' && d.albumUrl) d = await get(d.albumUrl).catch(() => d);
+    // 曲のページしか分からない時：アルバム名から、Bandcamp のアルバムのページの URL を作って開いてみる（Bandcamp の URL は名前から作られる）
+    if (d.type === 'track' && !d.albumUrl && title) {
+      const slug = String(title).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      try { const o = new URL(link).origin; if (slug) { const a = await get(`${o}/album/${slug}`).catch(() => null); if (a && (a.tracks || []).length) d = a; } } catch {}
+    }
     if (mode !== 'playlist') return;
     const list = (d.tracks || []).map((t) => ({ ...t, provider: 'bandcamp', album: d.album || t.album || '' }));
     renderTracks(list, msg('No playable tracks', 'Bandcamp doesn’t let this one play'));
-    const kind = d.type === 'track' || list.length === 1 ? 'Single' : list.length <= 6 ? 'EP' : 'Album';
+    // 曲だけのページ（アルバムが分からなかった）を「シングル」と呼ばない
+    const kind = d.type === 'track' ? 'Song' : list.length === 1 ? 'Single' : list.length <= 6 ? 'EP' : 'Album';
     $('libTitle').textContent = '';
     $('results').insertAdjacentHTML('afterbegin', albHeroHTML({ art: d.artwork, name: d.album || (list[0] && list[0].title) || title || '', by: d.artist, bcUrl: d.artistUrl || '', meta: `${kind}${d.year ? ' · ' + d.year : ''}${list.length > 1 ? ` · ${list.length} songs` : ''} · Bandcamp` }));
     albTint(d.artwork);
