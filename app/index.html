@@ -1191,7 +1191,7 @@
   body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { background: var(--alb-c, var(--ah-page)) !important; }
   body.artist-mode:has(.artist-head.hero) #viewListen, body.artist-mode:has(.artist-head.hero) .nav, body.artist-mode:has(.artist-head.hero) .mini { --ink: var(--alb-ink, #fff); --mute: color-mix(in srgb, var(--alb-ink, #fff) 58%, transparent); --line: color-mix(in srgb, var(--alb-ink, #fff) 14%, transparent); }
   .artist-head.hero { position: relative; background: transparent; color: var(--alb-ink, #fff); }
-  .artist-head.hero .ah-bg { aspect-ratio: 1 / 1 !important; background-position: center 22%; -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; }
+  .artist-head.hero .ah-bg { width: 100vw !important; margin-left: calc(50% - 50vw); aspect-ratio: 1 / 1 !important; background-position: center 22%; -webkit-mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; mask-image: linear-gradient(180deg, #000 58%, rgba(0,0,0,.55) 80%, transparent 100%) !important; }
   .artist-head.hero .ah-row { margin-top: -112px !important; align-items: center; text-align: center; padding: 0 24px 0; }
   .artist-head.hero .ah-txt { display: flex; flex-direction: column; align-items: center; }
   .artist-head.hero .ah-name { font-size: 34px; white-space: normal; text-wrap: balance; color: inherit; text-shadow: 0 1px 18px color-mix(in srgb, var(--alb-c, #000) 70%, transparent); }
