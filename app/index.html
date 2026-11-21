@@ -529,6 +529,8 @@
   .plstrip::-webkit-scrollbar { display: none; }
   .plstrip img, .plstrip i { width: 70px; height: 70px; flex: none; object-fit: cover; margin-right: -30px; background: var(--chip); position: relative; transform-origin: 50% 100%; transition: transform .28s cubic-bezier(.2,.8,.2,1); }
   .plstrip.scrub img { transition: transform .06s linear; }
+  /* 止まっている時も、ぴったり揃えずに少しだけばらつかせる（手で重ねたように） */
+  .plstrip img { transform: translateY(var(--ry, 0)) rotate(var(--rr, 0)); }
   .plstrip img { pointer-events: none; -webkit-user-drag: none; user-select: none; -webkit-touch-callout: none; }
   .plstrip img { -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%), linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 3.4%, rgba(0,0,0,0.52) 6.8%, rgba(0,0,0,0.8) 10.2%, rgba(0,0,0,0.95) 13.6%, rgba(0,0,0,1) 17%, rgba(0,0,0,1) 83%, rgba(0,0,0,0.95) 86.4%, rgba(0,0,0,0.8) 89.8%, rgba(0,0,0,0.52) 93.2%, rgba(0,0,0,0.22) 96.6%, rgba(0,0,0,0) 100%); mask-composite: intersect; box-shadow: none !important; border-radius: 4px !important; }
   .plrow.new .plstrip i { display: grid; place-items: center; font-style: normal; font-size: 30px; color: var(--mute); box-shadow: none; }
@@ -3612,7 +3614,8 @@ function neighborMeta(dir) {
     return `translateX(${x}px) translateY(${(-26 * arc).toFixed(2)}px) rotate(${(x / 6).toFixed(2)}deg) scale(${(1 + 0.06 * arc).toFixed(4)})`;
   };
   // CDが転がる時の形：横に動いた分だけ回って（本物のCDが転がるくらい）、少し斜め上に上がる。大きさは変えない
-  const roll = (x) => `translate(${x.toFixed(1)}px, ${(-Math.abs(x) * 0.3).toFixed(1)}px) rotate(${(x / el.offsetWidth * 150).toFixed(2)}deg)`;
+  // 左右に払う：CD はよく回る。四角いジャケットはあまり傾けない
+  const roll = (x) => `translate(${x.toFixed(1)}px, ${(-Math.abs(x) * 0.3).toFixed(1)}px) rotate(${(x / el.offsetWidth * (sq() ? 40 : 260)).toFixed(2)}deg)`;
   let tw = 0;
   // 指を離した後も同じ弧の上を動かす（CSSの補間だと弧にならないので、1コマずつ置く）
   const glide = (from, to, ms) => {
@@ -3673,7 +3676,8 @@ function neighborMeta(dir) {
     }
     if (charging) {
       dy = Math.max(0, my); const c = 120 * (1 - Math.exp(-dy / 130)); // 引くほど重くなる
-      el.style.transform = `translateY(${c.toFixed(1)}px) rotate(${(c * (sq() ? 0.18 : 1.6)).toFixed(1)}deg)`; // 大きさは変えない。引くほど巻き上げるように回る
+      // 大きさは変えない。CD は、ゆっくり引いてもぐるぐる巻き上がるように回る。四角いジャケットは傾けず、まっすぐ沈むだけ
+      el.style.transform = `translateY(${c.toFixed(1)}px) rotate(${(sq() ? 0 : c * 3.4).toFixed(1)}deg)`;
       const armed = c > 52; if (armed !== chargeArmed) { chargeArmed = armed; hap(armed ? 'rigid' : 'light'); }
       return;
     }
@@ -4065,7 +4069,7 @@ async function oplImport(title) {
     if (max > 0) { const p = Math.min(1, Math.max(0, (x - r.left - 20) / (r.width - 60))); strip.scrollLeft = p * max; }
     for (const im of strip.children) {
       const b = im.getBoundingClientRect(), d = (b.left + b.width / 2 - x) / 46, k = Math.exp(-d * d);
-      im.style.transform = k > 0.02 ? `translateY(${(-16 * k).toFixed(1)}px) scale(${(1 + 0.32 * k).toFixed(3)})` : '';
+      im.style.transform = k > 0.02 ? `translateY(${(-6 * k).toFixed(1)}px) scale(${(1 + 0.14 * k).toFixed(3)})` : '';
       im.style.zIndex = String(100 + Math.round(k * 50) - (k < 0.02 ? 50 : 0));
     }
     const near = [...strip.children].reduce((a, im, i) => { const b = im.getBoundingClientRect(); const dd = Math.abs(b.left + b.width / 2 - x); return dd < a[0] ? [dd, i] : a; }, [1e9, -1])[1];
@@ -4098,7 +4102,7 @@ window.addEventListener('resize', () => requestAnimationFrame(fitTitle));
 // プレイリスト1つ分の横一列（名前・曲数・中の曲のジャケットが重なって並ぶ）
 function plRowHTML(p, attrs) {
   const arts = (p.arts && p.arts.length ? p.arts : p.art ? [p.art] : []).slice(0, 40);
-  return `<button class="plrow" ${attrs}><div class="plrow-h"><b>${esc(p.title)}</b><span>${p.n} song${p.n === 1 ? '' : 's'}</span></div><div class="plstrip">${arts.length ? arts.map((a, i) => `<img src="${esc(big(a))}" alt="" loading="lazy" style="z-index:${60 - i}" onerror="this.style.visibility='hidden'">`).join('') : '<i></i>'}</div></button>`;
+  return `<button class="plrow" ${attrs}><div class="plrow-h"><b>${esc(p.title)}</b><span>${p.n} song${p.n === 1 ? '' : 's'}</span></div><div class="plstrip">${arts.length ? arts.map((a, i) => { const h = seedOf(a + i); return `<img src="${esc(big(a))}" alt="" loading="lazy" style="z-index:${60 - i};--ry:${((h % 7) - 3)}px;--rr:${(((h >>> 4) % 5) - 2) * 0.6}deg" onerror="this.style.visibility='hidden'">`; }).join('') : '<i></i>'}</div></button>`;
 }
 // あなたの Spotify・SoundCloud のプレイリストを、最初にまるごと Otocloud のプレイリストに入れておく（ゼロから作らなくていいように）
 // 一度入れたものは二度入れない（元のプレイリストには書き込まない）
@@ -4170,11 +4174,13 @@ function flingToPlaylist(from) {
   const f = document.createElement('div'); f.className = 'fling';
   // CD は真ん中に穴をあけて、丸いまま。四角いジャケットはそのまま
   const hole = round ? '-webkit-mask-image:radial-gradient(circle,transparent 9%,#000 9.6%);mask-image:radial-gradient(circle,transparent 9%,#000 9.6%);' : '';
-  f.style.cssText = `left:${cx - w / 2}px;top:${cy - h / 2}px;width:${w}px;height:${h}px;transform:rotate(${a0}deg);background-image:url("${img}");border-radius:${round ? '50%' : '6px'};${hole}`;
+  // ふちも付けたまま飛ばす（CD は光るふち、四角はうすい線）
+  const rim = round ? 'box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6),inset 0 0 0 3px rgba(0,0,0,.18),0 18px 40px rgba(0,0,0,.25);' : 'box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 0 0 .5px rgba(0,0,0,.22),0 18px 40px rgba(0,0,0,.25);';
+  f.style.cssText = `left:${cx - w / 2}px;top:${cy - h / 2}px;width:${w}px;height:${h}px;transform:rotate(${a0}deg);background-image:url("${img}");border-radius:${round ? '50%' : '6px'};${hole}${rim}`;
   document.body.appendChild(f);
   from.classList.add('flung');
   // 大きさはそのまま。くるくる回りながら上へ抜けていく
-  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translateY(${-(cy + h / 2) - 60}px) rotate(${a0 + (round ? 540 : 200)}deg)`; }));
+  requestAnimationFrame(() => requestAnimationFrame(() => { f.style.transform = `translateY(${-(cy + h / 2) - 60}px) rotate(${a0 + (round ? 720 : 0)}deg)`; /* 四角はまっすぐ上へ */ }));
   setTimeout(() => { f.remove(); from.classList.remove('flung'); }, 700);
   const q = queue && queue[qi]; const t = q && String(q.id) === String(track.trackId) ? q : { id: track.trackId, title: track.title, artist: track.artist, artwork: track.artwork, duration: track.duration, secret: track.secret };
   setTimeout(() => oplPage(t), 230);
